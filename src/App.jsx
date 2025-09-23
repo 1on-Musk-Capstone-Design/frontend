@@ -345,7 +345,7 @@ const InfiniteCanvas = () => {
         onWheel={handleWheel}
         style={{
           backgroundImage: `
-            radial-gradient(circle, #e5e7eb 1px, transparent 1px)
+            radial-gradient(circle, #9ca3af 1px, transparent 1px)
           `,
           backgroundSize: `${20 * canvasTransform.scale}px ${20 * canvasTransform.scale}px`,
           backgroundPosition: `${canvasTransform.x}px ${canvasTransform.y}px`
