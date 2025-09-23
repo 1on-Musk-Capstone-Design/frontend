@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import './index.css';
+import ChatPanel from './components/ChatPanel';
 
 // 드래그 가능한 텍스트 필드 컴포넌트
 const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform }) => {
@@ -124,6 +125,7 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform }) 
     </div>
   );
 };
+
 
 // 플로팅 버튼 컴포넌트
 const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
@@ -312,6 +314,9 @@ const InfiniteCanvas = () => {
 
   return (
     <div className="w-full h-screen bg-gray-100 overflow-hidden relative">
+      {/* 채팅창 */}
+      <ChatPanel />
+      
       {/* 플로팅 툴바 */}
       <FloatingToolbar 
         mode={mode} 
@@ -372,28 +377,6 @@ const InfiniteCanvas = () => {
         </div>
       </div>
 
-      {/* 사용법 안내 */}
-      <div 
-        className="fixed top-4 left-4 z-50 bg-white/95 backdrop-blur-md rounded-lg shadow-2xl p-3 text-sm text-gray-600 max-w-xs"
-        style={{
-          position: 'fixed',
-          top: '16px',
-          left: '16px',
-          zIndex: 9999,
-          willChange: 'transform'
-        }}
-      >
-        <div className="font-semibold mb-2">사용법:</div>
-        <ul className="space-y-1 text-xs">
-          <li>• <span className="font-medium text-blue-600">T 모드</span>: 클릭으로 텍스트 필드 생성</li>
-          <li>• <span className="font-medium text-green-600">이동 모드</span>: 드래그로 캔버스 이동</li>
-          <li>• <span className="font-medium text-purple-600">정리 버튼</span>: 텍스트 필드 자동 정렬</li>
-          <li>• 마우스 휠: 줌 인/아웃</li>
-          <li>• 텍스트 더블클릭: 편집</li>
-          <li>• 텍스트 드래그: 위치 이동</li>
-          <li>• 모든 모드에서 빈 공간 드래그 가능</li>
-        </ul>
-      </div>
       
       {/* 현재 모드 표시 */}
       <div 
