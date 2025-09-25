@@ -3,7 +3,7 @@ import './index.css';
 import ChatPanel from './components/ChatPanel';
 
 // 드래그 가능한 텍스트 필드 컴포넌트
-const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform }) => {
+const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, onSendToChat }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
@@ -102,12 +102,21 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform }) 
             ({Math.round(x)}, {Math.round(y)})
           </span>
         </div>
-        <button
-          onClick={handleDelete}
-          className="text-red-500 hover:text-red-700 text-xs"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onSendToChat(id, x, y, currentText)}
+            className="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded hover:bg-blue-100 transition-colors"
+            title="채팅으로 전송"
+          >
+            📤
+          </button>
+          <button
+            onClick={handleDelete}
+            className="text-red-500 hover:text-red-700 text-xs"
+          >
+            ✕
+          </button>
+        </div>
       </div>
       <div className="p-2">
         {isEditing ? (
@@ -201,6 +210,7 @@ const InfiniteCanvas = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [mode, setMode] = useState('text'); // 'text' 또는 'move'
+  const [chatMessages, setChatMessages] = useState([]);
   const canvasRef = useRef(null);
   const nextId = useRef(1);
 
@@ -317,10 +327,37 @@ const InfiniteCanvas = () => {
     setTexts(arrangedTexts);
   };
 
+  const handleSendToChat = (id, x, y, text) => {
+    const message = {
+      id: Date.now(),
+      text: `📍 위치 공유: "${text}"`,
+      sender: "system",
+      time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+      location: { x, y, id },
+      isLocation: true
+    };
+    setChatMessages(prev => [...prev, message]);
+  };
+
+  const handleLocationClick = (location) => {
+    // 해당 위치로 캔버스 이동
+    const targetX = -location.x * canvasTransform.scale + window.innerWidth / 2;
+    const targetY = -location.y * canvasTransform.scale + window.innerHeight / 2;
+    
+    setCanvasTransform(prev => ({
+      ...prev,
+      x: targetX,
+      y: targetY
+    }));
+  };
+
   return (
     <div className="w-full h-screen bg-gray-100 overflow-hidden relative">
       {/* 채팅창 */}
-      <ChatPanel />
+      <ChatPanel 
+        messages={chatMessages}
+        onLocationClick={handleLocationClick}
+      />
       
       {/* 플로팅 툴바 */}
       <FloatingToolbar 
@@ -377,6 +414,7 @@ const InfiniteCanvas = () => {
               onUpdate={updateText}
               onDelete={deleteText}
               canvasTransform={canvasTransform}
+              onSendToChat={handleSendToChat}
             />
           ))}
         </div>
