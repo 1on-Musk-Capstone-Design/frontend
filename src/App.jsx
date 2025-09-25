@@ -333,6 +333,7 @@ const InfiniteCanvas = () => {
       text: `📍 위치 공유: "${text}"`,
       sender: "system",
       time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(), // 정확한 시간순 정렬을 위한 타임스탬프
       location: { x, y, id },
       isLocation: true
     };
