@@ -96,7 +96,12 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform }) 
       onDoubleClick={handleDoubleClick}
     >
       <div className="flex justify-between items-center p-2 bg-blue-50 rounded-t-lg">
-        <span className="text-xs text-gray-600">텍스트</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">텍스트</span>
+          <span className="text-xs text-gray-500 font-mono">
+            ({Math.round(x)}, {Math.round(y)})
+          </span>
+        </div>
         <button
           onClick={handleDelete}
           className="text-red-500 hover:text-red-700 text-xs"
