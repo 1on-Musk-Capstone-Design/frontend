@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
-const ChatPanel = () => {
-  const [messages, setMessages] = useState([
+const ChatPanel = ({ messages = [], onLocationClick }) => {
+  const [localMessages, setLocalMessages] = useState([
     { id: 1, text: "안녕하세요! 무한 캔버스에 오신 것을 환영합니다.", sender: "system", time: "10:30" },
     { id: 2, text: "텍스트 필드를 생성하고 편집해보세요.", sender: "system", time: "10:31" },
     { id: 3, text: "드래그로 캔버스를 이동할 수 있습니다.", sender: "system", time: "10:32" }
@@ -13,15 +13,18 @@ const ChatPanel = () => {
     e.preventDefault();
     if (newMessage.trim()) {
       const message = {
-        id: messages.length + 1,
+        id: Date.now(),
         text: newMessage,
         sender: "user",
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
       };
-      setMessages(prev => [...prev, message]);
+      setLocalMessages(prev => [...prev, message]);
       setNewMessage("");
     }
   };
+
+  // 모든 메시지 합치기 (로컬 메시지 + 외부 메시지)
+  const allMessages = [...localMessages, ...messages];
 
   return (
     <div 
@@ -67,7 +70,7 @@ const ChatPanel = () => {
         <div className="flex flex-col" style={{ height: 'calc(100% - 60px)' }}>
           {/* 메시지 목록 */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: '200px' }}>
-            {messages.map((message) => (
+            {allMessages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -76,11 +79,28 @@ const ChatPanel = () => {
                   className={`max-w-xs px-3 py-2 rounded-lg ${
                     message.sender === 'user'
                       ? 'bg-blue-500 text-white'
+                      : message.isLocation
+                      ? 'bg-green-100 text-green-800 border border-green-300'
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  <p className="text-sm">{message.text}</p>
-                  <p className="text-xs opacity-70 mt-1">{message.time}</p>
+                  {message.isLocation ? (
+                    <div>
+                      <p className="text-sm">{message.text}</p>
+                      <button
+                        onClick={() => onLocationClick && onLocationClick(message.location)}
+                        className="text-xs text-green-600 hover:text-green-800 underline mt-1 block"
+                      >
+                        📍 이 위치로 이동하기
+                      </button>
+                      <p className="text-xs opacity-70 mt-1">{message.time}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm">{message.text}</p>
+                      <p className="text-xs opacity-70 mt-1">{message.time}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
