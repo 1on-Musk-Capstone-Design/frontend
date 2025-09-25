@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const ChatPanel = ({ messages = [], onLocationClick }) => {
   const [localMessages, setLocalMessages] = useState([
@@ -8,6 +8,7 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [isMinimized, setIsMinimized] = useState(false);
+  const messagesEndRef = useRef(null);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -16,15 +17,31 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
         id: Date.now(),
         text: newMessage,
         sender: "user",
-        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now() // 정확한 시간순 정렬을 위한 타임스탬프
       };
       setLocalMessages(prev => [...prev, message]);
       setNewMessage("");
     }
   };
 
-  // 모든 메시지 합치기 (로컬 메시지 + 외부 메시지)
-  const allMessages = [...localMessages, ...messages];
+  // 모든 메시지 합치기 (로컬 메시지 + 외부 메시지) 및 시간순 정렬
+  const allMessages = [...localMessages, ...messages].sort((a, b) => {
+    // 타임스탬프가 있으면 타임스탬프로, 없으면 시간 문자열로 정렬
+    const timeA = a.timestamp || new Date(a.time).getTime();
+    const timeB = b.timestamp || new Date(b.time).getTime();
+    return timeA - timeB; // 오래된 것부터 정렬
+  });
+
+  // 자동 스크롤 함수
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // 메시지가 추가될 때마다 자동 스크롤
+  useEffect(() => {
+    scrollToBottom();
+  }, [allMessages]);
 
   return (
     <div 
@@ -104,6 +121,8 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
                 </div>
               </div>
             ))}
+            {/* 자동 스크롤을 위한 더미 요소 */}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* 메시지 입력 - 하단 고정 */}
