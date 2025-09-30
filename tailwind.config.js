@@ -20,6 +20,12 @@ export default {
           900: '#0f172a',
         }
       },
+      borderWidth: {
+        '6': '6px',
+        '8': '8px',
+        '12': '12px',
+        '16': '16px',
+      },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',
         'scale-in': 'scaleIn 0.2s ease-out',
