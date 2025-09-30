@@ -21,10 +21,14 @@ const InfiniteCanvas = () => {
   useKeyboard(setMode, textFields.isTextEditing);
 
   const handleCanvasClick = (e) => {
-    const clickResult = canvas.handleCanvasClick(e, mode);
-    if (clickResult) {
-      textFields.addText(clickResult.x, clickResult.y);
+    if (mode === 'text') {
+      // 텍스트 모드: 텍스트 필드 생성
+      const clickResult = canvas.handleCanvasClick(e, mode, canvas.canvasAreas);
+      if (clickResult) {
+        textFields.addText(clickResult.x, clickResult.y);
+      }
     }
+    // 삭제 모드에서는 CanvasArea에서 길게 클릭으로만 삭제
   };
 
   const handleTextUpdate = (id, updates) => {
@@ -33,7 +37,9 @@ const InfiniteCanvas = () => {
     
     // 캔버스 밖으로 이동하는지 체크하고 확장
     if (updates.x !== undefined && updates.y !== undefined) {
-      const isOutsideCanvas = !canvas.canvasAreas.some(area => 
+      // 최신 캔버스 영역 상태 사용
+      const currentAreas = canvas.canvasAreas;
+      const isOutsideCanvas = !currentAreas.some(area => 
         updates.x >= area.x && updates.x <= area.x + area.width &&
         updates.y >= area.y && updates.y <= area.y + area.height
       );
@@ -42,6 +48,15 @@ const InfiniteCanvas = () => {
         canvas.addCanvasArea(updates.x, updates.y);
       }
     }
+  };
+
+  const handleCanvasAreaDelete = (areaIndex) => {
+    // 삭제할 캔버스 영역 정보 가져오기
+    const areaToDelete = canvas.canvasAreas[areaIndex];
+    
+    // 즉시 삭제 (하이라이트 효과 없이)
+    textFields.deleteTextsInArea(areaToDelete);
+    canvas.deleteCanvasArea(areaIndex);
   };
 
   const handleModeChange = (newMode) => {
@@ -156,6 +171,10 @@ const InfiniteCanvas = () => {
           deleteText={textFields.deleteText}
           handleSendToChat={(id, x, y, text) => textFields.handleSendToChat(id, x, y, text, setChatMessages)}
           setIsTextEditing={textFields.setIsTextEditing}
+          mode={mode}
+          onCanvasAreaDelete={handleCanvasAreaDelete}
+          highlightedTextIds={textFields.highlightedTextIds}
+          onHighlightTextsInArea={textFields.highlightTextsInArea}
         />
       </div>
 
@@ -174,9 +193,11 @@ const InfiniteCanvas = () => {
         <div className="text-sm text-gray-600">
           현재 모드: 
           <span className={`ml-1 font-medium ${
-            mode === 'text' ? 'text-blue-600' : 'text-green-600'
+            mode === 'text' ? 'text-blue-600' : 
+            mode === 'move' ? 'text-green-600' : 'text-red-600'
           }`}>
-            {mode === 'text' ? 'T (텍스트)' : '이동'}
+            {mode === 'text' ? 'T (텍스트)' : 
+             mode === 'move' ? '이동' : 'D (삭제)'}
           </span>
         </div>
       </div>
