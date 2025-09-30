@@ -96,11 +96,7 @@ const InfiniteCanvas = () => {
 
   const handleLocationClick = (location) => {
     // 해당 위치로 캔버스 이동
-    const targetX = -location.x * canvas.canvasTransform.scale + window.innerWidth / 2;
-    const targetY = -location.y * canvas.canvasTransform.scale + window.innerHeight / 2;
-    
-    // 캔버스 변환 업데이트 (useCanvas 훅에서 처리해야 함)
-    // 이 부분은 useCanvas 훅에 메서드를 추가해야 함
+    canvas.moveToLocation(location);
   };
 
   return (
