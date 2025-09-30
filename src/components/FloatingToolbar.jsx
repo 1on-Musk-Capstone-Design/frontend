@@ -38,6 +38,19 @@ const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
           <path d="M3 3h18v2H3V3zm0 16h18v2H3v-2z"/>
         </svg>
       </button>
+      <button
+        onClick={() => onModeChange('delete')}
+        className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg transition-all duration-200 ${
+          mode === 'delete'
+            ? 'bg-red-500 text-white shadow-lg scale-105'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+        }`}
+        title="삭제 모드"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
       <div className="w-px bg-gray-300 mx-1"></div>
       <button
         onClick={onArrange}

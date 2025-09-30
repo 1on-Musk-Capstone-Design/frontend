@@ -27,8 +27,51 @@ const InfiniteCanvas = () => {
       if (clickResult) {
         textFields.addText(clickResult.x, clickResult.y);
       }
+    } else if (mode === 'move' && !e.shiftKey && !canvas.hasStartedAreaSelection) {
+      // 이동 모드 (Shift 없음, 영역 선택 시작 안됨): 빈 공간 클릭 시에만 선택 해제
+      // 텍스트 필드가 아닌 빈 공간을 클릭했을 때만 선택 해제
+      if (e.target === canvas.canvasRef.current || 
+          (canvas.canvasRef.current && canvas.canvasRef.current.contains(e.target) && 
+           !e.target.closest('.draggable-text'))) {
+        textFields.clearSelection();
+      }
     }
     // 삭제 모드에서는 CanvasArea에서 길게 클릭으로만 삭제
+  };
+
+  const handleCanvasMouseDown = (e) => {
+    if (mode === 'move' && e.shiftKey) {
+      // 이동 모드 + Shift: 영역 선택 시작
+      canvas.startAreaSelection(e);
+    }
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (mode === 'move' && canvas.isAreaSelecting) {
+      // 영역 선택이 시작된 후에는 Shift 키 상태와 관계없이 계속 업데이트
+      canvas.updateAreaSelection(e);
+    }
+  };
+
+  const handleCanvasMouseUp = (e) => {
+    console.log('handleCanvasMouseUp called', {
+      mode,
+      hasStartedAreaSelection: canvas.hasStartedAreaSelection,
+      isAreaSelecting: canvas.isAreaSelecting
+    });
+    
+    if (mode === 'move' && canvas.isAreaSelecting) {
+      // 영역 선택 완료 시 텍스트 필드들 선택
+      const selectedTexts = canvas.getTextsInSelectionArea(textFields.texts);
+      console.log('Selected texts:', selectedTexts);
+      
+      if (selectedTexts.length > 0) {
+        const textIds = selectedTexts.map(text => text.id);
+        console.log('Starting multi-select with textIds:', textIds);
+        textFields.startMultiSelect(textIds);
+      }
+      canvas.endAreaSelection();
+    }
   };
 
   const handleTextUpdate = (id, updates) => {
@@ -47,6 +90,19 @@ const InfiniteCanvas = () => {
       if (isOutsideCanvas) {
         canvas.addCanvasArea(updates.x, updates.y);
       }
+    }
+  };
+
+  // 그룹 드래그 시 캔버스 확장
+  const handleGroupDragCanvasExpansion = (x, y) => {
+    const currentAreas = canvas.canvasAreas;
+    const isOutsideCanvas = !currentAreas.some(area => 
+      x >= area.x && x <= area.x + area.width &&
+      y >= area.y && y <= area.y + area.height
+    );
+    
+    if (isOutsideCanvas) {
+      canvas.addCanvasArea(x, y);
     }
   };
 
@@ -96,11 +152,7 @@ const InfiniteCanvas = () => {
 
   const handleLocationClick = (location) => {
     // 해당 위치로 캔버스 이동
-    const targetX = -location.x * canvas.canvasTransform.scale + window.innerWidth / 2;
-    const targetY = -location.y * canvas.canvasTransform.scale + window.innerHeight / 2;
-    
-    // 캔버스 변환 업데이트 (useCanvas 훅에서 처리해야 함)
-    // 이 부분은 useCanvas 훅에 메서드를 추가해야 함
+    canvas.moveToLocation(location);
   };
 
   return (
@@ -175,6 +227,15 @@ const InfiniteCanvas = () => {
           onCanvasAreaDelete={handleCanvasAreaDelete}
           highlightedTextIds={textFields.highlightedTextIds}
           onHighlightTextsInArea={textFields.highlightTextsInArea}
+          onCanvasMouseDown={handleCanvasMouseDown}
+          onCanvasMouseMove={handleCanvasMouseMove}
+          onCanvasMouseUp={handleCanvasMouseUp}
+          selectedTextIds={textFields.selectedTextIds}
+          isMultiSelecting={textFields.isMultiSelecting}
+          selectionArea={canvas.selectionArea}
+          onStartGroupDrag={textFields.startGroupDrag}
+          onUpdateGroupDrag={(baseTextId, newX, newY) => textFields.updateGroupDrag(baseTextId, newX, newY, handleGroupDragCanvasExpansion)}
+          onEndGroupDrag={textFields.endGroupDrag}
         />
       </div>
 

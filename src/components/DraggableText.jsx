@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted }) => {
+const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
@@ -44,6 +44,20 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
       return;
     }
     
+    // 그룹 드래그 시작 (다중 선택된 상태에서)
+    if (isMultiSelecting && isSelected && onStartGroupDrag) {
+      const groupDragData = onStartGroupDrag(id, x, y);
+      if (groupDragData) {
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX - (x * canvasTransform.scale + canvasTransform.x),
+          y: e.clientY - (y * canvasTransform.scale + canvasTransform.y)
+        });
+        return;
+      }
+    }
+    
+    // 일반 드래그 시작
     setIsDragging(true);
     setDragStart({
       x: e.clientX - (x * canvasTransform.scale + canvasTransform.x),
@@ -59,8 +73,14 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
       setIsLongPressing(false);
       setPressProgress(0);
     }
+    
+    // 그룹 드래그 종료
+    if (isMultiSelecting && isSelected && onEndGroupDrag) {
+      onEndGroupDrag();
+    }
+    
     setIsDragging(false);
-  }, [mode, longPressTimer]);
+  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag]);
 
   const handleMouseLeave = () => {
     setIsHovered(false);
@@ -80,11 +100,19 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging) return;
+    
     // 줌 레벨을 고려한 정확한 좌표 계산
     const newX = (e.clientX - dragStart.x - canvasTransform.x) / canvasTransform.scale;
     const newY = (e.clientY - dragStart.y - canvasTransform.y) / canvasTransform.scale;
-    onUpdate(id, { x: newX, y: newY, text: currentText });
-  }, [isDragging, dragStart, id, currentText, onUpdate, canvasTransform]);
+    
+    // 그룹 드래그인 경우
+    if (isMultiSelecting && isSelected && onUpdateGroupDrag) {
+      onUpdateGroupDrag(id, newX, newY);
+    } else {
+      // 일반 드래그
+      onUpdate(id, { x: newX, y: newY, text: currentText });
+    }
+  }, [isDragging, dragStart, id, currentText, onUpdate, canvasTransform, isMultiSelecting, isSelected, onUpdateGroupDrag]);
 
 
   useEffect(() => {
@@ -141,6 +169,8 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
 
   // 삭제 모드에서의 테두리 스타일 계산
   const getBorderStyle = () => {
+    console.log('DraggableText getBorderStyle', { id, isSelected, isHighlighted, mode });
+    
     if (isHighlighted) {
       if (isHovered) {
         return {
@@ -153,6 +183,17 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
         borderColor: '#dc2626'
       };
     }
+    
+    // 다중 선택 상태
+    if (isSelected) {
+      console.log('Text is selected, applying emerald border');
+      return {
+        border: '4px solid #10b981', // border-emerald-500
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)'
+      };
+    }
+    
     if (mode === 'delete') {
       if (isLongPressing) {
         // 진행률에 따라 테두리 두께와 배경색 계산

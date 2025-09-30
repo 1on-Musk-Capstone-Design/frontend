@@ -8,6 +8,9 @@ export const useCanvas = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [hasDragged, setHasDragged] = useState(false);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const [isAreaSelecting, setIsAreaSelecting] = useState(false);
+  const [selectionArea, setSelectionArea] = useState(null);
+  const [hasStartedAreaSelection, setHasStartedAreaSelection] = useState(false);
   const canvasRef = useRef(null);
 
   // 캔버스 크기 초기화 (고정된 해상도의 2배: 1920x1080의 2배)
@@ -27,89 +30,30 @@ export const useCanvas = () => {
     }]);
   }, []);
 
-  // 캔버스 영역 추가 함수 (여러 개의 작은 사각형으로 나누어 생성)
+  // 캔버스 영역 추가 함수 (단순화: 클릭한 위치에 정확히 한 칸만 추가)
   const addCanvasArea = (x, y) => {
     const initialWidth = 1920 * 2; // 3840px
     const initialHeight = 1080 * 2; // 2160px
-    
-    // 기존 캔버스 영역들의 전체 경계 계산
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    canvasAreas.forEach(area => {
-      minX = Math.min(minX, area.x);
-      maxX = Math.max(maxX, area.x + area.width);
-      minY = Math.min(minY, area.y);
-      maxY = Math.max(maxY, area.y + area.height);
-    });
-    
-    let newAreas = [];
-    
-    // 방향에 따라 캔버스 영역들을 여러 개의 작은 사각형으로 나누어 생성
-    if (x < minX) {
-      // 왼쪽으로 나간 경우 - 세로로 여러 개의 사각형 생성
-      const totalHeight = maxY - minY;
-      const numSections = Math.ceil(totalHeight / initialHeight);
-      for (let i = 0; i < numSections; i++) {
-        newAreas.push({
-          x: minX - initialWidth,
-          y: minY + i * initialHeight,
-          width: initialWidth,
-          height: Math.min(initialHeight, totalHeight - i * initialHeight)
-        });
-      }
-    } else if (x > maxX) {
-      // 오른쪽으로 나간 경우 - 세로로 여러 개의 사각형 생성
-      const totalHeight = maxY - minY;
-      const numSections = Math.ceil(totalHeight / initialHeight);
-      for (let i = 0; i < numSections; i++) {
-        newAreas.push({
-          x: maxX,
-          y: minY + i * initialHeight,
-          width: initialWidth,
-          height: Math.min(initialHeight, totalHeight - i * initialHeight)
-        });
-      }
-    } else if (y < minY) {
-      // 위로 나간 경우 - 가로로 여러 개의 사각형 생성
-      const totalWidth = maxX - minX;
-      const numSections = Math.ceil(totalWidth / initialWidth);
-      for (let i = 0; i < numSections; i++) {
-        newAreas.push({
-          x: minX + i * initialWidth,
-          y: minY - initialHeight,
-          width: Math.min(initialWidth, totalWidth - i * initialWidth),
-          height: initialHeight
-        });
-      }
-    } else if (y > maxY) {
-      // 아래로 나간 경우 - 가로로 여러 개의 사각형 생성
-      const totalWidth = maxX - minX;
-      const numSections = Math.ceil(totalWidth / initialWidth);
-      for (let i = 0; i < numSections; i++) {
-        newAreas.push({
-          x: minX + i * initialWidth,
-          y: maxY,
-          width: Math.min(initialWidth, totalWidth - i * initialWidth),
-          height: initialHeight
-        });
-      }
-    } else {
-      // 캔버스 내부인 경우 - 기본적으로 오른쪽에 붙이기
-      const totalHeight = maxY - minY;
-      const numSections = Math.ceil(totalHeight / initialHeight);
-      for (let i = 0; i < numSections; i++) {
-        newAreas.push({
-          x: maxX,
-          y: minY + i * initialHeight,
-          width: initialWidth,
-          height: Math.min(initialHeight, totalHeight - i * initialHeight)
-        });
-      }
+
+    // 클릭한 위치에 정확히 한 칸만 추가 (격자에 맞춰 정렬)
+    const newArea = {
+      x: Math.floor(x / initialWidth) * initialWidth,
+      y: Math.floor(y / initialHeight) * initialHeight,
+      width: initialWidth,
+      height: initialHeight
+    };
+
+    // 이미 존재하는 영역인지 체크
+    const exists = canvasAreas.some(area => 
+      area.x === newArea.x && area.y === newArea.y
+    );
+
+    if (!exists) {
+      setCanvasAreas(prev => [...prev, newArea]);
     }
-    
-    setCanvasAreas(prev => [...prev, ...newAreas]);
   };
 
-  const handleCanvasClick = (e, mode) => {
+  const handleCanvasClick = (e, mode, currentCanvasAreas) => {
     // 캔버스 영역 내에서 클릭했을 때 (텍스트 필드가 아닌 경우)
     const isCanvasArea = e.target === canvasRef.current || 
                         (canvasRef.current && canvasRef.current.contains(e.target) && 
@@ -120,8 +64,8 @@ export const useCanvas = () => {
       const x = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
       const y = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
       
-      // 기존 캔버스 영역 밖에 있는지 체크
-      const isOutsideCanvas = !canvasAreas.some(area => 
+      // 기존 캔버스 영역 밖에 있는지 체크 (최신 상태 사용)
+      const isOutsideCanvas = !currentCanvasAreas.some(area => 
         x >= area.x && x <= area.x + area.width &&
         y >= area.y && y <= area.y + area.height
       );
@@ -138,6 +82,11 @@ export const useCanvas = () => {
   };
 
   const handleCanvasMouseDown = (e) => {
+    // Shift 키를 누른 상태에서는 캔버스 드래그 방지
+    if (e.shiftKey) {
+      return;
+    }
+    
     // 캔버스 영역 내에서 마우스 다운 (텍스트 필드가 아닌 경우)
     const isCanvasArea = e.target === canvasRef.current || 
                         (canvasRef.current && canvasRef.current.contains(e.target) && 
@@ -218,6 +167,131 @@ export const useCanvas = () => {
     }]);
   };
 
+  const moveToLocation = (location) => {
+    const targetX = -location.x * canvasTransform.scale + window.innerWidth / 2;
+    const targetY = -location.y * canvasTransform.scale + window.innerHeight / 2;
+    
+    setCanvasTransform(prev => ({
+      ...prev,
+      x: targetX,
+      y: targetY
+    }));
+  };
+
+  // 영역 선택 시작
+  const startAreaSelection = (e) => {
+    console.log('startAreaSelection called', {
+      shiftKey: e.shiftKey,
+      isDragging,
+      isAreaSelecting
+    });
+    
+    // Shift 키가 눌린 상태에서만 영역 선택 시작
+    if (!e.shiftKey) {
+      console.log('No shift key, returning');
+      return;
+    }
+    
+    if (!isDragging && !isAreaSelecting) {
+      console.log('Starting area selection');
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const rect = canvasRef.current.getBoundingClientRect();
+      const startX = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
+      const startY = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
+      
+      setIsAreaSelecting(true);
+      setHasStartedAreaSelection(true);
+      setSelectionArea({
+        startX,
+        startY,
+        endX: startX,
+        endY: startY
+      });
+      
+      console.log('Area selection started', { startX, startY });
+    }
+  };
+
+  // 영역 선택 중
+  const updateAreaSelection = (e) => {
+    if (isAreaSelecting) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const currentX = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
+      const currentY = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
+      
+      setSelectionArea(prev => ({
+        ...prev,
+        endX: currentX,
+        endY: currentY
+      }));
+    }
+  };
+
+  // 영역 선택 종료
+  const endAreaSelection = () => {
+    if (isAreaSelecting) {
+      setIsAreaSelecting(false);
+      setHasStartedAreaSelection(false);
+      setSelectionArea(null);
+    }
+  };
+
+  // 영역 내 텍스트 필드 확인
+  const getTextsInSelectionArea = (texts) => {
+    console.log('getTextsInSelectionArea called', { selectionArea, textsCount: texts.length });
+    
+    if (!selectionArea) {
+      console.log('No selection area, returning empty array');
+      return [];
+    }
+    
+    const { startX, startY, endX, endY } = selectionArea;
+    const minX = Math.min(startX, endX);
+    const maxX = Math.max(startX, endX);
+    const minY = Math.min(startY, endY);
+    const maxY = Math.max(startY, endY);
+    
+    console.log('Selection area bounds:', { minX, maxX, minY, maxY });
+    
+    const filteredTexts = texts.filter(text => {
+      const isInArea = text.x >= minX && text.x <= maxX && text.y >= minY && text.y <= maxY;
+      console.log(`Text ${text.id} at (${text.x}, ${text.y}) is in area:`, isInArea);
+      return isInArea;
+    });
+    
+    console.log('Filtered texts:', filteredTexts);
+    return filteredTexts;
+  };
+
+  const deleteCanvasArea = (areaIndex) => {
+    setCanvasAreas(prev => prev.filter((_, index) => index !== areaIndex));
+  };
+
+  const handleCanvasDelete = (e) => {
+    // 캔버스 영역 내에서 클릭했을 때 (텍스트 필드가 아닌 경우)
+    const isCanvasArea = e.target === canvasRef.current || 
+                        (canvasRef.current && canvasRef.current.contains(e.target) && 
+                         !e.target.closest('.draggable-text'));
+    
+    if (isCanvasArea) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
+      const y = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
+      
+      // 클릭한 위치의 캔버스 영역 찾기
+      const clickedAreaIndex = canvasAreas.findIndex(area => 
+        x >= area.x && x <= area.x + area.width &&
+        y >= area.y && y <= area.y + area.height
+      );
+      
+      if (clickedAreaIndex !== -1 && canvasAreas.length > 1) {
+        deleteCanvasArea(clickedAreaIndex);
+      }
+    }
+  };
+
   return {
     canvasTransform,
     canvasSize,
@@ -229,6 +303,15 @@ export const useCanvas = () => {
     handleCanvasMouseDown,
     handleWheel,
     resetCanvas,
-    addCanvasArea
+    addCanvasArea,
+    deleteCanvasArea,
+    moveToLocation,
+    isAreaSelecting,
+    selectionArea,
+    hasStartedAreaSelection,
+    startAreaSelection,
+    updateAreaSelection,
+    endAreaSelection,
+    getTextsInSelectionArea
   };
 };
