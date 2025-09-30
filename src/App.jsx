@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css';
 import ChatPanel from './components/ChatPanel';
 import DraggableText from './components/DraggableText';
@@ -19,6 +19,43 @@ const InfiniteCanvas = () => {
   
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
+
+  // 브라우저 줌 완전 차단 (캔버스 줌만 허용)
+  useEffect(() => {
+    const preventZoom = (e) => {
+      // Ctrl + 마우스 휠 또는 Ctrl + +/- 키 차단
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    const preventKeyboardZoom = (e) => {
+      // Ctrl + +/- 키 차단
+      if ((e.ctrlKey || e.metaKey) && 
+          (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    // 모든 줌 관련 이벤트 차단
+    document.addEventListener('wheel', preventZoom, { passive: false });
+    document.addEventListener('keydown', preventKeyboardZoom, { passive: false });
+    document.addEventListener('gesturestart', preventZoom, { passive: false });
+    document.addEventListener('gesturechange', preventZoom, { passive: false });
+    document.addEventListener('gestureend', preventZoom, { passive: false });
+
+    return () => {
+      document.removeEventListener('wheel', preventZoom);
+      document.removeEventListener('keydown', preventKeyboardZoom);
+      document.removeEventListener('gesturestart', preventZoom);
+      document.removeEventListener('gesturechange', preventZoom);
+      document.removeEventListener('gestureend', preventZoom);
+    };
+  }, []);
 
   const handleCanvasClick = (e) => {
     if (mode === 'text') {
@@ -238,7 +275,7 @@ const InfiniteCanvas = () => {
           onEndGroupDrag={textFields.endGroupDrag}
         />
       </div>
-
+      
       {/* 현재 모드 표시 */}
       <div 
         className="fixed top-4 z-50 bg-white/95 backdrop-blur-md rounded-lg shadow-2xl p-2"
