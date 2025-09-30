@@ -8,6 +8,12 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
   const [pressProgress, setPressProgress] = useState(0);
 
   const handleAreaMouseDown = (areaIndex, e) => {
+    const area = canvasAreas[areaIndex];
+    // 처음 생성된 캔버스는 삭제 불가능
+    if (area && area.isInitial) {
+      return;
+    }
+    
     if (mode === 'delete' && canvasAreas.length > 1) {
       setLongPressingAreaIndex(areaIndex);
       setPressProgress(0);
@@ -68,6 +74,16 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
   };
 
   const getAreaBorderStyle = (areaIndex) => {
+    const area = canvasAreas[areaIndex];
+    
+    // 처음 생성된 캔버스는 연두색 테두리 (삭제 불가능)
+    if (area && area.isInitial) {
+      return {
+        border: '6px solid #84cc16', // border-lime-500
+        borderColor: '#84cc16'
+      };
+    }
+    
     if (mode === 'delete') {
       if (longPressingAreaIndex === areaIndex) {
         // 진행률에 따라 테두리 두께와 배경색 계산 (6px ~ 24px)

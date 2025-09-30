@@ -159,12 +159,20 @@ const InfiniteCanvas = () => {
   const arrangeTexts = () => {
     if (textFields.texts.length === 0) return;
     
-    // 텍스트 필드들을 그리드 형태로 정렬
+    // 처음 생성된 캔버스 찾기
+    const initialCanvas = canvas.canvasAreas.find(area => area.isInitial);
+    if (!initialCanvas) return;
+    
+    // 처음 생성된 캔버스의 중심점 계산
+    const centerX = initialCanvas.x + initialCanvas.width / 2;
+    const centerY = initialCanvas.y + initialCanvas.height / 2;
+    
+    // 텍스트 필드들을 그리드 형태로 정렬 (처음 생성된 캔버스 중심 기준)
     const cols = Math.ceil(Math.sqrt(textFields.texts.length));
     const rows = Math.ceil(textFields.texts.length / cols);
     const spacing = 250; // 텍스트 필드 간 간격
-    const startX = -((cols - 1) * spacing) / 2;
-    const startY = -((rows - 1) * spacing) / 2;
+    const startX = centerX - ((cols - 1) * spacing) / 2;
+    const startY = centerY - ((rows - 1) * spacing) / 2;
     
     const arrangedTexts = textFields.texts.map((text, index) => {
       const col = index % cols;

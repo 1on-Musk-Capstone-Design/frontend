@@ -21,12 +21,14 @@ export const useCanvas = () => {
       width: initialWidth,
       height: initialHeight
     });
-    // 초기 캔버스 영역 설정
+    // 초기 캔버스 영역 설정 (삭제 불가능한 메인 캔버스)
     setCanvasAreas([{
       x: 0,
       y: 0,
       width: initialWidth,
-      height: initialHeight
+      height: initialHeight,
+      isInitial: true,
+      id: 'initial-canvas'
     }]);
   }, []);
 
@@ -40,7 +42,9 @@ export const useCanvas = () => {
       x: Math.floor(x / initialWidth) * initialWidth,
       y: Math.floor(y / initialHeight) * initialHeight,
       width: initialWidth,
-      height: initialHeight
+      height: initialHeight,
+      isInitial: false,
+      id: `canvas-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
 
     // 이미 존재하는 영역인지 체크
