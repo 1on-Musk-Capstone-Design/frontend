@@ -1,21 +1,81 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange }) => {
+const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [currentText, setCurrentText] = useState(text);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState(null);
+  const [pressProgress, setPressProgress] = useState(0);
   const textareaRef = useRef(null);
 
   const handleMouseDown = (e) => {
     if (isEditing) return;
     e.preventDefault();
     e.stopPropagation();
+    
+    if (mode === 'delete') {
+      // 삭제 모드: 길게 클릭 시작
+      setIsLongPressing(true);
+      setPressProgress(0);
+      
+      // 진행률 업데이트를 위한 인터벌
+      const progressInterval = setInterval(() => {
+        setPressProgress(prev => {
+          const newProgress = prev + 100 / 15; // 1.5초 동안 100%까지
+          if (newProgress >= 100) {
+            clearInterval(progressInterval);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, 100);
+      
+      const timer = setTimeout(() => {
+        // 즉시 삭제 (하이라이트 효과 없이)
+        onDelete(id);
+        setIsLongPressing(false);
+        setPressProgress(0);
+        clearInterval(progressInterval);
+      }, 1500);
+      setLongPressTimer(timer);
+      return;
+    }
+    
     setIsDragging(true);
     setDragStart({
       x: e.clientX - (x * canvasTransform.scale + canvasTransform.x),
       y: e.clientY - (y * canvasTransform.scale + canvasTransform.y)
     });
+  };
+
+  const handleMouseUp = useCallback(() => {
+    if (mode === 'delete' && longPressTimer) {
+      // 길게 클릭 취소 - 즉시 효과 해제
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+      setIsLongPressing(false);
+      setPressProgress(0);
+    }
+    setIsDragging(false);
+  }, [mode, longPressTimer]);
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (mode === 'delete' && longPressTimer) {
+      // 마우스가 벗어나면 길게 클릭 취소
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+      setIsLongPressing(false);
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (mode === 'delete' || isHighlighted) {
+      setIsHovered(true);
+    }
   };
 
   const handleMouseMove = useCallback((e) => {
@@ -26,9 +86,6 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
     onUpdate(id, { x: newX, y: newY, text: currentText });
   }, [isDragging, dragStart, id, currentText, onUpdate, canvasTransform]);
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
 
   useEffect(() => {
     if (isDragging) {
@@ -82,20 +139,75 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
     onDelete(id);
   };
 
+  // 삭제 모드에서의 테두리 스타일 계산
+  const getBorderStyle = () => {
+    if (isHighlighted) {
+      if (isHovered) {
+        return {
+          border: '12px solid #ef4444', // border-red-500
+          borderColor: '#ef4444'
+        };
+      }
+      return {
+        border: '12px solid #dc2626', // border-red-600
+        borderColor: '#dc2626'
+      };
+    }
+    if (mode === 'delete') {
+      if (isLongPressing) {
+        // 진행률에 따라 테두리 두께와 배경색 계산
+        const minBorder = 4;
+        const maxBorder = 20;
+        const borderWidth = minBorder + (maxBorder - minBorder) * (pressProgress / 100);
+        
+        // 진행률이 80% 이상이면 전체 빨간색 효과
+        const backgroundColor = pressProgress >= 80 ? 'rgba(220, 38, 38, 0.2)' : 'white';
+        const borderColor = pressProgress >= 80 ? '#dc2626' : '#dc2626';
+        
+        return {
+          border: `${borderWidth}px solid ${borderColor}`,
+          borderColor: borderColor,
+          backgroundColor: backgroundColor,
+          transition: 'all 0.1s ease'
+        };
+      } else if (isHovered) {
+        return {
+          border: '8px solid #ef4444', // border-red-500
+          borderColor: '#ef4444'
+        };
+      }
+    }
+    return isDragging ? {
+      border: '4px solid #3b82f6', // border-blue-500
+      borderColor: '#3b82f6'
+    } : isEditing ? {
+      border: '4px solid #3b82f6', // border-blue-500
+      borderColor: '#3b82f6'
+    } : {
+      border: '4px solid #93c5fd', // border-blue-300
+      borderColor: '#93c5fd'
+    };
+  };
+
   return (
     <div
-      className={`draggable-text absolute bg-white border-2 border-blue-300 rounded-lg shadow-lg cursor-move select-none ${
-        isDragging ? 'shadow-xl border-blue-500' : ''
-      } ${isEditing ? 'border-blue-500' : ''}`}
+      className={`draggable-text absolute bg-white rounded-lg shadow-lg select-none ${
+        isDragging ? 'shadow-xl' : ''
+      }`}
       style={{
         left: x,
         top: y,
         width: '300px',
         height: '150px',
         transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-        transition: isDragging ? 'none' : 'transform 0.1s ease'
+        transition: isDragging ? 'none' : 'transform 0.1s ease',
+        cursor: mode === 'delete' ? 'pointer' : 'move',
+        ...getBorderStyle()
       }}
       onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onDoubleClick={handleDoubleClick}
     >
       <div className="flex justify-between items-center p-2 bg-blue-50 rounded-t-lg">
