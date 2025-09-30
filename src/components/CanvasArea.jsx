@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import DraggableText from './DraggableText';
 
-const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea }) => {
+const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag }) => {
   const [hoveredAreaIndex, setHoveredAreaIndex] = useState(null);
   const [longPressingAreaIndex, setLongPressingAreaIndex] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
@@ -105,6 +105,9 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
         transformOrigin: '0 0',
         position: 'relative'
       }}
+      onMouseDown={onCanvasMouseDown}
+      onMouseMove={onCanvasMouseMove}
+      onMouseUp={onCanvasMouseUp}
     >
       {/* 캔버스 영역들 렌더링 */}
       {canvasAreas.map((area, index) => (
@@ -133,6 +136,21 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
           onMouseLeave={handleAreaMouseLeave}
         />
       ))}
+      
+      {/* 영역 선택 표시 */}
+      {selectionArea && (
+        <div
+          className="absolute border-2 border-blue-500 bg-blue-200/20 pointer-events-none"
+          style={{
+            left: Math.min(selectionArea.startX, selectionArea.endX),
+            top: Math.min(selectionArea.startY, selectionArea.endY),
+            width: Math.abs(selectionArea.endX - selectionArea.startX),
+            height: Math.abs(selectionArea.endY - selectionArea.startY),
+            zIndex: 1000
+          }}
+        />
+      )}
+      
       {texts.map(text => (
         <DraggableText
           key={text.id}
@@ -147,6 +165,11 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
           onEditingChange={setIsTextEditing}
           mode={mode}
           isHighlighted={highlightedTextIds.includes(text.id)}
+          isSelected={selectedTextIds.includes(text.id)}
+          isMultiSelecting={isMultiSelecting}
+          onStartGroupDrag={onStartGroupDrag}
+          onUpdateGroupDrag={onUpdateGroupDrag}
+          onEndGroupDrag={onEndGroupDrag}
         />
       ))}
     </div>
