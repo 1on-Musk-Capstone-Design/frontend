@@ -8,6 +8,9 @@ export const useCanvas = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [hasDragged, setHasDragged] = useState(false);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const [isAreaSelecting, setIsAreaSelecting] = useState(false);
+  const [selectionArea, setSelectionArea] = useState(null);
+  const [hasStartedAreaSelection, setHasStartedAreaSelection] = useState(false);
   const canvasRef = useRef(null);
 
   // 캔버스 크기 초기화 (고정된 해상도의 2배: 1920x1080의 2배)
@@ -79,6 +82,11 @@ export const useCanvas = () => {
   };
 
   const handleCanvasMouseDown = (e) => {
+    // Shift 키를 누른 상태에서는 캔버스 드래그 방지
+    if (e.shiftKey) {
+      return;
+    }
+    
     // 캔버스 영역 내에서 마우스 다운 (텍스트 필드가 아닌 경우)
     const isCanvasArea = e.target === canvasRef.current || 
                         (canvasRef.current && canvasRef.current.contains(e.target) && 
@@ -170,6 +178,93 @@ export const useCanvas = () => {
     }));
   };
 
+  // 영역 선택 시작
+  const startAreaSelection = (e) => {
+    console.log('startAreaSelection called', {
+      shiftKey: e.shiftKey,
+      isDragging,
+      isAreaSelecting
+    });
+    
+    // Shift 키가 눌린 상태에서만 영역 선택 시작
+    if (!e.shiftKey) {
+      console.log('No shift key, returning');
+      return;
+    }
+    
+    if (!isDragging && !isAreaSelecting) {
+      console.log('Starting area selection');
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const rect = canvasRef.current.getBoundingClientRect();
+      const startX = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
+      const startY = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
+      
+      setIsAreaSelecting(true);
+      setHasStartedAreaSelection(true);
+      setSelectionArea({
+        startX,
+        startY,
+        endX: startX,
+        endY: startY
+      });
+      
+      console.log('Area selection started', { startX, startY });
+    }
+  };
+
+  // 영역 선택 중
+  const updateAreaSelection = (e) => {
+    if (isAreaSelecting) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const currentX = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
+      const currentY = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
+      
+      setSelectionArea(prev => ({
+        ...prev,
+        endX: currentX,
+        endY: currentY
+      }));
+    }
+  };
+
+  // 영역 선택 종료
+  const endAreaSelection = () => {
+    if (isAreaSelecting) {
+      setIsAreaSelecting(false);
+      setHasStartedAreaSelection(false);
+      setSelectionArea(null);
+    }
+  };
+
+  // 영역 내 텍스트 필드 확인
+  const getTextsInSelectionArea = (texts) => {
+    console.log('getTextsInSelectionArea called', { selectionArea, textsCount: texts.length });
+    
+    if (!selectionArea) {
+      console.log('No selection area, returning empty array');
+      return [];
+    }
+    
+    const { startX, startY, endX, endY } = selectionArea;
+    const minX = Math.min(startX, endX);
+    const maxX = Math.max(startX, endX);
+    const minY = Math.min(startY, endY);
+    const maxY = Math.max(startY, endY);
+    
+    console.log('Selection area bounds:', { minX, maxX, minY, maxY });
+    
+    const filteredTexts = texts.filter(text => {
+      const isInArea = text.x >= minX && text.x <= maxX && text.y >= minY && text.y <= maxY;
+      console.log(`Text ${text.id} at (${text.x}, ${text.y}) is in area:`, isInArea);
+      return isInArea;
+    });
+    
+    console.log('Filtered texts:', filteredTexts);
+    return filteredTexts;
+  };
+
   const deleteCanvasArea = (areaIndex) => {
     setCanvasAreas(prev => prev.filter((_, index) => index !== areaIndex));
   };
@@ -210,6 +305,13 @@ export const useCanvas = () => {
     resetCanvas,
     addCanvasArea,
     deleteCanvasArea,
-    moveToLocation
+    moveToLocation,
+    isAreaSelecting,
+    selectionArea,
+    hasStartedAreaSelection,
+    startAreaSelection,
+    updateAreaSelection,
+    endAreaSelection,
+    getTextsInSelectionArea
   };
 };
