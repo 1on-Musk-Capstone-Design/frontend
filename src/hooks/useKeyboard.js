@@ -7,12 +7,30 @@ export const useKeyboard = (onModeChange, isTextEditing) => {
       // 텍스트 편집 중일 때는 단축키 비활성화
       if (isTextEditing) return;
       
-      if (e.key.toLowerCase() === 'a') {
+      const key = e.key.toLowerCase();
+      
+      // 영어 키보드
+      if (key === 'a') {
         e.preventDefault();
         onModeChange('text');
-      } else if (e.key.toLowerCase() === 's') {
+      } else if (key === 's') {
         e.preventDefault();
         onModeChange('move');
+      } else if (key === 'd') {
+        e.preventDefault();
+        onModeChange('delete');
+      }
+      
+      // 한글 키보드 매핑 (ㅁㄴㅇ)
+      if (key === 'ㅁ' || e.key === 'ㅁ') {
+        e.preventDefault();
+        onModeChange('text');
+      } else if (key === 'ㄴ' || e.key === 'ㄴ') {
+        e.preventDefault();
+        onModeChange('move');
+      } else if (key === 'ㅇ' || e.key === 'ㅇ') {
+        e.preventDefault();
+        onModeChange('delete');
       }
     };
 
