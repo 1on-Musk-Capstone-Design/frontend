@@ -80,3 +80,66 @@
       linear-gradient(-45deg, transparent 75%, #374151 75%);
   }
 }
+
+/* Modal form styles */
+.formGroup {
+  margin-bottom: 12px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  color: var(--text, #111827);
+}
+
+.required {
+  color: #ef4444;
+  margin-left: 6px;
+  font-weight: 600;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(15,23,42,0.06);
+  background: #ffffff;
+  font-size: 0.95rem;
+  color: var(--text, #111827);
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ghostBtn {
+  background: transparent;
+  border: 1px solid rgba(15,23,42,0.06);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  background: var(--primary, #4f46e5);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.errorText {
+  color: #dc2626;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
