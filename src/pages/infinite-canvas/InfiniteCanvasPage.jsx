@@ -6,12 +6,16 @@ import CanvasArea from './components/CanvasArea';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
+import { socketService } from '../../services/socketService.js';
+import { HealthService } from '../../services/healthService.js';
 import './styles/canvas.css';
 
 // 메인 무한 캔버스 컴포넌트
 const InfiniteCanvasPage = () => {
   const [mode, setMode] = useState('text'); // 'text' 또는 'move'
   const [chatMessages, setChatMessages] = useState([]);
+  const [serverStatus, setServerStatus] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -19,6 +23,23 @@ const InfiniteCanvasPage = () => {
   
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
+
+  // 서버 상태 및 Socket.IO 연결 확인
+  useEffect(() => {
+    const checkServerStatus = async () => {
+      try {
+        const status = await HealthService.checkHealth();
+        setServerStatus(status);
+        setIsConnected(socketService.getConnectionStatus());
+      } catch (error) {
+        console.error('서버 상태 확인 실패:', error);
+        setServerStatus(null);
+        setIsConnected(false);
+      }
+    };
+
+    checkServerStatus();
+  }, []);
 
   // 브라우저 줌 완전 차단 (캔버스 줌만 허용)
   useEffect(() => {
@@ -229,9 +250,9 @@ const InfiniteCanvasPage = () => {
         onArrange={arrangeTexts}
       />
       
-      {/* 줌 정보 */}
+      {/* 서버 상태 및 줌 정보 */}
       <div 
-        className="fixed top-4 right-4 z-50 bg-white/95 backdrop-blur-md rounded-lg shadow-2xl p-2"
+        className="fixed top-4 right-4 z-50 bg-white/95 backdrop-blur-md rounded-lg shadow-2xl p-3"
         style={{
           position: 'fixed',
           top: '16px',
@@ -240,8 +261,22 @@ const InfiniteCanvasPage = () => {
           willChange: 'transform'
         }}
       >
-        <div className="text-sm text-gray-600 flex items-center">
-          줌: {Math.round(canvas.canvasTransform.scale * 100)}%
+        <div className="space-y-2">
+          <div className="text-sm text-gray-600 flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            }`}></div>
+            <span>Socket.IO: {isConnected ? '연결됨' : '연결 안됨'}</span>
+          </div>
+          <div className="text-sm text-gray-600 flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${
+              serverStatus ? 'bg-green-500' : 'bg-red-500'
+            }`}></div>
+            <span>서버: {serverStatus ? '연결됨' : '연결 안됨'}</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            줌: {Math.round(canvas.canvasTransform.scale * 100)}%
+          </div>
         </div>
       </div>
 
