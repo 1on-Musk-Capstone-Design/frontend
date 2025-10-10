@@ -1,0 +1,58 @@
+.pageRoot {
+  min-height: 100vh;
+  background-color: var(--surface, #f7fafc);
+  color: var(--text, #1f2937);
+  font-family: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+}
+
+.main {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 2px 0 0 0;
+  font-size: 0.9rem;
+  color: var(--muted, #6b7280);
+}
+
+.createButton {
+  background-color: var(--primary, #4f46e5);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.createButton:focus {
+  outline: 2px solid rgba(79,70,229,0.25);
+}
+
+.gridSection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
