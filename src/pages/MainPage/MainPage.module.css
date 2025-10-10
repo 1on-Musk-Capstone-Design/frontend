@@ -1,14 +1,18 @@
 .pageRoot {
   min-height: 100vh;
-  background-color: var(--surface, #f7fafc);
-  color: var(--text, #1f2937);
-  font-family: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial);
+  /* 요청: 전체 배경을 화이트로 설정 */
+  background-color: #ffffff;
+  color: var(--text, #111827);
+  /* 전역에 설정된 폰트를 그대로 사용 (inherited) */
+  font-family: inherit;
 }
 
 .container {
   max-width: 1200px;
   margin: 0 auto;
   display: flex;
+  gap: 20px;
+  padding: 20px 0;
 }
 
 .main {
@@ -16,6 +20,8 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
+  /* 메인 컨텐츠는 반투명 카드처럼 보이도록 */
+  background: transparent;
 }
 
 .header {
@@ -38,21 +44,39 @@
 }
 
 .createButton {
-  background-color: var(--primary, #4f46e5);
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
+  /* infinite-canvas의 패널 스타일과 유사한 디자인 */
+  background: rgba(255,255,255,0.95);
+  color: var(--text, #111827);
+  border: 1px solid rgba(0,0,0,0.06);
+  padding: 10px 16px;
+  border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.12);
+}
+
+.createButton:hover {
+  transform: translateY(-2px);
 }
 
 .createButton:focus {
-  outline: 2px solid rgba(79,70,229,0.25);
+  outline: 2px solid rgba(59,130,246,0.12);
 }
 
 .gridSection {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pageRoot {
+    background-color: #0f1724;
+    background-image: 
+      linear-gradient(45deg, #374151 25%, transparent 25%),
+      linear-gradient(-45deg, #374151 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #374151 75%),
+      linear-gradient(-45deg, transparent 75%, #374151 75%);
+  }
 }
