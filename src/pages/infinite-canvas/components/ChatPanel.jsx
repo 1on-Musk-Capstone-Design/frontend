@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { socketService } from '../../../services/socketService.js';
+import { HealthService } from '../../../services/healthService.js';
 
 const ChatPanel = ({ messages = [], onLocationClick }) => {
   const [localMessages, setLocalMessages] = useState([
@@ -8,7 +10,73 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [serverStatus, setServerStatus] = useState(null);
   const messagesEndRef = useRef(null);
+
+  // Socket.IO 연결 및 이벤트 리스너 설정
+  useEffect(() => {
+    // Socket.IO 연결
+    socketService.connect();
+    setIsConnected(socketService.getConnectionStatus());
+
+    // Socket.IO 이벤트 리스너 등록
+    socketService.on('connected', (message) => {
+      console.log('Socket.IO 연결됨:', message);
+      setIsConnected(true);
+    });
+
+    socketService.on('new_message', (data) => {
+      const message = {
+        id: Date.now(),
+        text: data,
+        sender: "other",
+        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
+      };
+      setLocalMessages(prev => [...prev, message]);
+    });
+
+    socketService.on('user_joined', (message) => {
+      const systemMessage = {
+        id: Date.now(),
+        text: message,
+        sender: "system",
+        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
+      };
+      setLocalMessages(prev => [...prev, systemMessage]);
+    });
+
+    socketService.on('user_left', (message) => {
+      const systemMessage = {
+        id: Date.now(),
+        text: message,
+        sender: "system",
+        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
+      };
+      setLocalMessages(prev => [...prev, systemMessage]);
+    });
+
+    // 서버 상태 확인
+    const checkServerStatus = async () => {
+      try {
+        const status = await HealthService.checkHealth();
+        setServerStatus(status);
+      } catch (error) {
+        console.error('서버 상태 확인 실패:', error);
+        setServerStatus(null);
+      }
+    };
+
+    checkServerStatus();
+
+    // 컴포넌트 언마운트 시 연결 해제
+    return () => {
+      socketService.disconnect();
+    };
+  }, []);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -20,7 +88,15 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
         timestamp: Date.now() // 정확한 시간순 정렬을 위한 타임스탬프
       };
+      
+      // 로컬 메시지에 추가
       setLocalMessages(prev => [...prev, message]);
+      
+      // Socket.IO를 통해 다른 클라이언트들에게 전송
+      if (isConnected) {
+        socketService.sendChatMessage(newMessage);
+      }
+      
       setNewMessage("");
     }
   };
@@ -69,8 +145,12 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
         /* 확장된 상태 - 헤더 */
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span className="font-semibold text-gray-800">채팅</span>
+            <div className={`w-3 h-3 rounded-full ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            }`}></div>
+            <span className="font-semibold text-gray-800">
+              채팅 {isConnected ? '(연결됨)' : '(연결 안됨)'}
+            </span>
           </div>
           <button
             onClick={() => setIsMinimized(true)}
