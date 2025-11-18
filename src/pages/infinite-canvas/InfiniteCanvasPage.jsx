@@ -21,38 +21,78 @@ const InfiniteCanvasPage = () => {
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
 
-  // 브라우저 줌 차단 (Ctrl/Cmd + 휠로만 줌, 일반 스크롤은 허용)
+  // 브라우저 줌 완전 차단 - 피그마 스타일
   useEffect(() => {
-    const preventZoom = (e) => {
-      // Ctrl/Cmd + 마우스 휠로 줌하는 경우만 차단 (useCanvas에서 처리)
-      // 일반 스크롤은 허용
-      if (e.ctrlKey || e.metaKey) {
-        // useCanvas의 handleWheel에서 처리하므로 여기서는 차단하지 않음
-        return;
-      }
+    // 터치 제스처 줌 차단
+    const preventGestureZoom = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
     };
 
+    // 키보드 줌 차단 (Ctrl/Cmd + +/-)
     const preventKeyboardZoom = (e) => {
-      // Ctrl + +/- 키로 브라우저 줌 차단 (캔버스 줌은 키보드로 제어하지 않음)
       if ((e.ctrlKey || e.metaKey) && 
-          (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+          (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0' || 
+           e.keyCode === 187 || e.keyCode === 189 || e.keyCode === 48 || 
+           e.keyCode === 61 || e.keyCode === 107 || e.keyCode === 109)) {
         e.preventDefault();
         e.stopPropagation();
         return false;
       }
     };
 
-    // 키보드 줌만 차단, 휠 이벤트는 useCanvas에서 처리
+    // 휠 이벤트에서 Ctrl/Cmd + 휠일 때만 캔버스 줌 허용, 나머지는 브라우저 줌 차단
+    const preventWheelZoom = (e) => {
+      // Ctrl/Cmd + 휠은 useCanvas에서 처리하므로 기본 동작만 차단
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    // 터치 줌 차단 (핀치 줌)
+    const preventTouchZoom = (e) => {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    // 모든 줌 관련 이벤트 차단
     document.addEventListener('keydown', preventKeyboardZoom, { passive: false });
-    document.addEventListener('gesturestart', preventZoom, { passive: false });
-    document.addEventListener('gesturechange', preventZoom, { passive: false });
-    document.addEventListener('gestureend', preventZoom, { passive: false });
+    document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
+    document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
+    document.addEventListener('gestureend', preventGestureZoom, { passive: false });
+    document.addEventListener('wheel', preventWheelZoom, { passive: false });
+    document.addEventListener('touchstart', preventTouchZoom, { passive: false });
+    document.addEventListener('touchmove', preventTouchZoom, { passive: false });
+    document.addEventListener('touchend', preventTouchZoom, { passive: false });
+
+    // 추가: CSS zoom 속성 강제 고정
+    const enforceZoom = () => {
+      if (document.documentElement.style.zoom !== '1') {
+        document.documentElement.style.zoom = '1';
+      }
+      if (document.body.style.zoom !== '1') {
+        document.body.style.zoom = '1';
+      }
+    };
+
+    // 주기적으로 zoom 속성 확인 및 강제
+    const zoomCheckInterval = setInterval(enforceZoom, 100);
 
     return () => {
       document.removeEventListener('keydown', preventKeyboardZoom);
-      document.removeEventListener('gesturestart', preventZoom);
-      document.removeEventListener('gesturechange', preventZoom);
-      document.removeEventListener('gestureend', preventZoom);
+      document.removeEventListener('gesturestart', preventGestureZoom);
+      document.removeEventListener('gesturechange', preventGestureZoom);
+      document.removeEventListener('gestureend', preventGestureZoom);
+      document.removeEventListener('wheel', preventWheelZoom);
+      document.removeEventListener('touchstart', preventTouchZoom);
+      document.removeEventListener('touchmove', preventTouchZoom);
+      document.removeEventListener('touchend', preventTouchZoom);
+      clearInterval(zoomCheckInterval);
     };
   }, []);
 
