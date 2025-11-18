@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import {
+  CENTER_INDICATOR_CONSTANTS,
+  PANEL_CONSTANTS,
+  TOOLBAR_AREA_CONSTANTS,
+  COMPUTED_CONSTANTS
+} from '../constants';
 
-const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusteringPanelOpen = false, onCenterClick }) => {
+const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusteringPanelOpen = false, onCenterClick, canvasRef }) => {
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight
   });
   const [isHovered, setIsHovered] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const handleResize = () => {
@@ -15,22 +22,54 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
       });
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    const handleScroll = () => {
+      if (canvasRef && canvasRef.current) {
+        setScrollOffset({
+          x: canvasRef.current.scrollLeft || 0,
+          y: canvasRef.current.scrollTop || 0
+        });
+      }
+    };
 
-  // 패널 너비 (CSS 변수와 동일하게)
-  const chatPanelWidth = 280;
-  const clusteringPanelWidth = 280;
-  // 하단 툴바 높이 (bottom: 16px + 높이 40px = 56px)
-  const toolbarBottomOffset = 16; // 툴바가 하단에서 떨어진 거리
-  const toolbarHeight = 40; // 툴바 높이 (버튼 32px + padding 8px)
-  const toolbarTotalHeight = toolbarBottomOffset + toolbarHeight; // 총 56px
+    window.addEventListener('resize', handleResize);
+    if (canvasRef && canvasRef.current) {
+      canvasRef.current.addEventListener('scroll', handleScroll);
+      // 초기 스크롤 오프셋 설정
+      handleScroll();
+    }
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (canvasRef && canvasRef.current) {
+        canvasRef.current.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [canvasRef]);
+
+  // 패널 너비
+  const chatPanelWidth = PANEL_CONSTANTS.CHAT_PANEL_WIDTH;
+  const clusteringPanelWidth = PANEL_CONSTANTS.CLUSTERING_PANEL_WIDTH;
+  
+  // 하단 툴바 높이
+  const toolbarBottomOffset = TOOLBAR_AREA_CONSTANTS.TOOLBAR_BOTTOM_OFFSET;
+  const toolbarHeight = TOOLBAR_AREA_CONSTANTS.TOOLBAR_HEIGHT;
+  const toolbarTotalHeight = COMPUTED_CONSTANTS.TOOLBAR_TOTAL_HEIGHT;
+  
   // 초록 공 크기
-  const hoverAreaSize = 40; // 호버 감지 영역 크기
+  const hoverAreaSize = CENTER_INDICATOR_CONSTANTS.HOVER_AREA_SIZE;
 
   // 위치 계산을 useMemo로 최적화하여 canvasTransform 변경 시 즉시 반영되도록 함
   const { dotPosition, isDefaultPositionVisible } = useMemo(() => {
+    // canvas-container의 스크롤 오프셋과 위치 가져오기
+    let containerOffsetX = 0;
+    let containerOffsetY = 0;
+    
+    if (canvasRef && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      containerOffsetX = rect.left;
+      containerOffsetY = rect.top;
+    }
+
     // 사용 가능한 영역 계산
     const availableArea = {
       left: isChatPanelOpen ? chatPanelWidth : 0,
@@ -40,8 +79,9 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
     };
 
     // 캔버스 중앙(0, 0)의 화면 좌표 계산
-    const canvasCenterScreenX = canvasTransform.x;
-    const canvasCenterScreenY = canvasTransform.y;
+    // canvasTransform은 canvas-container 내부 좌표이므로, 실제 화면 좌표로 변환
+    const canvasCenterScreenX = containerOffsetX + scrollOffset.x + canvasTransform.x;
+    const canvasCenterScreenY = containerOffsetY + scrollOffset.y + canvasTransform.y;
 
     // 사용 가능한 영역 계산
     const availableWidth = windowSize.width - availableArea.left - availableArea.right;
@@ -50,8 +90,8 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
     const screenCenterY = availableHeight / 2;
 
     // 기본 위치: 캔버스 중앙(0, 0)의 오른쪽 아래 (캔버스 좌표계에서 +100, +100)
-    const defaultOffsetX = 100; // 캔버스 좌표계에서 오른쪽으로 100px
-    const defaultOffsetY = 100; // 캔버스 좌표계에서 아래로 100px
+    const defaultOffsetX = CENTER_INDICATOR_CONSTANTS.DEFAULT_OFFSET_X;
+    const defaultOffsetY = CENTER_INDICATOR_CONSTANTS.DEFAULT_OFFSET_Y;
     
     // 기본 위치의 화면 좌표 계산
     // 캔버스 좌표를 화면 좌표로 변환: screenX = canvasTransform.x + canvasX * canvasTransform.scale
@@ -60,8 +100,8 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
     const defaultScreenY = canvasCenterScreenY + defaultOffsetY * canvasTransform.scale;
 
     // 하단 툴바 영역 계산 (중앙 하단)
-    const toolbarLeft = windowSize.width / 2 - 100; // 툴바는 중앙에 위치, 대략적인 너비 고려
-    const toolbarRight = windowSize.width / 2 + 100;
+    const toolbarLeft = windowSize.width / 2 - TOOLBAR_AREA_CONSTANTS.TOOLBAR_WIDTH_ESTIMATE;
+    const toolbarRight = windowSize.width / 2 + TOOLBAR_AREA_CONSTANTS.TOOLBAR_WIDTH_ESTIMATE;
     const toolbarTop = windowSize.height - toolbarTotalHeight;
     const toolbarBottom = windowSize.height;
 
@@ -74,7 +114,7 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
     };
 
     // 기본 위치가 화면 안에 있고 하단 툴바와 겹치지 않는지 확인
-    const margin = 20; // 여유 공간
+    const margin = CENTER_INDICATOR_CONSTANTS.VISIBILITY_MARGIN;
     const isDefaultPositionVisible = 
       defaultScreenX >= availableArea.left + margin &&
       defaultScreenX <= availableArea.left + availableWidth - margin &&
@@ -88,7 +128,7 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
 
     // 화면 가장자리에서 점 위치 계산 (기본 위치가 화면 밖일 때 사용)
     const getEdgePosition = () => {
-      const edgeMargin = 30; // 가장자리에서의 여백
+      const edgeMargin = CENTER_INDICATOR_CONSTANTS.EDGE_MARGIN;
       const dotRadius = hoverAreaSize / 2;
       
       // 기본 화면 경계 (UI 영역 제외하지 않음)
@@ -166,11 +206,11 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
       : getEdgePosition();
 
     return { dotPosition, isDefaultPositionVisible };
-  }, [canvasTransform.x, canvasTransform.y, canvasTransform.scale, windowSize.width, windowSize.height, isChatPanelOpen, isClusteringPanelOpen, hoverAreaSize]);
+  }, [canvasTransform.x, canvasTransform.y, canvasTransform.scale, windowSize.width, windowSize.height, isChatPanelOpen, isClusteringPanelOpen, hoverAreaSize, canvasRef, scrollOffset.x, scrollOffset.y]);
 
   // 작은 초록색 점
-  const dotSize = 8;
-  const hoverScale = 1.5; // 호버 시 크기 증가 배율
+  const dotSize = CENTER_INDICATOR_CONSTANTS.DOT_SIZE;
+  const hoverScale = CENTER_INDICATOR_CONSTANTS.HOVER_SCALE;
 
   const handleClick = (e) => {
     e.stopPropagation();
@@ -187,7 +227,7 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
         top: `${dotPosition.y}px`,
         transform: 'translate(-50%, -50%)',
         pointerEvents: 'auto',
-        zIndex: 10002,
+        zIndex: CENTER_INDICATOR_CONSTANTS.Z_INDEX,
         opacity: 1,
         willChange: 'left, top',
         cursor: 'pointer',
@@ -196,7 +236,9 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: isDefaultPositionVisible ? 'left 0.05s linear, top 0.05s linear' : 'none'
+        transition: isDefaultPositionVisible 
+          ? `left ${CENTER_INDICATOR_CONSTANTS.TRANSITION_DURATION} ${CENTER_INDICATOR_CONSTANTS.TRANSITION_TIMING}, top ${CENTER_INDICATOR_CONSTANTS.TRANSITION_DURATION} ${CENTER_INDICATOR_CONSTANTS.TRANSITION_TIMING}` 
+          : 'none'
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -207,10 +249,10 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
           width: `${dotSize}px`,
           height: `${dotSize}px`,
           borderRadius: '50%',
-          backgroundColor: '#01cd15',
-          boxShadow: '0 2px 8px rgba(1, 205, 21, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.8)',
+          backgroundColor: CENTER_INDICATOR_CONSTANTS.DOT_COLOR,
+          boxShadow: CENTER_INDICATOR_CONSTANTS.DOT_SHADOW,
           transform: `scale(${isHovered ? hoverScale : 1})`,
-          transition: 'transform 0.2s ease-out',
+          transition: `transform ${CENTER_INDICATOR_CONSTANTS.HOVER_TRANSITION_DURATION} ${CENTER_INDICATOR_CONSTANTS.HOVER_TRANSITION_TIMING}`,
           willChange: 'transform'
         }}
       />
