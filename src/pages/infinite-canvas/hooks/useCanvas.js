@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 export const useCanvas = () => {
-  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 0.25 }); // 기본 줌 25%
+  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 0.25 }); // 초기값은 useEffect에서 설정됨
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [canvasAreas, setCanvasAreas] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -19,10 +19,13 @@ export const useCanvas = () => {
   useEffect(() => {
     const initialWidth = 1920 * 2; // 3840px
     const initialHeight = 1080 * 2; // 2160px
+    const initialScale = 0.25; // 기본 줌 25%
+    
     setCanvasSize({
       width: initialWidth,
       height: initialHeight
     });
+    
     // 초기 캔버스 영역 설정 (삭제 불가능한 메인 캔버스)
     setCanvasAreas([{
       x: 0,
@@ -32,6 +35,16 @@ export const useCanvas = () => {
       isInitial: true,
       id: 'initial-canvas'
     }]);
+    
+    // 화면 중앙에 캔버스가 오도록 초기 위치 설정
+    const centerX = window.innerWidth / 2 - (initialWidth * initialScale) / 2;
+    const centerY = window.innerHeight / 2 - (initialHeight * initialScale) / 2;
+    
+    setCanvasTransform({
+      x: centerX,
+      y: centerY,
+      scale: initialScale
+    });
   }, []);
 
   // 캔버스 영역 추가 함수 (단순화: 클릭한 위치에 정확히 한 칸만 추가)
@@ -229,12 +242,20 @@ export const useCanvas = () => {
   }, [isDragging, handleCanvasMouseMove, handleCanvasMouseUp]);
 
   const resetCanvas = () => {
-    setCanvasTransform({ x: 0, y: 0, scale: 0.25 }); // 기본 줌 25%
+    const initialWidth = 1920 * 2;
+    const initialHeight = 1080 * 2;
+    const initialScale = 0.25;
+    
+    // 화면 중앙에 캔버스가 오도록 위치 설정
+    const centerX = window.innerWidth / 2 - (initialWidth * initialScale) / 2;
+    const centerY = window.innerHeight / 2 - (initialHeight * initialScale) / 2;
+    
+    setCanvasTransform({ x: centerX, y: centerY, scale: initialScale });
     setCanvasAreas([{
       x: 0,
       y: 0,
-      width: 1920 * 2,
-      height: 1080 * 2,
+      width: initialWidth,
+      height: initialHeight,
       isInitial: true,
       id: 'initial-canvas'
     }]);
