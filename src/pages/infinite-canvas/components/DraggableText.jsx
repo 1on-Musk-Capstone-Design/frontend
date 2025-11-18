@@ -157,20 +157,14 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       let newX = x;
       let newY = y;
       
-      // 리사이즈 핸들에 따라 크기 조정
-      if (resizeHandle.includes('e')) {
+      // 리사이즈 핸들에 따라 크기 조정 (오른쪽과 아래만)
+      if (resizeHandle === 'e' || resizeHandle === 'se') {
+        // 오른쪽 핸들: 너비만 증가
         newWidth = Math.max(100, initialSize.width + deltaX);
       }
-      if (resizeHandle.includes('w')) {
-        newWidth = Math.max(100, initialSize.width - deltaX);
-        newX = x + (initialSize.width - newWidth);
-      }
-      if (resizeHandle.includes('s')) {
+      if (resizeHandle === 's' || resizeHandle === 'se') {
+        // 아래 핸들: 높이만 증가
         newHeight = Math.max(100, initialSize.height + deltaY);
-      }
-      if (resizeHandle.includes('n')) {
-        newHeight = Math.max(100, initialSize.height - deltaY);
-        newY = y + (initialSize.height - newHeight);
       }
       
       onUpdate(id, { 
@@ -309,22 +303,18 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     } : baseStyle;
   };
 
-  // 리사이즈 핸들 렌더링
+  // 리사이즈 핸들 렌더링 (오른쪽과 아래만)
   const renderResizeHandles = () => {
     if (isEditing || mode === 'delete') return null;
     
     // 선택되었거나 hover 상태일 때만 표시
     if (!isSelected && !isHovered) return null;
     
+    // 오른쪽(e)과 아래(s) 핸들만 표시
     const handles = [
-      { position: 'n', cursor: 'ns-resize', style: { top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', height: '8px' } },
-      { position: 's', cursor: 'ns-resize', style: { bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', height: '8px' } },
-      { position: 'e', cursor: 'ew-resize', style: { right: 0, top: '50%', transform: 'translateY(-50%)', width: '8px', height: '100%' } },
-      { position: 'w', cursor: 'ew-resize', style: { left: 0, top: '50%', transform: 'translateY(-50%)', width: '8px', height: '100%' } },
-      { position: 'ne', cursor: 'nesw-resize', style: { top: 0, right: 0, width: '12px', height: '12px' } },
-      { position: 'nw', cursor: 'nwse-resize', style: { top: 0, left: 0, width: '12px', height: '12px' } },
-      { position: 'se', cursor: 'nwse-resize', style: { bottom: 0, right: 0, width: '12px', height: '12px' } },
-      { position: 'sw', cursor: 'nesw-resize', style: { bottom: 0, left: 0, width: '12px', height: '12px' } }
+      { position: 's', cursor: 'ns-resize', style: { bottom: 0, left: 0, width: '100%', height: '20px' } },
+      { position: 'e', cursor: 'ew-resize', style: { right: 0, top: 0, width: '20px', height: '100%' } },
+      { position: 'se', cursor: 'nwse-resize', style: { bottom: 0, right: 0, width: '24px', height: '24px' } }
     ];
     
     return handles.map(handle => (
@@ -334,19 +324,21 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
         style={{
           position: 'absolute',
           cursor: handle.cursor,
-          backgroundColor: isResizing && resizeHandle === handle.position ? '#3b82f6' : 'rgba(59, 130, 246, 0.5)',
-          borderRadius: '2px',
+          backgroundColor: isResizing && resizeHandle === handle.position ? 'var(--theme-primary)' : 'rgba(24, 160, 251, 0.3)',
+          borderRadius: handle.position === 'se' ? '0 0 var(--memo-border-radius) 0' : '2px',
           zIndex: 10,
           transition: 'background-color 0.2s ease',
           ...handle.style
         }}
         onMouseDown={(e) => handleResizeStart(e, handle.position)}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#3b82f6';
+          e.currentTarget.style.backgroundColor = 'var(--theme-primary)';
+          e.currentTarget.style.opacity = '0.8';
         }}
         onMouseLeave={(e) => {
           if (!(isResizing && resizeHandle === handle.position)) {
-            e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.5)';
+            e.currentTarget.style.backgroundColor = 'rgba(24, 160, 251, 0.3)';
+            e.currentTarget.style.opacity = '1';
           }
         }}
       />
