@@ -28,6 +28,37 @@ const ClusteringPanel = ({ onClusteringParamsChange }) => {
     }
   };
 
+  // 알고리즘 설명
+  const getAlgorithmDescription = (algorithm) => {
+    const descriptions = {
+      kmeans: '데이터를 K개의 클러스터로 나누는 가장 일반적인 알고리즘',
+      dbscan: '밀도 기반으로 클러스터를 찾는 알고리즘 (노이즈 처리 가능)',
+      hierarchical: '계층적 구조로 클러스터를 형성하는 알고리즘'
+    };
+    return descriptions[algorithm] || '';
+  };
+
+  // 거리 측정 설명
+  const getDistanceMetricDescription = (metric) => {
+    const descriptions = {
+      euclidean: '직선 거리 (가장 일반적인 거리 측정 방법)',
+      manhattan: '맨해튼 거리 (격자 형태의 거리 측정)',
+      cosine: '코사인 유사도 (벡터 간 각도 기반 측정)'
+    };
+    return descriptions[metric] || '';
+  };
+
+  // Linkage 설명
+  const getLinkageDescription = (linkage) => {
+    const descriptions = {
+      ward: '클러스터 내 분산을 최소화하는 방법',
+      complete: '두 클러스터 간 최대 거리를 사용',
+      average: '두 클러스터 간 평균 거리를 사용',
+      single: '두 클러스터 간 최소 거리를 사용'
+    };
+    return descriptions[linkage] || '';
+  };
+
   return (
     <>
       {/* 클러스터링 패널 토글 버튼 */}
@@ -37,7 +68,10 @@ const ClusteringPanel = ({ onClusteringParamsChange }) => {
           onClick={() => setIsHidden(false)}
           title="클러스터링 열기"
         >
-          &gt;&gt;
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+          </svg>
         </button>
       )}
 
@@ -129,6 +163,9 @@ const ClusteringPanel = ({ onClusteringParamsChange }) => {
                 <option value="dbscan">DBSCAN</option>
                 <option value="hierarchical">Hierarchical</option>
               </select>
+              <div className="clusteringDescription">
+                {getAlgorithmDescription(clusteringParams.algorithm)}
+              </div>
             </div>
           </div>
 
@@ -147,6 +184,9 @@ const ClusteringPanel = ({ onClusteringParamsChange }) => {
                 <option value="manhattan">Manhattan</option>
                 <option value="cosine">Cosine</option>
               </select>
+              <div className="clusteringDescription">
+                {getDistanceMetricDescription(clusteringParams.distanceMetric)}
+              </div>
             </div>
           </div>
 
@@ -204,6 +244,9 @@ const ClusteringPanel = ({ onClusteringParamsChange }) => {
                   <option value="average">Average</option>
                   <option value="single">Single</option>
                 </select>
+                <div className="clusteringDescription">
+                  {getLinkageDescription(clusteringParams.linkage)}
+                </div>
               </div>
             </div>
           )}
