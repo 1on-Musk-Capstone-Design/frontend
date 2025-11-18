@@ -9,7 +9,7 @@
 :root {
   /* 메인 테마 색상 */
   --theme-primary: #01cd15; /* 메인 색상 */
-  --theme-primary-hover: #f3c341; /* 메인 색상 호버 */
+  --theme-primary-hover: #1e7b0b; /* 메인 색상 호버 */
   --theme-primary-light: rgba(1, 205, 21, 0.2); /* 메인 색상 연한 버전 */
   --theme-primary-light-hover: rgba(1, 205, 21, 0.35); /* 메인 색상 연한 버전 호버 */
   /* --theme-primary: #18a0fb; /* 메인 파란색 */
