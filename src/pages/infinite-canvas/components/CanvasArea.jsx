@@ -76,11 +76,10 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
   const getAreaBorderStyle = (areaIndex) => {
     const area = canvasAreas[areaIndex];
     
-    // 처음 생성된 캔버스는 연두색 테두리 (삭제 불가능)
+    // 처음 생성된 캔버스는 테두리 없음
     if (area && area.isInitial) {
       return {
-        border: '6px solid #84cc16', // border-lime-500
-        borderColor: '#84cc16'
+        border: 'none'
       };
     }
     
@@ -109,8 +108,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
       }
     }
     return {
-      border: '6px solid #d1d5db', // border-gray-300
-      borderColor: '#d1d5db'
+      border: 'none'
     };
   };
 
@@ -137,7 +135,6 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
             width: area.width,
             height: area.height,
             backgroundColor: 'var(--canvas-bg-color)',
-            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1)',
             backgroundImage: 'none',
             cursor: mode === 'delete' ? 'pointer' : 'default',
             transition: 'border-color 0.2s ease',
@@ -153,12 +150,14 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
       {/* 영역 선택 표시 */}
       {selectionArea && (
         <div
-          className="absolute border-2 border-blue-500 bg-blue-200/20 pointer-events-none"
+          className="absolute pointer-events-none"
           style={{
             left: Math.min(selectionArea.startX, selectionArea.endX),
             top: Math.min(selectionArea.startY, selectionArea.endY),
             width: Math.abs(selectionArea.endX - selectionArea.startX),
             height: Math.abs(selectionArea.endY - selectionArea.startY),
+            border: '2px solid var(--theme-primary)',
+            backgroundColor: 'rgba(24, 160, 251, 0.1)',
             zIndex: 1000
           }}
         />
