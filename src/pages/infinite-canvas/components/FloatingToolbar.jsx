@@ -3,71 +3,76 @@ import React from 'react';
 const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
   return (
     <div 
-      className="fixed bottom-6 z-50 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200 p-2 flex gap-1"
+      className="floatingToolbar"
       style={{
         position: 'fixed',
-        bottom: '24px',
+        bottom: '16px',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9999,
         willChange: 'transform'
       }}
     >
+      {/* 텍스트 도구 */}
       <button
         onClick={() => onModeChange('text')}
-        className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold transition-all duration-200 ${
-          mode === 'text'
-            ? 'bg-blue-500 text-white shadow-lg scale-105'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
-        }`}
-        title="텍스트 모드"
+        className={`toolbarButton ${mode === 'text' ? 'active' : ''}`}
+        title="텍스트"
       >
-        T
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 4h16v4H4V4zM4 12h12M4 20h16"/>
+        </svg>
       </button>
+
+      {/* 포인터/선택 도구 */}
       <button
         onClick={() => onModeChange('move')}
-        className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg transition-all duration-200 ${
-          mode === 'move'
-            ? 'bg-green-500 text-white shadow-lg scale-105'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
-        }`}
-        title="이동 모드"
+        className={`toolbarButton ${mode === 'move' ? 'active' : ''}`}
+        title="선택/이동"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M13 6.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v11c0 .28.22.5.5.5s.5-.22.5-.5v-11zM9.5 8.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v7c0 .28.22.5.5.5s.5-.22.5-.5v-7zM16.5 8.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v7c0 .28.22.5.5.5s.5-.22.5-.5v-7z"/>
-          <path d="M3 3h18v2H3V3zm0 16h18v2H3v-2z"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
         </svg>
       </button>
+
+      {/* 삭제 도구 */}
       <button
         onClick={() => onModeChange('delete')}
-        className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg transition-all duration-200 ${
-          mode === 'delete'
-            ? 'bg-red-500 text-white shadow-lg scale-105'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
-        }`}
-        title="삭제 모드"
+        className={`toolbarButton ${mode === 'delete' ? 'active' : ''}`}
+        title="삭제"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
         </svg>
       </button>
-      <div className="w-px bg-gray-300 mx-1"></div>
+
+      {/* 구분선 */}
+      <div className="toolbarDivider"></div>
+
+      {/* 정리 도구 */}
       <button
         onClick={onArrange}
-        className="w-12 h-12 rounded-xl bg-purple-500 text-white hover:bg-purple-600 flex items-center justify-center text-lg transition-all duration-200 hover:scale-105"
+        className="toolbarButton"
         title="정리"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zm-8 8h6v6H3v-6zm8 0h6v6h-6v-6z"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
         </svg>
       </button>
+
+      {/* 초기화 */}
       <button
         onClick={onReset}
-        className="w-12 h-12 rounded-xl bg-red-500 text-white hover:bg-red-600 flex items-center justify-center text-lg transition-all duration-200 hover:scale-105"
+        className="toolbarButton"
         title="초기화"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
         </svg>
       </button>
     </div>
