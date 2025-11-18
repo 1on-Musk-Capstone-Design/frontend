@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { CANVAS_CONSTANTS, COMPUTED_CONSTANTS, ANIMATION_CONSTANTS, CANVAS_AREA_CONSTANTS } from '../constants';
 
 export const useCanvas = () => {
   const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 0.25 }); // 초기값은 useEffect에서 설정됨
@@ -17,11 +18,11 @@ export const useCanvas = () => {
   const scrollTimeoutRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-  // 캔버스 크기 초기화 (고정된 해상도의 2배: 1920x1080의 2배)
+  // 캔버스 크기 초기화
   useEffect(() => {
-    const initialWidth = 1920 * 2; // 3840px
-    const initialHeight = 1080 * 2; // 2160px
-    const initialScale = 0.25; // 기본 줌 25%
+    const initialWidth = COMPUTED_CONSTANTS.INITIAL_CANVAS_WIDTH;
+    const initialHeight = COMPUTED_CONSTANTS.INITIAL_CANVAS_HEIGHT;
+    const initialScale = CANVAS_CONSTANTS.INITIAL_SCALE;
     
     setCanvasSize({
       width: initialWidth,
@@ -51,8 +52,8 @@ export const useCanvas = () => {
 
   // 캔버스 영역 추가 함수 (단순화: 클릭한 위치에 정확히 한 칸만 추가)
   const addCanvasArea = (x, y) => {
-    const initialWidth = 1920 * 2; // 3840px
-    const initialHeight = 1080 * 2; // 2160px
+    const initialWidth = COMPUTED_CONSTANTS.INITIAL_CANVAS_WIDTH;
+    const initialHeight = COMPUTED_CONSTANTS.INITIAL_CANVAS_HEIGHT;
 
     // 클릭한 위치에 정확히 한 칸만 추가 (격자에 맞춰 정렬)
     const newArea = {
@@ -154,12 +155,12 @@ export const useCanvas = () => {
     }
     scrollTimeoutRef.current = setTimeout(() => {
       setIsScrolling(false);
-    }, 500);
+    }, ANIMATION_CONSTANTS.SCROLLBAR_TIMEOUT);
     
-    // 드래그 감지 (5픽셀 이상 이동했을 때)
+    // 드래그 감지
     const deltaX = Math.abs(e.clientX - dragStartPos.x);
     const deltaY = Math.abs(e.clientY - dragStartPos.y);
-    if (deltaX > 5 || deltaY > 5) {
+    if (deltaX > CANVAS_AREA_CONSTANTS.DRAG_THRESHOLD || deltaY > CANVAS_AREA_CONSTANTS.DRAG_THRESHOLD) {
       setHasDragged(true);
     }
     
@@ -182,8 +183,8 @@ export const useCanvas = () => {
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
       
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.max(0.05, Math.min(3, canvasTransform.scale * zoomFactor)); // 최소 줌 0.05로 변경
+      const zoomFactor = e.deltaY > 0 ? (1 - CANVAS_CONSTANTS.ZOOM_FACTOR) : (1 + CANVAS_CONSTANTS.ZOOM_FACTOR);
+      const newScale = Math.max(CANVAS_CONSTANTS.MIN_SCALE, Math.min(CANVAS_CONSTANTS.MAX_SCALE, canvasTransform.scale * zoomFactor));
       
       // 마우스 위치를 중심으로 줌
       const scaleChange = newScale / canvasTransform.scale;
@@ -209,7 +210,7 @@ export const useCanvas = () => {
       }
       scrollTimeoutRef.current = setTimeout(() => {
         setIsScrolling(false);
-      }, 500);
+      }, ANIMATION_CONSTANTS.SCROLLBAR_TIMEOUT);
       
       // 더 큰 방향의 스크롤만 적용 (제한 없이)
       if (absDeltaX > absDeltaY) {
@@ -244,9 +245,9 @@ export const useCanvas = () => {
   }, [isDragging, handleCanvasMouseMove, handleCanvasMouseUp]);
 
   const resetCanvas = () => {
-    const initialWidth = 1920 * 2;
-    const initialHeight = 1080 * 2;
-    const initialScale = 0.25;
+    const initialWidth = COMPUTED_CONSTANTS.INITIAL_CANVAS_WIDTH;
+    const initialHeight = COMPUTED_CONSTANTS.INITIAL_CANVAS_HEIGHT;
+    const initialScale = CANVAS_CONSTANTS.INITIAL_SCALE;
     
     // 화면 중앙에 캔버스가 오도록 위치 설정
     const centerX = window.innerWidth / 2 - (initialWidth * initialScale) / 2;
@@ -276,7 +277,7 @@ export const useCanvas = () => {
     const startX = canvasTransform.x;
     const startY = canvasTransform.y;
     const startTime = performance.now();
-    const duration = 500; // 0.5초 애니메이션
+    const duration = ANIMATION_CONSTANTS.MOVE_DURATION;
     
     const animate = (currentTime) => {
       const elapsed = currentTime - startTime;
