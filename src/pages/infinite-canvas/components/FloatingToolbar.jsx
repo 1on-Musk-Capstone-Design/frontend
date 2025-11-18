@@ -1,4 +1,5 @@
 import React from 'react';
+import { TOOLBAR_CONSTANTS } from '../constants';
 
 const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
   return (
@@ -6,10 +7,10 @@ const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
       className="floatingToolbar"
       style={{
         position: 'fixed',
-        bottom: '16px',
+        bottom: `${TOOLBAR_CONSTANTS.BOTTOM_OFFSET}px`,
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 9999,
+        zIndex: TOOLBAR_CONSTANTS.Z_INDEX,
         willChange: 'transform'
       }}
     >
