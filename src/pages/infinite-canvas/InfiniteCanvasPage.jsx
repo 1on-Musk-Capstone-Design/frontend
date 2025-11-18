@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ChatPanel from './components/ChatPanel';
+import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import CanvasArea from './components/CanvasArea';
@@ -20,19 +21,19 @@ const InfiniteCanvasPage = () => {
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
 
-  // 브라우저 줌 완전 차단 (캔버스 줌만 허용)
+  // 브라우저 줌 차단 (Ctrl/Cmd + 휠로만 줌, 일반 스크롤은 허용)
   useEffect(() => {
     const preventZoom = (e) => {
-      // Ctrl + 마우스 휠 또는 Ctrl + +/- 키 차단
+      // Ctrl/Cmd + 마우스 휠로 줌하는 경우만 차단 (useCanvas에서 처리)
+      // 일반 스크롤은 허용
       if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
+        // useCanvas의 handleWheel에서 처리하므로 여기서는 차단하지 않음
+        return;
       }
     };
 
     const preventKeyboardZoom = (e) => {
-      // Ctrl + +/- 키 차단
+      // Ctrl + +/- 키로 브라우저 줌 차단 (캔버스 줌은 키보드로 제어하지 않음)
       if ((e.ctrlKey || e.metaKey) && 
           (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
         e.preventDefault();
@@ -41,15 +42,13 @@ const InfiniteCanvasPage = () => {
       }
     };
 
-    // 모든 줌 관련 이벤트 차단
-    document.addEventListener('wheel', preventZoom, { passive: false });
+    // 키보드 줌만 차단, 휠 이벤트는 useCanvas에서 처리
     document.addEventListener('keydown', preventKeyboardZoom, { passive: false });
     document.addEventListener('gesturestart', preventZoom, { passive: false });
     document.addEventListener('gesturechange', preventZoom, { passive: false });
     document.addEventListener('gestureend', preventZoom, { passive: false });
 
     return () => {
-      document.removeEventListener('wheel', preventZoom);
       document.removeEventListener('keydown', preventKeyboardZoom);
       document.removeEventListener('gesturestart', preventZoom);
       document.removeEventListener('gesturechange', preventZoom);
@@ -200,25 +199,22 @@ const InfiniteCanvasPage = () => {
     canvas.moveToLocation(location);
   };
 
+  const handleClusteringParamsChange = (params) => {
+    console.log('Clustering params changed:', params);
+    // TODO: 클러스터링 API 호출
+  };
+
   return (
-    <div 
-      className="w-full h-screen overflow-hidden relative"
-      style={{
-        backgroundImage: `
-          linear-gradient(45deg, #d1d5db 25%, transparent 25%),
-          linear-gradient(-45deg, #d1d5db 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, #d1d5db 75%),
-          linear-gradient(-45deg, transparent 75%, #d1d5db 75%)
-        `,
-        backgroundSize: '20px 20px',
-        backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-        backgroundColor: '#e5e7eb'
-      }}
-    >
+    <div className="infinite-canvas-page">
       {/* 채팅창 */}
       <ChatPanel 
         messages={chatMessages}
         onLocationClick={handleLocationClick}
+      />
+      
+      {/* 클러스터링 패널 */}
+      <ClusteringPanel 
+        onClusteringParamsChange={handleClusteringParamsChange}
       />
       
       {/* 플로팅 툴바 */}
@@ -228,34 +224,15 @@ const InfiniteCanvasPage = () => {
         onReset={resetCanvas}
         onArrange={arrangeTexts}
       />
-      
-      {/* 줌 정보 */}
-      <div 
-        className="fixed top-4 right-4 z-50 bg-white/95 backdrop-blur-md rounded-lg shadow-2xl p-2"
-        style={{
-          position: 'fixed',
-          top: '16px',
-          right: '16px',
-          zIndex: 9999,
-          willChange: 'transform'
-        }}
-      >
-        <div className="text-sm text-gray-600 flex items-center">
-          줌: {Math.round(canvas.canvasTransform.scale * 100)}%
-        </div>
-      </div>
 
       {/* 캔버스 */}
       <div
         ref={canvas.canvasRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
+        className={`canvas-container canvas-grid ${canvas.isScrolling ? 'scrolling' : ''}`}
         onClick={handleCanvasClick}
         onMouseDown={canvas.handleCanvasMouseDown}
         onWheel={canvas.handleWheel}
         style={{
-          backgroundImage: `
-            radial-gradient(circle, #9ca3af 1px, transparent 1px)
-          `,
           backgroundSize: `${20 * canvas.canvasTransform.scale}px ${20 * canvas.canvasTransform.scale}px`,
           backgroundPosition: `${canvas.canvasTransform.x}px ${canvas.canvasTransform.y}px`
         }}
@@ -282,30 +259,6 @@ const InfiniteCanvasPage = () => {
           onUpdateGroupDrag={(baseTextId, newX, newY) => textFields.updateGroupDrag(baseTextId, newX, newY, handleGroupDragCanvasExpansion)}
           onEndGroupDrag={textFields.endGroupDrag}
         />
-      </div>
-      
-      {/* 현재 모드 표시 */}
-      <div 
-        className="fixed top-4 z-50 bg-white/95 backdrop-blur-md rounded-lg shadow-2xl p-2"
-        style={{
-          position: 'fixed',
-          top: '16px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 9999,
-          willChange: 'transform'
-        }}
-      >
-        <div className="text-sm text-gray-600">
-          현재 모드: 
-          <span className={`ml-1 font-medium ${
-            mode === 'text' ? 'text-blue-600' : 
-            mode === 'move' ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {mode === 'text' ? 'T (텍스트)' : 
-             mode === 'move' ? '이동' : 'D (삭제)'}
-          </span>
-        </div>
       </div>
     </div>
   );
