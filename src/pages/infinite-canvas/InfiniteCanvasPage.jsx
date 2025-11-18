@@ -9,6 +9,7 @@ import Minimap from './components/Minimap';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
+import { CANVAS_AREA_CONSTANTS } from './constants';
 import './styles/canvas.css';
 
 // 메인 무한 캔버스 컴포넌트
@@ -233,7 +234,7 @@ const InfiniteCanvasPage = () => {
     // 텍스트 필드들을 그리드 형태로 정렬 (처음 생성된 캔버스 중심 기준)
     const cols = Math.ceil(Math.sqrt(textFields.texts.length));
     const rows = Math.ceil(textFields.texts.length / cols);
-    const spacing = 250; // 텍스트 필드 간 간격
+    const spacing = CANVAS_AREA_CONSTANTS.TEXT_ARRANGE_SPACING;
     const startX = centerX - ((cols - 1) * spacing) / 2;
     const startY = centerY - ((rows - 1) * spacing) / 2;
     
@@ -304,6 +305,7 @@ const InfiniteCanvasPage = () => {
           isChatPanelOpen={isChatPanelOpen}
           isClusteringPanelOpen={isClusteringPanelOpen}
           onCenterClick={handleLocationClick}
+          canvasRef={canvas.canvasRef}
         />
       )}
 
