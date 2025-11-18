@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import DraggableText from './DraggableText';
 
-const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag }) => {
+const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isAnimating = false }) => {
   const [hoveredAreaIndex, setHoveredAreaIndex] = useState(null);
   const [longPressingAreaIndex, setLongPressingAreaIndex] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);

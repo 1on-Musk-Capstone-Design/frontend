@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const ClusteringPanel = ({ onClusteringParamsChange }) => {
+const ClusteringPanel = ({ onClusteringParamsChange, onVisibilityChange }) => {
   const [isHidden, setIsHidden] = useState(false);
+
+  // 가시성 변경 시 부모에게 알림
+  useEffect(() => {
+    if (onVisibilityChange) {
+      onVisibilityChange(!isHidden);
+    }
+  }, [isHidden, onVisibilityChange]);
   const [clusteringParams, setClusteringParams] = useState({
     nClusters: 'auto', // 'auto' 또는 숫자
     minClusters: 2,

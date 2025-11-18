@@ -12,8 +12,10 @@ export const useCanvas = () => {
   const [isAreaSelecting, setIsAreaSelecting] = useState(false);
   const [selectionArea, setSelectionArea] = useState(null);
   const [hasStartedAreaSelection, setHasStartedAreaSelection] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const canvasRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
   // 캔버스 크기 초기화 (고정된 해상도의 2배: 1920x1080의 2배)
   useEffect(() => {
@@ -265,11 +267,42 @@ export const useCanvas = () => {
     const targetX = -location.x * canvasTransform.scale + window.innerWidth / 2;
     const targetY = -location.y * canvasTransform.scale + window.innerHeight / 2;
     
-    setCanvasTransform(prev => ({
-      ...prev,
-      x: targetX,
-      y: targetY
-    }));
+    // 기존 애니메이션 취소
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    setIsAnimating(true);
+    const startX = canvasTransform.x;
+    const startY = canvasTransform.y;
+    const startTime = performance.now();
+    const duration = 500; // 0.5초 애니메이션
+    
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // easeOutCubic 이징 함수
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+      
+      const currentX = startX + (targetX - startX) * easeOutCubic;
+      const currentY = startY + (targetY - startY) * easeOutCubic;
+      
+      setCanvasTransform(prev => ({
+        ...prev,
+        x: currentX,
+        y: currentY
+      }));
+      
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        setIsAnimating(false);
+        animationFrameRef.current = null;
+      }
+    };
+    
+    animationFrameRef.current = requestAnimationFrame(animate);
   };
 
   // 영역 선택 시작
@@ -390,6 +423,15 @@ export const useCanvas = () => {
     }
   };
 
+  // 컴포넌트 언마운트 시 애니메이션 정리
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
   return {
     canvasTransform,
     canvasSize,
@@ -411,6 +453,7 @@ export const useCanvas = () => {
     startAreaSelection,
     updateAreaSelection,
     endAreaSelection,
-    getTextsInSelectionArea
+    getTextsInSelectionArea,
+    isAnimating
   };
 };

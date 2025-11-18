@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const ChatPanel = ({ messages = [], onLocationClick }) => {
+const ChatPanel = ({ messages = [], onLocationClick, onVisibilityChange }) => {
   const [localMessages, setLocalMessages] = useState([
     { id: 1, text: "안녕하세요! 무한 캔버스에 오신 것을 환영합니다.", sender: "system", time: "10:30" },
     { id: 2, text: "텍스트 필드를 생성하고 편집해보세요.", sender: "system", time: "10:31" },
@@ -9,6 +9,13 @@ const ChatPanel = ({ messages = [], onLocationClick }) => {
   const [newMessage, setNewMessage] = useState("");
   const [isHidden, setIsHidden] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // 가시성 변경 시 부모에게 알림
+  useEffect(() => {
+    if (onVisibilityChange) {
+      onVisibilityChange(!isHidden);
+    }
+  }, [isHidden, onVisibilityChange]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();

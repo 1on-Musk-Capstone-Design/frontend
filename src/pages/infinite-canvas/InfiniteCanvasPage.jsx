@@ -4,6 +4,7 @@ import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import CanvasArea from './components/CanvasArea';
+import CenterIndicator from './components/CenterIndicator';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
@@ -13,6 +14,8 @@ import './styles/canvas.css';
 const InfiniteCanvasPage = () => {
   const [mode, setMode] = useState('text'); // 'text' 또는 'move'
   const [chatMessages, setChatMessages] = useState([]);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(true);
+  const [isClusteringPanelOpen, setIsClusteringPanelOpen] = useState(true);
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -250,11 +253,13 @@ const InfiniteCanvasPage = () => {
       <ChatPanel 
         messages={chatMessages}
         onLocationClick={handleLocationClick}
+        onVisibilityChange={setIsChatPanelOpen}
       />
       
       {/* 클러스터링 패널 */}
       <ClusteringPanel 
         onClusteringParamsChange={handleClusteringParamsChange}
+        onVisibilityChange={setIsClusteringPanelOpen}
       />
       
       {/* 플로팅 툴바 */}
@@ -263,6 +268,14 @@ const InfiniteCanvasPage = () => {
         onModeChange={handleModeChange} 
         onReset={resetCanvas}
         onArrange={arrangeTexts}
+      />
+
+      {/* 중앙 표시 점 */}
+      <CenterIndicator 
+        canvasTransform={canvas.canvasTransform}
+        isChatPanelOpen={isChatPanelOpen}
+        isClusteringPanelOpen={isClusteringPanelOpen}
+        onCenterClick={handleLocationClick}
       />
 
       {/* 캔버스 */}
@@ -298,6 +311,7 @@ const InfiniteCanvasPage = () => {
           onStartGroupDrag={textFields.startGroupDrag}
           onUpdateGroupDrag={(baseTextId, newX, newY) => textFields.updateGroupDrag(baseTextId, newX, newY, handleGroupDragCanvasExpansion)}
           onEndGroupDrag={textFields.endGroupDrag}
+          isAnimating={canvas.isAnimating}
         />
       </div>
     </div>
