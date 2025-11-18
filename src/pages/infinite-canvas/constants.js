@@ -45,7 +45,7 @@ export const CENTER_INDICATOR_CONSTANTS = {
   EDGE_MARGIN: 30, // 화면 가장자리에서의 여백 (px)
   
   // 애니메이션
-  TRANSITION_DURATION: '0.05s', // 위치 변경 애니메이션 시간
+  TRANSITION_DURATION: '0.1s', // 위치 변경 애니메이션 시간
   HOVER_TRANSITION_DURATION: '0.2s', // 호버 애니메이션 시간
   TRANSITION_TIMING: 'linear', // 위치 변경 애니메이션 타이밍
   HOVER_TRANSITION_TIMING: 'ease-out', // 호버 애니메이션 타이밍
