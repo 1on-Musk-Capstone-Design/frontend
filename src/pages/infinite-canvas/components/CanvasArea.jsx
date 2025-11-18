@@ -1,11 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DraggableText from './DraggableText';
 
-const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isAnimating = false }) => {
+const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isAnimating = false, showGrid = false }) => {
   const [hoveredAreaIndex, setHoveredAreaIndex] = useState(null);
   const [longPressingAreaIndex, setLongPressingAreaIndex] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [pressProgress, setPressProgress] = useState(0);
+
+  // 모드가 변경될 때 삭제 모드 관련 상태 초기화
+  useEffect(() => {
+    if (mode !== 'delete') {
+      // 삭제 모드가 아닐 때 모든 삭제 관련 상태 초기화
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
+      setHoveredAreaIndex(null);
+      setLongPressingAreaIndex(null);
+      setPressProgress(0);
+      // 하이라이트 해제
+      if (onHighlightTextsInArea) {
+        onHighlightTextsInArea(null);
+      }
+    }
+  }, [mode]);
 
   const handleAreaMouseDown = (areaIndex, e) => {
     const area = canvasAreas[areaIndex];
@@ -76,13 +94,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
   const getAreaBorderStyle = (areaIndex) => {
     const area = canvasAreas[areaIndex];
     
-    // 처음 생성된 캔버스는 테두리 없음
-    if (area && area.isInitial) {
-      return {
-        border: 'none'
-      };
-    }
-    
+    // 삭제 모드일 때는 삭제 관련 스타일 우선
     if (mode === 'delete') {
       if (longPressingAreaIndex === areaIndex) {
         // 진행률에 따라 테두리 두께와 배경색 계산 (6px ~ 24px)
@@ -106,7 +118,26 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
           borderColor: '#ef4444'
         };
       }
+      return {
+        border: 'none'
+      };
     }
+    
+    // 격자 보기가 켜져있을 때 테두리 표시
+    if (showGrid) {
+      // 처음 생성된 캔버스는 연한 테두리
+      if (area && area.isInitial) {
+        return {
+          border: '1px solid rgba(0, 0, 0, 0.2)'
+        };
+      }
+      // 일반 캔버스는 조금 더 진한 테두리
+      return {
+        border: '1px solid rgba(0, 0, 0, 0.25)'
+      };
+    }
+    
+    // 기본값: 테두리 없음
     return {
       border: 'none'
     };

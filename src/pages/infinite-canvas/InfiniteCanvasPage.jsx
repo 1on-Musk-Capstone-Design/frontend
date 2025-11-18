@@ -5,6 +5,7 @@ import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
+import Minimap from './components/Minimap';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
@@ -16,10 +17,30 @@ const InfiniteCanvasPage = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(true);
   const [isClusteringPanelOpen, setIsClusteringPanelOpen] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [showCenterIndicator, setShowCenterIndicator] = useState(true);
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
   const textFields = useTextFields();
+
+  // 윈도우 크기 추적
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
@@ -260,6 +281,12 @@ const InfiniteCanvasPage = () => {
       <ClusteringPanel 
         onClusteringParamsChange={handleClusteringParamsChange}
         onVisibilityChange={setIsClusteringPanelOpen}
+        onGridVisibilityChange={setShowGrid}
+        showGrid={showGrid}
+        showMinimap={showMinimap}
+        onMinimapVisibilityChange={setShowMinimap}
+        showCenterIndicator={showCenterIndicator}
+        onCenterIndicatorVisibilityChange={setShowCenterIndicator}
       />
       
       {/* 플로팅 툴바 */}
@@ -271,12 +298,25 @@ const InfiniteCanvasPage = () => {
       />
 
       {/* 중앙 표시 점 */}
-      <CenterIndicator 
-        canvasTransform={canvas.canvasTransform}
-        isChatPanelOpen={isChatPanelOpen}
-        isClusteringPanelOpen={isClusteringPanelOpen}
-        onCenterClick={handleLocationClick}
-      />
+      {showCenterIndicator && (
+        <CenterIndicator 
+          canvasTransform={canvas.canvasTransform}
+          isChatPanelOpen={isChatPanelOpen}
+          isClusteringPanelOpen={isClusteringPanelOpen}
+          onCenterClick={handleLocationClick}
+        />
+      )}
+
+      {/* 미니맵 */}
+      {showMinimap && (
+        <Minimap
+          canvasAreas={canvas.canvasAreas}
+          canvasTransform={canvas.canvasTransform}
+          windowSize={windowSize}
+          onLocationClick={handleLocationClick}
+          isClusteringPanelOpen={isClusteringPanelOpen}
+        />
+      )}
 
       {/* 캔버스 */}
       <div
@@ -312,6 +352,7 @@ const InfiniteCanvasPage = () => {
           onUpdateGroupDrag={(baseTextId, newX, newY) => textFields.updateGroupDrag(baseTextId, newX, newY, handleGroupDragCanvasExpansion)}
           onEndGroupDrag={textFields.endGroupDrag}
           isAnimating={canvas.isAnimating}
+          showGrid={showGrid}
         />
       </div>
     </div>

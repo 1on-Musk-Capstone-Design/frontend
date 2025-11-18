@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 
-const ClusteringPanel = ({ onClusteringParamsChange, onVisibilityChange }) => {
+const ClusteringPanel = ({ 
+  onClusteringParamsChange, 
+  onVisibilityChange, 
+  onGridVisibilityChange,
+  showGrid,
+  showMinimap,
+  onMinimapVisibilityChange,
+  showCenterIndicator,
+  onCenterIndicatorVisibilityChange
+}) => {
   const [isHidden, setIsHidden] = useState(false);
 
   // 가시성 변경 시 부모에게 알림
@@ -73,11 +82,12 @@ const ClusteringPanel = ({ onClusteringParamsChange, onVisibilityChange }) => {
         <button
           className="clusteringToggle"
           onClick={() => setIsHidden(false)}
-          title="클러스터링 열기"
+          title="패널 열기"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
       )}
@@ -263,6 +273,53 @@ const ClusteringPanel = ({ onClusteringParamsChange, onVisibilityChange }) => {
             <button className="clusteringRunButton" onClick={() => onClusteringParamsChange && onClusteringParamsChange(clusteringParams)}>
               클러스터링 실행
             </button>
+          </div>
+        </div>
+
+        {/* 설정 섹션 */}
+        <div className="clusteringSettingsSection">
+          <div className="clusteringSectionHeader">
+            <span>설정</span>
+          </div>
+          <div className="clusteringSettingsContent">
+            {/* 격자 보기 */}
+            <div className="clusteringSettingItem">
+              <span className="clusteringSettingLabel">격자 보기</span>
+              <label className="clusteringToggleSwitch">
+                <input
+                  type="checkbox"
+                  checked={showGrid}
+                  onChange={(e) => onGridVisibilityChange && onGridVisibilityChange(e.target.checked)}
+                />
+                <span className="clusteringToggleSlider"></span>
+              </label>
+            </div>
+
+            {/* 맵 보기 */}
+            <div className="clusteringSettingItem">
+              <span className="clusteringSettingLabel">맵 보기</span>
+              <label className="clusteringToggleSwitch">
+                <input
+                  type="checkbox"
+                  checked={showMinimap}
+                  onChange={(e) => onMinimapVisibilityChange && onMinimapVisibilityChange(e.target.checked)}
+                />
+                <span className="clusteringToggleSlider"></span>
+              </label>
+            </div>
+
+            {/* 중앙 위치 보기 */}
+            <div className="clusteringSettingItem">
+              <span className="clusteringSettingLabel">중앙 위치 보기</span>
+              <label className="clusteringToggleSwitch">
+                <input
+                  type="checkbox"
+                  checked={showCenterIndicator}
+                  onChange={(e) => onCenterIndicatorVisibilityChange && onCenterIndicatorVisibilityChange(e.target.checked)}
+                />
+                <span className="clusteringToggleSlider"></span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
