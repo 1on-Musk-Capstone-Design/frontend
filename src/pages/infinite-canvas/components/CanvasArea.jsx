@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DraggableText from './DraggableText';
+import { CANVAS_AREA_CONSTANTS } from '../constants';
 
 const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isAnimating = false, showGrid = false }) => {
   const [hoveredAreaIndex, setHoveredAreaIndex] = useState(null);
@@ -37,16 +38,20 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
       setPressProgress(0);
       
       // 진행률 업데이트를 위한 인터벌
+      const progressUpdateInterval = CANVAS_AREA_CONSTANTS.DELETE_PROGRESS_UPDATE_INTERVAL;
+      const totalDuration = CANVAS_AREA_CONSTANTS.DELETE_LONG_PRESS_DURATION;
+      const progressSteps = totalDuration / progressUpdateInterval;
+      
       const progressInterval = setInterval(() => {
         setPressProgress(prev => {
-          const newProgress = prev + 100 / 15; // 1.5초 동안 100%까지
+          const newProgress = prev + 100 / progressSteps;
           if (newProgress >= 100) {
             clearInterval(progressInterval);
             return 100;
           }
           return newProgress;
         });
-      }, 100);
+      }, progressUpdateInterval);
       
       const timer = setTimeout(() => {
         // 즉시 삭제 (하이라이트 효과 없이)
@@ -54,7 +59,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
         setLongPressingAreaIndex(null);
         setPressProgress(0);
         clearInterval(progressInterval);
-      }, 1500);
+      }, totalDuration);
       setLongPressTimer(timer);
     }
   };
@@ -97,14 +102,14 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
     // 삭제 모드일 때는 삭제 관련 스타일 우선
     if (mode === 'delete') {
       if (longPressingAreaIndex === areaIndex) {
-        // 진행률에 따라 테두리 두께와 배경색 계산 (6px ~ 24px)
-        const minBorder = 6;
-        const maxBorder = 24;
+        // 진행률에 따라 테두리 두께와 배경색 계산
+        const minBorder = CANVAS_AREA_CONSTANTS.DELETE_BORDER_MIN;
+        const maxBorder = CANVAS_AREA_CONSTANTS.DELETE_BORDER_MAX;
         const borderWidth = minBorder + (maxBorder - minBorder) * (pressProgress / 100);
         
-        // 진행률이 80% 이상이면 전체 빨간색 효과
-        const backgroundColor = pressProgress >= 80 ? 'rgba(220, 38, 38, 0.2)' : 'white';
-        const borderColor = pressProgress >= 80 ? '#dc2626' : '#dc2626';
+        // 진행률이 임계값 이상이면 전체 빨간색 효과
+        const backgroundColor = pressProgress >= CANVAS_AREA_CONSTANTS.DELETE_WARNING_THRESHOLD ? 'rgba(220, 38, 38, 0.2)' : 'white';
+        const borderColor = pressProgress >= CANVAS_AREA_CONSTANTS.DELETE_WARNING_THRESHOLD ? '#dc2626' : '#dc2626';
         
         return {
           border: `${borderWidth}px solid ${borderColor}`,
