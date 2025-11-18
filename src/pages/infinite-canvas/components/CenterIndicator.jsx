@@ -24,9 +24,14 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
 
     const handleScroll = () => {
       if (canvasRef && canvasRef.current) {
-        setScrollOffset({
-          x: canvasRef.current.scrollLeft || 0,
-          y: canvasRef.current.scrollTop || 0
+        // requestAnimationFrame을 사용하여 스크롤 후 정확한 위치 계산
+        requestAnimationFrame(() => {
+          if (canvasRef && canvasRef.current) {
+            setScrollOffset({
+              x: canvasRef.current.scrollLeft || 0,
+              y: canvasRef.current.scrollTop || 0
+            });
+          }
         });
       }
     };
@@ -61,10 +66,12 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
   // 위치 계산을 useMemo로 최적화하여 canvasTransform 변경 시 즉시 반영되도록 함
   const { dotPosition, isDefaultPositionVisible } = useMemo(() => {
     // canvas-container의 스크롤 오프셋과 위치 가져오기
+    // 매번 최신 값을 읽어오도록 함 (스크롤 후 정확한 위치 계산을 위해)
     let containerOffsetX = 0;
     let containerOffsetY = 0;
     
     if (canvasRef && canvasRef.current) {
+      // 스크롤 후에도 정확한 위치를 위해 매번 getBoundingClientRect() 호출
       const rect = canvasRef.current.getBoundingClientRect();
       containerOffsetX = rect.left;
       containerOffsetY = rect.top;
@@ -206,7 +213,19 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
       : getEdgePosition();
 
     return { dotPosition, isDefaultPositionVisible };
-  }, [canvasTransform.x, canvasTransform.y, canvasTransform.scale, windowSize.width, windowSize.height, isChatPanelOpen, isClusteringPanelOpen, hoverAreaSize, canvasRef, scrollOffset.x, scrollOffset.y]);
+  }, [
+    canvasTransform.x, 
+    canvasTransform.y, 
+    canvasTransform.scale, 
+    windowSize.width, 
+    windowSize.height, 
+    isChatPanelOpen, 
+    isClusteringPanelOpen, 
+    hoverAreaSize, 
+    canvasRef, 
+    scrollOffset.x, 
+    scrollOffset.y
+  ]);
 
   // 작은 초록색 점
   const dotSize = CENTER_INDICATOR_CONSTANTS.DOT_SIZE;
