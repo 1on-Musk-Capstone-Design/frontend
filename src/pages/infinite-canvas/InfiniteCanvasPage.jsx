@@ -9,6 +9,7 @@ import Minimap from './components/Minimap';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
+import { useSession } from './hooks/useSession';
 import { CANVAS_AREA_CONSTANTS } from './constants';
 import './styles/canvas.css';
 
@@ -29,6 +30,7 @@ const InfiniteCanvasPage = () => {
   // 커스텀 훅들 사용
   const canvas = useCanvas();
   const textFields = useTextFields();
+  const session = useSession();
 
   // 윈도우 크기 추적
   useEffect(() => {
@@ -276,6 +278,12 @@ const InfiniteCanvasPage = () => {
         messages={chatMessages}
         onLocationClick={handleLocationClick}
         onVisibilityChange={setIsChatPanelOpen}
+        participants={session.participants}
+        inviteLink={session.inviteLink}
+        onCopyInviteLink={session.copyInviteLink}
+        isShareDropdownOpen={session.isShareDropdownOpen}
+        onToggleShareDropdown={() => session.setIsShareDropdownOpen(!session.isShareDropdownOpen)}
+        projectName="무한 캔버스 프로젝트"
       />
       
       {/* 클러스터링 패널 */}
