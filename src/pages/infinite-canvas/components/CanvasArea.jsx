@@ -125,6 +125,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
       onMouseMove={onCanvasMouseMove}
       onMouseUp={onCanvasMouseUp}
     >
+      
       {/* 캔버스 영역들 렌더링 */}
       {canvasAreas.map((area, index) => (
         <div
@@ -135,13 +136,9 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
             top: area.y,
             width: area.width,
             height: area.height,
-            backgroundColor: 'white',
-            boxShadow: '0 0 0 1px #9ca3af',
-            backgroundImage: `
-              radial-gradient(circle, rgba(156, 163, 175, 0.3) 1px, transparent 1px)
-            `,
-            backgroundSize: '20px 20px',
-            backgroundPosition: '0 0',
+            backgroundColor: 'var(--canvas-bg-color)',
+            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1)',
+            backgroundImage: 'none',
             cursor: mode === 'delete' ? 'pointer' : 'default',
             transition: 'border-color 0.2s ease',
             ...getAreaBorderStyle(index)
@@ -174,6 +171,8 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
           x={text.x}
           y={text.y}
           text={text.text}
+          width={text.width}
+          height={text.height}
           onUpdate={updateText}
           onDelete={deleteText}
           canvasTransform={canvasTransform}
