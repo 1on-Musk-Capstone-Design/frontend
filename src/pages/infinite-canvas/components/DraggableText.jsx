@@ -1,8 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag }) => {
+const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState(null); // 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [currentText, setCurrentText] = useState(text);
   const [isHovered, setIsHovered] = useState(false);
@@ -10,8 +13,43 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [pressProgress, setPressProgress] = useState(0);
   const textareaRef = useRef(null);
+  const memoRef = useRef(null);
+  
+  // CSS 변수에서 기본 크기 가져오기
+  const getDefaultWidth = () => {
+    if (width !== null && width !== undefined) return width;
+    return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-width')) || 500;
+  };
+  
+  const getDefaultHeight = () => {
+    if (height !== null && height !== undefined) return height;
+    return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-height')) || 400;
+  };
+  
+  const currentWidth = getDefaultWidth();
+  const currentHeight = getDefaultHeight();
+
+  const handleResizeStart = (e, handle) => {
+    if (isEditing || mode === 'delete') return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsResizing(true);
+    setResizeHandle(handle);
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY
+    });
+    setInitialSize({
+      width: currentWidth,
+      height: currentHeight
+    });
+  };
 
   const handleMouseDown = (e) => {
+    // 리사이즈 핸들을 클릭한 경우는 제외
+    if (e.target.classList.contains('resize-handle')) return;
+    
     if (isEditing) return;
     e.preventDefault();
     e.stopPropagation();
@@ -80,7 +118,13 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
     }
     
     setIsDragging(false);
-  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag]);
+    
+    // 리사이즈 종료
+    if (isResizing) {
+      setIsResizing(false);
+      setResizeHandle(null);
+    }
+  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag, isResizing]);
 
   const handleMouseLeave = () => {
     setIsHovered(false);
@@ -96,9 +140,49 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
     if (mode === 'delete' || isHighlighted) {
       setIsHovered(true);
     }
+    // 리사이즈 핸들 표시를 위한 hover 상태 (편집 모드가 아닐 때)
+    if (!isEditing && mode !== 'delete') {
+      setIsHovered(true);
+    }
   };
 
   const handleMouseMove = useCallback((e) => {
+    if (isResizing) {
+      // 리사이즈 중
+      const deltaX = (e.clientX - dragStart.x) / canvasTransform.scale;
+      const deltaY = (e.clientY - dragStart.y) / canvasTransform.scale;
+      
+      let newWidth = initialSize.width;
+      let newHeight = initialSize.height;
+      let newX = x;
+      let newY = y;
+      
+      // 리사이즈 핸들에 따라 크기 조정
+      if (resizeHandle.includes('e')) {
+        newWidth = Math.max(100, initialSize.width + deltaX);
+      }
+      if (resizeHandle.includes('w')) {
+        newWidth = Math.max(100, initialSize.width - deltaX);
+        newX = x + (initialSize.width - newWidth);
+      }
+      if (resizeHandle.includes('s')) {
+        newHeight = Math.max(100, initialSize.height + deltaY);
+      }
+      if (resizeHandle.includes('n')) {
+        newHeight = Math.max(100, initialSize.height - deltaY);
+        newY = y + (initialSize.height - newHeight);
+      }
+      
+      onUpdate(id, { 
+        x: newX, 
+        y: newY, 
+        width: newWidth, 
+        height: newHeight, 
+        text: currentText 
+      });
+      return;
+    }
+    
     if (!isDragging) return;
     
     // 줌 레벨을 고려한 정확한 좌표 계산
@@ -112,11 +196,11 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
       // 일반 드래그
       onUpdate(id, { x: newX, y: newY, text: currentText });
     }
-  }, [isDragging, dragStart, id, currentText, onUpdate, canvasTransform, isMultiSelecting, isSelected, onUpdateGroupDrag]);
+  }, [isDragging, isResizing, resizeHandle, dragStart, initialSize, id, x, y, currentText, onUpdate, canvasTransform, isMultiSelecting, isSelected, onUpdateGroupDrag]);
 
 
   useEffect(() => {
-    if (isDragging) {
+    if (isDragging || isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -124,7 +208,7 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
@@ -167,82 +251,125 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
     onDelete(id);
   };
 
-  // 삭제 모드에서의 테두리 스타일 계산
+  // 삭제 모드에서의 테두리 스타일 계산 (테두리 없이 그림자만)
   const getBorderStyle = () => {
     console.log('DraggableText getBorderStyle', { id, isSelected, isHighlighted, mode });
+    
+    // 기본적으로 테두리 없음, 그림자만 사용
+    const baseStyle = {
+      border: 'none',
+      boxShadow: 'var(--memo-shadow)'
+    };
     
     if (isHighlighted) {
       if (isHovered) {
         return {
-          border: '12px solid #ef4444', // border-red-500
-          borderColor: '#ef4444'
+          ...baseStyle,
+          boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)'
         };
       }
       return {
-        border: '12px solid #dc2626', // border-red-600
-        borderColor: '#dc2626'
+        ...baseStyle,
+        boxShadow: '0 6px 20px rgba(220, 38, 38, 0.4)'
       };
     }
     
     // 다중 선택 상태
     if (isSelected) {
-      console.log('Text is selected, applying emerald border');
+      console.log('Text is selected, applying emerald shadow');
       return {
-        border: '4px solid #10b981', // border-emerald-500
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)'
+        ...baseStyle,
+        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)'
       };
     }
     
     if (mode === 'delete') {
       if (isLongPressing) {
-        // 진행률에 따라 테두리 두께와 배경색 계산
-        const minBorder = 4;
-        const maxBorder = 20;
-        const borderWidth = minBorder + (maxBorder - minBorder) * (pressProgress / 100);
-        
-        // 진행률이 80% 이상이면 전체 빨간색 효과
-        const backgroundColor = pressProgress >= 80 ? 'rgba(220, 38, 38, 0.2)' : 'white';
-        const borderColor = pressProgress >= 80 ? '#dc2626' : '#dc2626';
-        
+        // 진행률에 따라 그림자 강도 조절
+        const shadowIntensity = pressProgress / 100;
         return {
-          border: `${borderWidth}px solid ${borderColor}`,
-          borderColor: borderColor,
-          backgroundColor: backgroundColor,
+          ...baseStyle,
+          boxShadow: `0 ${4 + shadowIntensity * 12}px ${12 + shadowIntensity * 24}px rgba(220, 38, 38, ${0.2 + shadowIntensity * 0.4})`,
           transition: 'all 0.1s ease'
         };
       } else if (isHovered) {
         return {
-          border: '8px solid #ef4444', // border-red-500
-          borderColor: '#ef4444'
+          ...baseStyle,
+          boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)'
         };
       }
     }
+    
     return isDragging ? {
-      border: '4px solid #3b82f6', // border-blue-500
-      borderColor: '#3b82f6'
+      ...baseStyle,
+      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)'
     } : isEditing ? {
-      border: '4px solid #3b82f6', // border-blue-500
-      borderColor: '#3b82f6'
-    } : {
-      border: '4px solid #93c5fd', // border-blue-300
-      borderColor: '#93c5fd'
-    };
+      ...baseStyle,
+      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)'
+    } : baseStyle;
+  };
+
+  // 리사이즈 핸들 렌더링
+  const renderResizeHandles = () => {
+    if (isEditing || mode === 'delete') return null;
+    
+    // 선택되었거나 hover 상태일 때만 표시
+    if (!isSelected && !isHovered) return null;
+    
+    const handles = [
+      { position: 'n', cursor: 'ns-resize', style: { top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', height: '8px' } },
+      { position: 's', cursor: 'ns-resize', style: { bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', height: '8px' } },
+      { position: 'e', cursor: 'ew-resize', style: { right: 0, top: '50%', transform: 'translateY(-50%)', width: '8px', height: '100%' } },
+      { position: 'w', cursor: 'ew-resize', style: { left: 0, top: '50%', transform: 'translateY(-50%)', width: '8px', height: '100%' } },
+      { position: 'ne', cursor: 'nesw-resize', style: { top: 0, right: 0, width: '12px', height: '12px' } },
+      { position: 'nw', cursor: 'nwse-resize', style: { top: 0, left: 0, width: '12px', height: '12px' } },
+      { position: 'se', cursor: 'nwse-resize', style: { bottom: 0, right: 0, width: '12px', height: '12px' } },
+      { position: 'sw', cursor: 'nesw-resize', style: { bottom: 0, left: 0, width: '12px', height: '12px' } }
+    ];
+    
+    return handles.map(handle => (
+      <div
+        key={handle.position}
+        className="resize-handle"
+        style={{
+          position: 'absolute',
+          cursor: handle.cursor,
+          backgroundColor: isResizing && resizeHandle === handle.position ? '#3b82f6' : 'rgba(59, 130, 246, 0.5)',
+          borderRadius: '2px',
+          zIndex: 10,
+          transition: 'background-color 0.2s ease',
+          ...handle.style
+        }}
+        onMouseDown={(e) => handleResizeStart(e, handle.position)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#3b82f6';
+        }}
+        onMouseLeave={(e) => {
+          if (!(isResizing && resizeHandle === handle.position)) {
+            e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.5)';
+          }
+        }}
+      />
+    ));
   };
 
   return (
     <div
-      className={`draggable-text absolute bg-white rounded-lg shadow-lg select-none ${
+      ref={memoRef}
+      className={`draggable-text absolute select-none ${
         isDragging ? 'shadow-xl' : ''
       }`}
       style={{
         left: x,
         top: y,
-        width: '300px',
-        height: '150px',
+        width: `${currentWidth}px`,
+        height: `${currentHeight}px`,
+        backgroundColor: 'var(--memo-bg-color)',
+        borderRadius: 'var(--memo-border-radius)',
+        boxShadow: 'var(--memo-shadow)',
         transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-        transition: isDragging ? 'none' : 'transform 0.1s ease',
-        cursor: mode === 'delete' ? 'pointer' : 'move',
+        transition: (isDragging || isResizing) ? 'none' : 'transform 0.1s ease',
+        cursor: mode === 'delete' ? 'pointer' : (isResizing ? 'move' : 'move'),
         ...getBorderStyle()
       }}
       onMouseDown={handleMouseDown}
@@ -251,30 +378,14 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
       onMouseLeave={handleMouseLeave}
       onDoubleClick={handleDoubleClick}
     >
-      <div className="flex justify-between items-center p-2 bg-blue-50 rounded-t-lg">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600">텍스트</span>
-          <span className="text-xs text-gray-500 font-mono">
-            ({Math.round(x)}, {Math.round(y)})
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => onSendToChat(id, x, y, currentText)}
-            className="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded hover:bg-blue-100 transition-colors"
-            title="채팅으로 전송"
-          >
-            📤
-          </button>
-          <button
-            onClick={handleDelete}
-            className="text-red-500 hover:text-red-700 text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      <div className="p-2">
+      {renderResizeHandles()}
+      <div style={{ 
+        padding: '24px',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden' // 부모에서 오버플로우 제어
+      }}>
         {isEditing ? (
           <textarea
             ref={textareaRef}
@@ -282,12 +393,33 @@ const DraggableText = ({ id, x, y, text, onUpdate, onDelete, canvasTransform, on
             onChange={handleTextChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="w-full h-full resize-none border-none outline-none bg-transparent"
+            style={{
+              width: '100%',
+              height: '100%',
+              resize: 'none',
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: 'var(--memo-font-size)',
+              fontWeight: 'var(--memo-font-weight)',
+              color: '#000000',
+              overflow: 'auto' // 내부 스크롤
+            }}
             placeholder="텍스트를 입력하세요..."
             autoFocus
           />
         ) : (
-          <div className="min-h-[30px] whitespace-pre-wrap">
+          <div style={{
+            fontSize: 'var(--memo-font-size)',
+            fontWeight: 'var(--memo-font-weight)',
+            color: '#000000',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            height: '100%',
+            overflow: 'auto', // 내부 스크롤
+            display: 'flex',
+            alignItems: 'flex-start' // 위 정렬
+          }}>
             {currentText || '더블클릭하여 편집'}
           </div>
         )}
