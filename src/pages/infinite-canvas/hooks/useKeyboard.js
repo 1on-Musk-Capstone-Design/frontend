@@ -7,6 +7,17 @@ export const useKeyboard = (onModeChange, isTextEditing) => {
       // 텍스트 편집 중일 때는 단축키 비활성화
       if (isTextEditing) return;
       
+      // 입력 필드(input, textarea, select 등)에 포커스가 있을 때는 단축키 비활성화
+      const target = e.target;
+      if (target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      )) {
+        return;
+      }
+      
       const key = e.key.toLowerCase();
       
       // 영어 키보드
