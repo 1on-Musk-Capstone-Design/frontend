@@ -7,6 +7,14 @@
    CSS 변수 정의 - 색상, 크기, 폰트 등
    ============================================ */
 :root {
+  /* 메인 테마 색상 */
+  --theme-primary: #01cd15; /* 메인 색상 */
+  --theme-primary-hover: #f3c341; /* 메인 색상 호버 */
+  --theme-primary-light: rgba(1, 205, 21, 0.2); /* 메인 색상 연한 버전 */
+  --theme-primary-light-hover: rgba(1, 205, 21, 0.35); /* 메인 색상 연한 버전 호버 */
+  /* --theme-primary: #18a0fb; /* 메인 파란색 */
+   /*--theme-primary-hover: #1592e6; /* 메인 파란색 호버 */
+  
   /* 배경 색상 */
   --bg-color: #f5f5f5; /* 전체 배경 색상 (밝은 회색) */
   --canvas-bg-color: #ffffff; /* 캔버스 배경 색상 (흰색) */
@@ -31,13 +39,13 @@
   --chat-message-gap: 8px; /* 메시지 간격 */
   --chat-message-max-width: 75%; /* 메시지 최대 너비 */
   --chat-message-border-radius: 12px; /* 메시지 풍선 모서리 곡률 */
-  --chat-user-message-bg: #18a0fb; /* 내 메시지 배경 (Figma 블루) */
+  --chat-user-message-bg: var(--theme-primary); /* 내 메시지 배경 */
   --chat-user-message-text: #ffffff; /* 내 메시지 텍스트 */
   --chat-system-message-bg: #f0f0f0; /* 상대 메시지 배경 */
   --chat-system-message-text: #1a1a1a; /* 상대 메시지 텍스트 */
   --chat-input-bg: #ffffff; /* 채팅 입력 필드 배경 */
   --chat-input-text: #1a1a1a; /* 채팅 입력 필드 텍스트 */
-  --chat-send-button-bg: #18a0fb; /* 전송 버튼 배경 (Figma 블루) */
+  --chat-send-button-bg: var(--theme-primary); /* 전송 버튼 배경 */
   --chat-send-button-text: #ffffff; /* 전송 버튼 텍스트 (흰색) */
   
   /* 메모(텍스트 필드) 스타일 */
@@ -100,7 +108,7 @@
   --clustering-toggle-font-weight: bold; /* 토글 버튼 폰트 굵기 */
   --clustering-toggle-text: #1a1a1a; /* 토글 버튼 텍스트 */
   --clustering-toggle-border-radius: 8px 0 0 8px; /* 토글 버튼 모서리 */
-  --clustering-run-button-bg: #18a0fb; /* 실행 버튼 배경 */
+  --clustering-run-button-bg: var(--theme-primary); /* 실행 버튼 배경 */
   --clustering-run-button-text: #ffffff; /* 실행 버튼 텍스트 */
 }
 
@@ -330,12 +338,12 @@
 }
 
 .chatMessages::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--theme-primary-light);
   border-radius: 4px;
 }
 
 .chatMessages::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--theme-primary-light-hover);
 }
 
 .chatMessage {
@@ -445,7 +453,7 @@
 }
 
 .chatSendButton:hover {
-  background-color: #1592e6;
+  background-color: var(--theme-primary-hover);
 }
 
 /* ============================================
@@ -656,6 +664,15 @@
   border-color: var(--clustering-run-button-bg);
 }
 
+.clusteringDescription {
+  font-size: 10px;
+  color: var(--clustering-section-header-color);
+  margin-top: 6px;
+  line-height: 1.3;
+  padding: 0 2px;
+  opacity: 0.8;
+}
+
 .clusteringActionArea {
   margin-top: 24px;
   padding-top: 16px;
@@ -676,7 +693,7 @@
 }
 
 .clusteringRunButton:hover {
-  background-color: #1592e6;
+  background-color: var(--theme-primary-hover);
 }
 
 /* ============================================
@@ -715,12 +732,12 @@
 }
 
 .toolbarButton.active {
-  background-color: #18a0fb;
+  background-color: var(--theme-primary);
   color: #ffffff;
 }
 
 .toolbarButton.active:hover {
-  background-color: #1592e6;
+  background-color: var(--theme-primary-hover);
 }
 
 .toolbarDivider {
