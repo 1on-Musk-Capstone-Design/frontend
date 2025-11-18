@@ -274,6 +274,7 @@
   border-bottom: 1px solid var(--chat-border-color);
   background-color: var(--chat-sidebar-bg);
   flex-shrink: 0;
+  position: relative;
 }
 
 .chatHeaderTitle {
@@ -302,15 +303,16 @@
   border: none;
   color: var(--chat-header-text-color);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 20px;
   font-weight: 500;
   padding: 4px 8px;
   border-radius: 4px;
   transition: background-color 0.2s ease;
+  line-height: 1;
 }
 
 .chatCloseButton:hover {
-  background-color: var(--chat-message-hover-bg);
+  background-color: #f0f0f0;
 }
 
 .chatContent {
