@@ -21,10 +21,36 @@ export default function LoginForm() {
 
       if (!loginUrl) throw new Error("로그인 URL을 받아오지 못했습니다.");
 
+      // 백엔드가 placeholder 클라이언트 ID를 사용하는지 확인
+      if (loginUrl.includes('your-google-client-id') || loginUrl.includes('YOUR_CLIENT_ID')) {
+        throw new Error("백엔드 설정 오류: Google OAuth 클라이언트 ID가 설정되지 않았습니다.\n\n백엔드에서 GOOGLE_CLIENT_ID 환경 변수를 확인해주세요.");
+      }
+
       window.location.href = loginUrl;
     } catch (err) {
       console.error("구글 로그인 URL 오류:", err);
-      alert("서버와 연결할 수 없습니다.");
+      
+      let errorMessage = "서버와 연결할 수 없습니다.";
+      
+      if (err.response) {
+        // 서버가 응답했지만 에러 상태 코드
+        const status = err.response.status;
+        const data = err.response.data;
+        errorMessage = `서버 오류 (${status})`;
+        if (data?.message) {
+          errorMessage = `${errorMessage}: ${data.message}`;
+        } else if (typeof data === 'string') {
+          errorMessage = `${errorMessage}: ${data}`;
+        }
+      } else if (err.request) {
+        // 요청은 보냈지만 응답을 받지 못함 (네트워크 오류, CORS 등)
+        errorMessage = "서버에 연결할 수 없습니다.\n\n가능한 원인:\n- 서버가 실행 중이 아닙니다\n- 네트워크 연결 문제\n- CORS 설정 문제\n\n서버 주소: http://51.20.106.74:8080";
+      } else {
+        // 요청 설정 중 오류
+        errorMessage = err.message || errorMessage;
+      }
+      
+      alert(errorMessage);
       setIsLoading(false);
     }
   };
