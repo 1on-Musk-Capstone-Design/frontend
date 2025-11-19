@@ -7,6 +7,7 @@ const ChatPanel = ({
   participants = [],
   inviteLink = '',
   onCopyInviteLink,
+  onGenerateInviteLink,
   isShareDropdownOpen = false,
   onToggleShareDropdown,
   projectName = '프로젝트',
@@ -52,16 +53,7 @@ const ChatPanel = ({
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (newMessage.trim()) {
-      const message = {
-        id: Date.now(),
-        text: newMessage,
-        sender: "user",
-        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: Date.now() // 정확한 시간순 정렬을 위한 타임스탬프
-      };
-      setLocalMessages(prev => [...prev, message]);
-      
-      // API로 채팅 메시지 전송
+      // API로 채팅 메시지 전송 (서버에서 메시지 목록을 새로고침하므로 로컬에 추가하지 않음)
       if (onSendMessage) {
         try {
           await onSendMessage(newMessage);
@@ -81,6 +73,14 @@ const ChatPanel = ({
     const timeB = b.timestamp || new Date(b.time).getTime();
     return timeA - timeB; // 오래된 것부터 정렬
   });
+
+  // 이전 메시지와 같은 사용자인지 확인 (이름 표시 여부 결정)
+  const shouldShowName = (message, index) => {
+    if (message.sender === 'system' || message.sender === 'me') return false;
+    if (index === 0) return true;
+    const prevMessage = allMessages[index - 1];
+    return prevMessage.userId !== message.userId || prevMessage.sender !== 'other';
+  };
 
   // 자동 스크롤 함수
   const scrollToBottom = () => {
@@ -185,37 +185,56 @@ const ChatPanel = ({
                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b6b6b', marginBottom: '6px', textTransform: 'uppercase' }}>
                     초대 링크
                   </div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      value={inviteLink}
-                      readOnly
-                      style={{
-                        flex: 1,
-                        padding: '6px 8px',
-                        border: '1px solid #e5e5e5',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        backgroundColor: '#f8f8f8'
-                      }}
-                    />
+                  {!inviteLink ? (
                     <button
-                      onClick={onCopyInviteLink}
+                      onClick={onGenerateInviteLink}
                       style={{
-                        padding: '6px 12px',
+                        width: '100%',
+                        padding: '8px 12px',
                         backgroundColor: 'var(--theme-primary)',
                         color: '#ffffff',
                         border: 'none',
                         borderRadius: '4px',
                         fontSize: '11px',
                         fontWeight: 500,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap'
+                        cursor: 'pointer'
                       }}
                     >
-                      복사
+                      초대 링크 생성
                     </button>
-                  </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={inviteLink}
+                        readOnly
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          border: '1px solid #e5e5e5',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          backgroundColor: '#f8f8f8'
+                        }}
+                      />
+                      <button
+                        onClick={onCopyInviteLink}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: 'var(--theme-primary)',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        복사
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 {/* 참가자 목록 */}
@@ -269,43 +288,49 @@ const ChatPanel = ({
         {/* 메시지 목록 */}
         <div className="chatContent">
           <div className="chatMessages">
-            {allMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`chatMessage ${message.sender}`}
-              >
-                <div className={`chatMessageBubble ${message.sender}`}>
-                  {message.isLocation ? (
-                    <>
-                      <p>{message.text}</p>
-                      <button
-                        onClick={() => onLocationClick && onLocationClick(message.location)}
-                        style={{ 
-                          color: message.sender === 'user' ? 'rgba(255, 255, 255, 0.9)' : 'var(--chat-send-button-bg)', 
-                          textDecoration: 'underline', 
-                          marginTop: '4px', 
-                          display: 'block',
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          fontSize: 'var(--chat-message-font-size)',
-                          textAlign: 'left'
-                        }}
-                      >
-                        📍 이 위치로 이동하기
-                      </button>
-                      <p className="chatMessageTime">{message.time}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p>{message.text}</p>
-                      <p className="chatMessageTime">{message.time}</p>
-                    </>
+            {allMessages.map((message, index) => {
+              const showName = shouldShowName(message, index);
+              return (
+                <div
+                  key={message.id}
+                  className={`chatMessage ${message.sender === 'me' ? 'user' : message.sender}`}
+                >
+                  {showName && message.userName && (
+                    <div className="chatMessageName">{message.userName}</div>
                   )}
+                  <div className={`chatMessageBubble ${message.sender === 'me' ? 'user' : message.sender}`}>
+                    {message.isLocation ? (
+                      <>
+                        <p>{message.text}</p>
+                        <button
+                          onClick={() => onLocationClick && onLocationClick(message.location)}
+                          style={{ 
+                            color: message.sender === 'me' ? 'rgba(255, 255, 255, 0.9)' : 'var(--chat-send-button-bg)', 
+                            textDecoration: 'underline', 
+                            marginTop: '4px', 
+                            display: 'block',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            fontSize: 'var(--chat-message-font-size)',
+                            textAlign: 'left'
+                          }}
+                        >
+                          📍 이 위치로 이동하기
+                        </button>
+                        <p className="chatMessageTime">{message.time}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>{message.text}</p>
+                        <p className="chatMessageTime">{message.time}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {/* 자동 스크롤을 위한 더미 요소 */}
             <div ref={messagesEndRef} />
           </div>

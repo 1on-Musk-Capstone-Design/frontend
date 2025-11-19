@@ -37,6 +37,11 @@ const InfiniteCanvasPage = () => {
   const [draggingCluster, setDraggingCluster] = useState(null); // 드래그 중인 클러스터 정보
   const [clusterDragStart, setClusterDragStart] = useState({ x: 0, y: 0 }); // 클러스터 드래그 시작 위치
   const [savedIdeaIds, setSavedIdeaIds] = useState(new Map()); // 로컬 텍스트 ID와 서버 아이디어 ID 매핑
+  const [currentUserId, setCurrentUserId] = useState(null); // 현재 사용자 ID
+  const [workspaceUsers, setWorkspaceUsers] = useState(new Map()); // userId -> userName 매핑
+  const [inviteLink, setInviteLink] = useState(''); // 초대 링크
+  const [inviteLinkExpiresAt, setInviteLinkExpiresAt] = useState(''); // 초대 링크 만료일
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); // 초대 모달 상태
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -58,6 +63,120 @@ const InfiniteCanvasPage = () => {
   
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
+
+  // 페이지 로드 시 기존 메모와 채팅 불러오기
+  useEffect(() => {
+    const loadWorkspaceData = async () => {
+      if (!workspaceId) return;
+
+      try {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) return;
+
+        // 현재 사용자 ID 추출
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+        const userId = String(tokenPayload.user_id || tokenPayload.sub);
+        setCurrentUserId(userId);
+
+        // 워크스페이스 사용자 목록 불러오기
+        let userMap = new Map();
+        try {
+          const usersRes = await axios.get(
+            `${API_BASE_URL}/v1/workspaces/${workspaceId}/users`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
+            }
+          );
+          
+          // userId -> userName 매핑 생성
+          usersRes.data.forEach((user) => {
+            userMap.set(String(user.id), user.name || user.email || '알 수 없음');
+          });
+          setWorkspaceUsers(userMap);
+        } catch (err) {
+          console.error('워크스페이스 사용자 목록 불러오기 실패', err);
+        }
+
+        // 기존 메모(아이디어) 불러오기
+        const ideasRes = await axios.get(
+          `${API_BASE_URL}/v1/ideas/workspaces/${workspaceId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        );
+
+        console.log('불러온 메모 목록:', ideasRes.data);
+
+        // 메모를 텍스트 필드로 변환
+        const loadedTexts = ideasRes.data.map((idea, index) => {
+          // 로컬 ID 생성 (기존 텍스트가 있으면 최대값 + 1, 없으면 1부터 시작)
+          const maxId = textFields.texts.length > 0 
+            ? Math.max(...textFields.texts.map(t => typeof t.id === 'number' ? t.id : 0))
+            : 0;
+          const localId = maxId + index + 1;
+          
+          // 서버 ID와 로컬 ID 매핑 저장
+          setSavedIdeaIds(prev => new Map(prev).set(localId, idea.id));
+
+          return {
+            id: localId,
+            x: idea.positionX || 0,
+            y: idea.positionY || 0,
+            text: idea.content || '',
+            // API의 patchSizeX, patchSizeY를 width, height로 변환
+            width: idea.patchSizeX !== null && idea.patchSizeX !== undefined ? idea.patchSizeX : null,
+            height: idea.patchSizeY !== null && idea.patchSizeY !== undefined ? idea.patchSizeY : null
+          };
+        });
+
+        // 텍스트 필드에 추가
+        if (loadedTexts.length > 0) {
+          textFields.loadTexts(loadedTexts);
+        }
+
+        // 기존 채팅 메시지 불러오기
+        const messagesRes = await axios.get(
+          `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        );
+
+        console.log('불러온 채팅 메시지:', messagesRes.data);
+
+        // 채팅 메시지를 ChatPanel 형식으로 변환
+        const loadedMessages = messagesRes.data.map((msg) => {
+          const msgUserId = msg.userId ? String(msg.userId) : null;
+          const isMyMessage = msgUserId === userId;
+          const userName = msgUserId ? (userMap.get(msgUserId) || '알 수 없음') : null;
+          
+          return {
+            id: msg.id || Date.now() + Math.random(),
+            text: msg.content || msg.text || '',
+            sender: msgUserId ? (isMyMessage ? 'me' : 'other') : 'system',
+            userName: userName,
+            userId: msgUserId,
+            time: msg.createdAt 
+              ? new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+              : new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now()
+          };
+        });
+
+        setChatMessages(loadedMessages);
+      } catch (err) {
+        console.error('워크스페이스 데이터 불러오기 실패', err);
+      }
+    };
+
+    loadWorkspaceData();
+  }, [workspaceId]);
 
   // 브라우저 줌 완전 차단 - 피그마 스타일
   useEffect(() => {
@@ -209,13 +328,38 @@ const InfiniteCanvasPage = () => {
       if (!accessToken) return;
 
       const ideaId = savedIdeaIds.get(textId);
+      
+      // 텍스트 크기 가져오기 (CSS 변수에서 기본값 사용)
+      const getTextSize = (text) => {
+        const defaultWidth = 200; // 기본 너비
+        const defaultHeight = 100; // 기본 높이
+        
+        // CSS 변수에서 가져오기 시도
+        try {
+          const cssWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-width')) || defaultWidth;
+          const cssHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-height')) || defaultHeight;
+          
+          return {
+            width: text.width !== null && text.width !== undefined ? text.width : cssWidth,
+            height: text.height !== null && text.height !== undefined ? text.height : cssHeight
+          };
+        } catch (e) {
+          return {
+            width: text.width !== null && text.width !== undefined ? text.width : defaultWidth,
+            height: text.height !== null && text.height !== undefined ? text.height : defaultHeight
+          };
+        }
+      };
+      
+      const size = getTextSize(textData);
+      
       const ideaData = {
         workspaceId,
         content: textData.text || '',
         positionX: textData.x || 0,
         positionY: textData.y || 0,
-        width: textData.width || null,
-        height: textData.height || null,
+        patchSizeX: size.width || 0,
+        patchSizeY: size.height || 0,
       };
 
       if (ideaId) {
@@ -304,9 +448,99 @@ const InfiniteCanvasPage = () => {
           }
         }
       );
+
+      // 메시지 전송 후 목록 새로고침
+      const messagesRes = await axios.get(
+        `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      const loadedMessages = messagesRes.data.map((msg) => {
+        const msgUserId = msg.userId ? String(msg.userId) : null;
+        const isMyMessage = msgUserId === String(userId);
+        const userName = msgUserId ? (workspaceUsers.get(msgUserId) || '알 수 없음') : null;
+        
+        return {
+          id: msg.id || Date.now() + Math.random(),
+          text: msg.content || msg.text || '',
+          sender: msgUserId ? (isMyMessage ? 'me' : 'other') : 'system',
+          userName: userName,
+          userId: msgUserId,
+          time: msg.createdAt 
+            ? new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now()
+        };
+      });
+
+      setChatMessages(loadedMessages);
     } catch (err) {
       console.error('채팅 메시지 전송 실패', err);
     }
+  };
+
+  // 초대 링크 생성 함수
+  const handleGenerateInviteLink = async () => {
+    if (!workspaceId) return;
+
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) return;
+
+      const res = await axios.post(
+        `${API_BASE_URL}/v1/workspaces/${workspaceId}/invite-link`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      // 초대 링크 URL 처리 (전체 URL이면 그대로, 상대 경로면 현재 도메인과 결합)
+      let inviteUrl = res.data.inviteUrl || res.data.token;
+      if (inviteUrl) {
+        if (inviteUrl.startsWith('http://') || inviteUrl.startsWith('https://')) {
+          // 전체 URL이면 그대로 사용
+        } else if (inviteUrl.startsWith('/')) {
+          // 절대 경로인 경우
+          inviteUrl = `${window.location.origin}${inviteUrl}`;
+        } else if (inviteUrl.startsWith('invite/')) {
+          // invite/로 시작하는 경우
+          inviteUrl = `${window.location.origin}/${inviteUrl}`;
+        } else {
+          // 토큰만 있는 경우
+          inviteUrl = `${window.location.origin}/invite/${inviteUrl}`;
+        }
+      }
+      setInviteLink(inviteUrl);
+      setInviteLinkExpiresAt(res.data.expiresAt);
+    } catch (err) {
+      console.error('초대 링크 생성 실패', err);
+      alert('초대 링크 생성에 실패했습니다.');
+    }
+  };
+
+  // 초대 링크 복사 함수
+  const handleCopyInviteLink = () => {
+    if (!inviteLink) return;
+
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      alert('초대 링크가 클립보드에 복사되었습니다!');
+    }).catch(() => {
+      // 폴백
+      const textArea = document.createElement('textarea');
+      textArea.value = inviteLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('초대 링크가 클립보드에 복사되었습니다!');
+    });
   };
 
   const handleTextUpdate = (id, updates) => {
@@ -865,8 +1099,9 @@ const InfiniteCanvasPage = () => {
         onLocationClick={handleLocationClick}
         onVisibilityChange={setIsChatPanelOpen}
         participants={session.participants}
-        inviteLink={session.inviteLink}
-        onCopyInviteLink={session.copyInviteLink}
+        inviteLink={inviteLink}
+        onCopyInviteLink={handleCopyInviteLink}
+        onGenerateInviteLink={handleGenerateInviteLink}
         isShareDropdownOpen={session.isShareDropdownOpen}
         onToggleShareDropdown={() => session.setIsShareDropdownOpen(!session.isShareDropdownOpen)}
         projectName="무한 캔버스 프로젝트"

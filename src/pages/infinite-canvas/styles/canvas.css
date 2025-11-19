@@ -352,18 +352,29 @@
 
 .chatMessage {
   display: flex;
+  flex-direction: column;
   width: 100%;
   padding: 0;
   border: none;
   cursor: default;
+  margin-bottom: var(--chat-message-gap);
 }
 
 .chatMessage.user {
-  justify-content: flex-end; /* 내 메시지는 오른쪽 정렬 */
+  align-items: flex-end; /* 내 메시지는 오른쪽 정렬 */
 }
 
-.chatMessage.system {
-  justify-content: flex-start; /* 상대 메시지는 왼쪽 정렬 */
+.chatMessage.system,
+.chatMessage.other {
+  align-items: flex-start; /* 상대 메시지는 왼쪽 정렬 */
+}
+
+.chatMessageName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--chat-section-header-color);
+  margin-bottom: 4px;
+  padding: 0 4px;
 }
 
 .chatMessageBubble {
@@ -384,9 +395,14 @@
   color: var(--chat-user-message-text);
 }
 
-.chatMessageBubble.system {
+.chatMessageBubble.system,
+.chatMessageBubble.other {
   background-color: var(--chat-system-message-bg);
   color: var(--chat-system-message-text);
+}
+
+.chatMessageBubble.other .chatMessageTime {
+  color: var(--chat-section-header-color);
 }
 
 .chatMessageBubble p {

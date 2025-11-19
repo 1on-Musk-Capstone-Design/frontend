@@ -42,6 +42,25 @@ export const useTextFields = () => {
     setTexts([]);
   };
 
+  // 기존 텍스트를 직접 추가 (불러오기용)
+  const loadTexts = (textsToLoad) => {
+    setTexts(prev => {
+      // 중복 방지를 위해 기존 텍스트와 ID 비교
+      const existingIds = new Set(prev.map(t => t.id));
+      const newTexts = textsToLoad.filter(t => !existingIds.has(t.id));
+      
+      // nextId 업데이트 (로드된 텍스트의 최대 ID보다 크게)
+      if (newTexts.length > 0) {
+        const maxId = Math.max(...newTexts.map(t => typeof t.id === 'number' ? t.id : 0));
+        if (maxId >= nextId.current) {
+          nextId.current = maxId + 1;
+        }
+      }
+      
+      return [...prev, ...newTexts];
+    });
+  };
+
   const handleSendToChat = (id, x, y, text, setChatMessages) => {
     const message = {
       id: Date.now(),
@@ -173,6 +192,7 @@ export const useTextFields = () => {
     deleteText,
     addText,
     resetTexts,
+    loadTexts,
     handleSendToChat,
     deleteTextsInArea,
     highlightTextsInArea,
