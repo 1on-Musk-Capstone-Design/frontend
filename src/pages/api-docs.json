@@ -1,0 +1,1784 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+      "title": "Capstone API Documentation",
+      "description": "실시간 협업 브레인스토밍 플랫폼 API 문서",
+      "contact": {
+        "name": "1on-Musk Capstone Team",
+        "url": "https://github.com/1on-Musk-Capstone-Design",
+        "email": "contact@example.com"
+      },
+      "license": {
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT"
+      },
+      "version": "1.0.0"
+    },
+    "servers": [
+      {
+        "url": "http://51.20.106.74:8080/api",
+        "description": "실제 서버"
+      },
+      {
+        "url": "http://localhost:8080/api",
+        "description": "로컬 개발 서버"
+      },
+      {
+        "url": "https://api.yourdomain.com/api",
+        "description": "프로덕션 서버"
+      }
+    ],
+    "security": [
+      {
+        "Bearer Authentication": []
+      }
+    ],
+    "tags": [
+      {
+        "name": "Workspace",
+        "description": "워크스페이스 관리 API"
+      },
+      {
+        "name": "Health Check",
+        "description": "서버 상태 확인 API"
+      }
+    ],
+    "paths": {
+      "/v1/workspaces/{id}": {
+        "get": {
+          "tags": [
+            "Workspace"
+          ],
+          "summary": "워크스페이스 상세 조회",
+          "description": "특정 워크스페이스의 상세 정보를 조회합니다.",
+          "operationId": "getWorkspaceById",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "description": "워크스페이스 ID",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "404": {
+              "description": "워크스페이스를 찾을 수 없음",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListItem"
+                  }
+                }
+              }
+            },
+            "200": {
+              "description": "조회 성공",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListItem"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "Workspace"
+          ],
+          "summary": "워크스페이스 이름 수정",
+          "description": "워크스페이스의 이름을 수정합니다. (개발용: Authorization 선택사항)",
+          "operationId": "updateWorkspace",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "description": "워크스페이스 ID",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "Authorization",
+              "in": "header",
+              "description": "JWT 토큰 (개발용: 선택사항)",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "requestBody": {
+            "description": "수정할 워크스페이스 정보",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "수정 성공",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListItem"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "워크스페이스를 찾을 수 없음",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListItem"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "Bearer Authentication": []
+            }
+          ]
+        },
+        "delete": {
+          "tags": [
+            "Workspace"
+          ],
+          "summary": "워크스페이스 삭제",
+          "description": "워크스페이스를 삭제합니다. (개발용: Authorization 선택사항)",
+          "operationId": "deleteWorkspace",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "description": "워크스페이스 ID",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "Authorization",
+              "in": "header",
+              "description": "JWT 토큰 (개발용: 선택사항)",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "삭제 성공",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "워크스페이스를 찾을 수 없음",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "Bearer Authentication": []
+            }
+          ]
+        }
+      },
+      "/v1/ideas/{ideaId}": {
+        "get": {
+          "tags": [
+            "idea-controller"
+          ],
+          "operationId": "getIdea",
+          "parameters": [
+            {
+              "name": "ideaId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IdeaResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "idea-controller"
+          ],
+          "operationId": "updateIdea",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "ideaId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdeaRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IdeaResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "idea-controller"
+          ],
+          "operationId": "deleteIdea",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "ideaId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/canvas/{canvasId}": {
+        "get": {
+          "tags": [
+            "canvas-controller"
+          ],
+          "operationId": "getCanvas",
+          "parameters": [
+            {
+              "name": "canvasId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CanvasResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "canvas-controller"
+          ],
+          "operationId": "updateCanvas",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "canvasId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanvasRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CanvasResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "canvas-controller"
+          ],
+          "operationId": "deleteCanvas",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "canvasId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/{workspaceId}/canvas": {
+        "get": {
+          "tags": [
+            "canvas-controller"
+          ],
+          "operationId": "getAllCanvas",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CanvasResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "canvas-controller"
+          ],
+          "operationId": "createCanvas",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanvasRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CanvasResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces": {
+        "get": {
+          "tags": [
+            "Workspace"
+          ],
+          "summary": "워크스페이스 목록 조회",
+          "description": "모든 워크스페이스 목록을 조회합니다.",
+          "operationId": "getAllWorkspaces",
+          "responses": {
+            "200": {
+              "description": "조회 성공",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListItem"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Workspace"
+          ],
+          "summary": "워크스페이스 생성",
+          "description": "새로운 워크스페이스를 생성합니다. (개발용: Authorization 선택사항)",
+          "operationId": "create",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "description": "JWT 토큰 (개발용: 선택사항)",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "requestBody": {
+            "description": "생성할 워크스페이스 정보",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "400": {
+              "description": "잘못된 요청 (이름이 비어있음)",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              }
+            },
+            "200": {
+              "description": "생성 성공",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "Bearer Authentication": []
+            }
+          ]
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice": {
+        "get": {
+          "tags": [
+            "voice-session-controller"
+          ],
+          "operationId": "getSessions",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/VoiceSessionDto"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "voice-session-controller"
+          ],
+          "operationId": "startSession",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/VoiceSessionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice/{sessionId}/users": {
+        "get": {
+          "tags": [
+            "voice-session-user-controller"
+          ],
+          "operationId": "getActiveUsers",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "sessionId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/VoiceSessionUserResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "voice-session-user-controller"
+          ],
+          "operationId": "joinSession",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "sessionId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSessionUserRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/VoiceSessionUserResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice/{sessionId}/users/move": {
+        "post": {
+          "tags": [
+            "voice-session-user-controller"
+          ],
+          "operationId": "moveToSession",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "fromSessionId",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "toSessionId",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSessionUserRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/VoiceSessionUserResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/join": {
+        "post": {
+          "tags": [
+            "workspace-user-controller"
+          ],
+          "operationId": "joinWorkspace",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/ideas": {
+        "post": {
+          "tags": [
+            "idea-controller"
+          ],
+          "operationId": "createIdea",
+          "parameters": [
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdeaRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IdeaResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/chat/messages": {
+        "post": {
+          "tags": [
+            "chat-message-controller"
+          ],
+          "operationId": "sendMessage",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/chat/messages/file": {
+        "post": {
+          "tags": [
+            "chat-message-controller"
+          ],
+          "operationId": "createFileMessage",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMessageRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/auth-google": {
+        "post": {
+          "tags": [
+            "google-controller"
+          ],
+          "operationId": "loginOrJoin",
+          "parameters": [
+            {
+              "name": "code",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TokenDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice/{sessionId}": {
+        "patch": {
+          "tags": [
+            "voice-session-controller"
+          ],
+          "operationId": "endSession",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "sessionId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/VoiceSessionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice/{sessionId}/users/count": {
+        "get": {
+          "tags": [
+            "voice-session-user-controller"
+          ],
+          "operationId": "countActiveUsers",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "sessionId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice/{sessionId}/users/all": {
+        "get": {
+          "tags": [
+            "voice-session-user-controller"
+          ],
+          "operationId": "getAllUsers",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "sessionId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/VoiceSessionUserResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/users": {
+        "get": {
+          "tags": [
+            "workspace-user-controller"
+          ],
+          "operationId": "getWorkspaceUsers",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/WorkspaceUserResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/ideas/workspaces/{workspaceId}": {
+        "get": {
+          "tags": [
+            "idea-controller"
+          ],
+          "operationId": "getAllIdeas",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/IdeaResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/health": {
+        "get": {
+          "tags": [
+            "Health Check"
+          ],
+          "summary": "헬스 체크",
+          "description": "서버 및 Socket.IO 서버의 상태를 확인합니다.",
+          "operationId": "health",
+          "responses": {
+            "200": {
+              "description": "서버 정상 동작",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/chat/messages/workspace/{workspaceId}": {
+        "get": {
+          "tags": [
+            "chat-message-controller"
+          ],
+          "operationId": "getMessagesByWorkspace",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Response"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/chat/messages/workspace/{workspaceId}/recent": {
+        "get": {
+          "tags": [
+            "chat-message-controller"
+          ],
+          "operationId": "getRecentMessages",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "format": "int32",
+                "default": 10
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Response"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/chat/messages/workspace/{workspaceId}/count": {
+        "get": {
+          "tags": [
+            "chat-message-controller"
+          ],
+          "operationId": "getMessageCount",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CountResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/chat/messages/user/{userId}": {
+        "get": {
+          "tags": [
+            "chat-message-controller"
+          ],
+          "operationId": "getMessagesByUser",
+          "parameters": [
+            {
+              "name": "userId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Response"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/auth-google/login-uri": {
+        "get": {
+          "tags": [
+            "google-controller"
+          ],
+          "operationId": "getLoginUri",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/voice/{sessionId}/users/{workspaceUserId}": {
+        "delete": {
+          "tags": [
+            "voice-session-user-controller"
+          ],
+          "operationId": "leaveSession",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "sessionId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "workspaceUserId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/VoiceSessionUserResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/workspaces/{workspaceId}/users/{userId}": {
+        "delete": {
+          "tags": [
+            "workspace-user-controller"
+          ],
+          "operationId": "removeUser",
+          "parameters": [
+            {
+              "name": "workspaceId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "userId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            {
+              "name": "Authorization",
+              "in": "header",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "UpdateRequest": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "ListItem": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "IdeaRequest": {
+          "type": "object",
+          "properties": {
+            "canvasId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "content": {
+              "type": "string"
+            },
+            "positionX": {
+              "type": "number",
+              "format": "double"
+            },
+            "positionY": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        },
+        "IdeaResponse": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "canvasId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "content": {
+              "type": "string"
+            },
+            "positionX": {
+              "type": "number",
+              "format": "double"
+            },
+            "positionY": {
+              "type": "number",
+              "format": "double"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          }
+        },
+        "CanvasRequest": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            }
+          }
+        },
+        "CanvasResponse": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "title": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          }
+        },
+        "CreateRequest": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "Response": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "name": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "VoiceSessionDto": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "startedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "endedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "VoiceSessionUserRequest": {
+          "required": [
+            "workspaceUserId"
+          ],
+          "type": "object",
+          "properties": {
+            "workspaceUserId": {
+              "type": "integer",
+              "description": "워크스페이스 사용자 ID",
+              "format": "int64",
+              "example": 5
+            }
+          },
+          "description": "음성 세션 참여자 요청 DTO"
+        },
+        "VoiceSessionUserResponse": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "참여 ID",
+              "format": "int64",
+              "example": 1
+            },
+            "sessionId": {
+              "type": "integer",
+              "description": "세션 ID",
+              "format": "int64",
+              "example": 5
+            },
+            "workspaceUserId": {
+              "type": "integer",
+              "description": "워크스페이스 사용자 ID",
+              "format": "int64",
+              "example": 10
+            },
+            "workspaceUserName": {
+              "type": "string",
+              "description": "워크스페이스 사용자 이름",
+              "example": "홍길동"
+            },
+            "joinedAt": {
+              "type": "string",
+              "description": "참여 시간",
+              "format": "date-time"
+            },
+            "leftAt": {
+              "type": "string",
+              "description": "퇴장 시간",
+              "format": "date-time",
+              "nullable": true
+            },
+            "active": {
+              "type": "boolean",
+              "description": "활성 상태 (현재 참여 중)",
+              "example": true
+            }
+          },
+          "description": "음성 세션 참여자 응답 DTO"
+        },
+        "SendRequest": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          }
+        },
+        "FileMessageRequest": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            },
+            "messageType": {
+              "type": "string"
+            },
+            "fileUrl": {
+              "type": "string"
+            },
+            "fileName": {
+              "type": "string"
+            },
+            "mimeType": {
+              "type": "string"
+            },
+            "fileSize": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "TokenDto": {
+          "type": "object",
+          "properties": {
+            "accessToken": {
+              "type": "string"
+            },
+            "refreshToken": {
+              "type": "string"
+            }
+          }
+        },
+        "WorkspaceUserResponse": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "email": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "profileImage": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "OWNER",
+                "MEMBER"
+              ]
+            },
+            "joinedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "CountResponse": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "messageCount": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "Bearer Authentication": {
+          "type": "http",
+          "description": "JWT 토큰을 입력하세요 (Bearer 제외)",
+          "name": "Bearer Authentication",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      }
+    }
+  }
