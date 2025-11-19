@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../../../config/api";
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -10,8 +11,6 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      const API_BASE_URL = "http://51.20.106.74:8080/api";
-
       const res = await axios.get(
         `${API_BASE_URL}/v1/auth-google/login-uri`,
         { timeout: 10000 }

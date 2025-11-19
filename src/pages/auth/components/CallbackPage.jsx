@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_BASE_URL } from "../../../config/api";
 
 export default function CallbackPage() {
   const [searchParams] = useSearchParams();
@@ -67,9 +68,6 @@ export default function CallbackPage() {
 
       try {
         setStatus("로그인 처리 중...");
-        
-        // 로컬 개발 환경: 프론트엔드는 localhost:3000, 백엔드는 서버(51.20.106.74:8080)
-        const API_BASE_URL = "http://51.20.106.74:8080/api";
         
         const res = await axios.post(
           `${API_BASE_URL}/v1/auth-google`,
