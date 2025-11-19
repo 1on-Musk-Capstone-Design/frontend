@@ -7,11 +7,19 @@ export default function CallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("처리 중...");
   const [isError, setIsError] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
     const error = searchParams.get("error");
     const errorDescription = searchParams.get("error_description");
+
+    // 이미 로그인된 상태면 메인 페이지로 이동 (403 오류 방지)
+    const existingToken = localStorage.getItem("accessToken");
+    if (existingToken && !code && !error) {
+      navigate("/", { replace: true });
+      return;
+    }
 
     // Google OAuth 에러 처리
     if (error) {
@@ -50,6 +58,13 @@ export default function CallbackPage() {
 
     // 백엔드로 code 전송하여 토큰 받기
     const handleCallback = async () => {
+      // 이미 처리 중이면 중복 요청 방지 (403 오류 방지)
+      if (isProcessing) {
+        return;
+      }
+
+      setIsProcessing(true);
+
       try {
         setStatus("로그인 처리 중...");
         
@@ -67,6 +82,9 @@ export default function CallbackPage() {
 
         const { accessToken, refreshToken, name, email } = res.data;
 
+        // 디버깅: 백엔드 응답 확인
+        console.log('백엔드 응답 데이터:', { name, email, hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken });
+
         if (!accessToken || !refreshToken) {
           throw new Error("토큰을 받지 못했습니다.");
         }
@@ -79,29 +97,83 @@ export default function CallbackPage() {
         let userName = name;
         let userEmail = email;
 
-        // 백엔드 응답에 사용자 정보가 없으면 JWT 토큰에서 추출 시도
-        if (!userName || !userEmail) {
+        // 백엔드 응답에 사용자 정보가 없거나 빈 문자열이면 JWT 토큰에서 추출 시도
+        if (!userName || userName.trim() === '' || !userEmail || userEmail.trim() === '') {
+          console.log('백엔드 응답에 사용자 정보가 없어 JWT 토큰에서 추출 시도');
           try {
             const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-            userName = userName || tokenPayload.name || tokenPayload.sub || tokenPayload.email?.split('@')[0] || '사용자';
-            userEmail = userEmail || tokenPayload.email || '';
+            console.log('JWT 토큰 페이로드:', tokenPayload);
+            
+            // 이메일 추출: email 또는 sub (sub가 이메일 형식인 경우)
+            if (!userEmail || userEmail.trim() === '') {
+              userEmail = tokenPayload.email || '';
+              // email이 없고 sub가 이메일 형식이면 sub를 이메일로 사용
+              if (!userEmail && tokenPayload.sub && tokenPayload.sub.includes('@')) {
+                userEmail = tokenPayload.sub;
+              }
+            }
+            
+            // 이름 우선 추출: name > given_name > family_name > 이메일의 @ 앞부분
+            if (!userName || userName.trim() === '') {
+              userName = tokenPayload.name || tokenPayload.given_name || tokenPayload.family_name || '';
+              // 여전히 없으면 이메일에서 추출
+              if (!userName) {
+                const emailForName = tokenPayload.email || (tokenPayload.sub && tokenPayload.sub.includes('@') ? tokenPayload.sub : '');
+                if (emailForName) {
+                  userName = emailForName.split('@')[0];
+                }
+              }
+            }
           } catch (e) {
-            console.warn('JWT 토큰에서 사용자 정보를 추출할 수 없습니다:', e);
-            userName = userName || '사용자';
+            console.error('JWT 토큰에서 사용자 정보를 추출할 수 없습니다:', e);
+            // 이메일이 있으면 @ 앞부분을 이름으로 사용
+            if (userEmail && userEmail.trim() !== '') {
+              userName = userName || userEmail.split('@')[0];
+            }
           }
         }
 
-        // 사용자 정보 저장
-        localStorage.setItem("userName", userName);
-        if (userEmail) {
-          localStorage.setItem("userEmail", userEmail);
+        // 최종 검증: userName이 여전히 없거나 빈 문자열이면 이메일에서 추출
+        if (!userName || userName.trim() === '') {
+          if (userEmail && userEmail.trim() !== '') {
+            userName = userEmail.split('@')[0];
+            console.log('이메일에서 이름 추출:', userName);
+          } else {
+            userName = '사용자';
+            console.warn('사용자 이름을 찾을 수 없어 기본값 사용');
+          }
         }
+
+        // userName이 이메일인 경우 @ 앞부분만 사용
+        if (userName && userName.includes('@')) {
+          userName = userName.split('@')[0];
+        }
+
+        // 최종 사용자 정보 확인 및 저장
+        console.log('최종 사용자 정보:', { userName, userEmail });
+        
+        // 사용자 정보 저장
+        localStorage.setItem("userName", userName.trim());
+        if (userEmail && userEmail.trim() !== '') {
+          localStorage.setItem("userEmail", userEmail.trim());
+        }
+        
+        // 저장 확인
+        console.log('localStorage 저장 완료:', {
+          userName: localStorage.getItem("userName"),
+          userEmail: localStorage.getItem("userEmail"),
+          accessToken: localStorage.getItem("accessToken") ? '저장됨' : '없음',
+          refreshToken: localStorage.getItem("refreshToken") ? '저장됨' : '없음'
+        });
 
         setStatus("로그인 성공!");
         
+        // URL에서 code 파라미터 제거 (중복 요청 방지)
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
         // 메인 페이지로 이동 (Sidebar가 사용자 정보를 다시 읽어오도록)
         setTimeout(() => {
-          navigate("/");
+          navigate("/", { replace: true });
           // Sidebar 컴포넌트가 localStorage 변경을 감지하도록 페이지 새로고침
           window.location.reload();
         }, 1000);
@@ -120,6 +192,13 @@ export default function CallbackPage() {
               errorMessage = `인증 오류: ${data.message}`;
             } else if (data?.error) {
               errorMessage = `인증 오류: ${data.error}`;
+            }
+          } else if (status === 403) {
+            errorMessage = "접근이 거부되었습니다.\n\n가능한 원인:\n- 이미 사용된 인증 코드입니다\n- 인증 코드가 만료되었습니다\n- 권한이 없습니다\n\n다시 로그인해주세요.";
+            if (data?.message) {
+              errorMessage = `접근 거부: ${data.message}`;
+            } else if (data?.error) {
+              errorMessage = `접근 거부: ${data.error}`;
             }
           } else if (status === 400) {
             errorMessage = "잘못된 요청입니다. 인증 코드가 유효하지 않을 수 있습니다.";
@@ -145,6 +224,8 @@ export default function CallbackPage() {
         setTimeout(() => {
           navigate("/auth");
         }, 3000);
+      } finally {
+        setIsProcessing(false);
       }
     };
 
