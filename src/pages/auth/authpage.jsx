@@ -10,7 +10,7 @@
           alignItems:"center", 
           justifyContent:"center", 
           minHeight:"100vh", 
-          background: 'linear-gradient(180deg,#fffaf0 0%,#f6f8ff 100%)' 
+          background: 'linear-gradient(180deg,#f8fff8 0%,#eef8ff 100%)' 
         }}
       >
         <h1 style={{ fontSize:36, fontWeight:800, color:'#111827', marginBottom:4 }}>
@@ -23,15 +23,14 @@
 
         <div 
           style={{ 
-            position:'relative', 
-            width:520, 
-            maxWidth:'92%', 
-            background:"#fff", 
-            borderRadius:20, 
-            boxShadow:"0 12px 40px rgba(15,23,42,0.06)", 
-            padding:28, 
-            border:'1px solid rgba(15,23,42,0.04)' 
-          }}
+          width: 520,
+          maxWidth: "92%",
+          background: "#ffffff",
+          borderRadius: 20,
+          boxShadow: "0 12px 40px rgba(0,0,0,0.06)",
+          padding: 32,
+          border: "1px solid #e7e7e7"
+        }}
         >
           <LoginForm />
         </div>
