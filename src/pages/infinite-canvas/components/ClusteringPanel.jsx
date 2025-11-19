@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_CONSTANTS } from '../constants';
 
 const ClusteringPanel = ({ 
   onClusteringParamsChange, 
@@ -8,9 +9,15 @@ const ClusteringPanel = ({
   showMinimap,
   onMinimapVisibilityChange,
   showCenterIndicator,
-  onCenterIndicatorVisibilityChange
+  onCenterIndicatorVisibilityChange,
+  texts = [], // 텍스트 필드 데이터
+  onUndoClustering, // 클러스터링 되돌리기 함수
+  canUndoClustering = false // 되돌리기 가능 여부
 }) => {
   const [isHidden, setIsHidden] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [clusteringResult, setClusteringResult] = useState(null);
+  const [error, setError] = useState(null);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -73,6 +80,87 @@ const ClusteringPanel = ({
       single: '두 클러스터 간 최소 거리를 사용'
     };
     return descriptions[linkage] || '';
+  };
+
+  // 클러스터링 실행
+  const handleRunClustering = async () => {
+    // 텍스트 필드가 없으면 실행 불가
+    if (!texts || texts.length === 0) {
+      setError('클러스터링할 텍스트가 없습니다.');
+      return;
+    }
+
+    // 텍스트 추출 (빈 텍스트 제외) - ID와 함께 저장
+    const textData = texts
+      .map(text => ({ id: text.id, text: text.text }))
+      .filter(item => item.text && item.text.trim().length > 0);
+
+    if (textData.length === 0) {
+      setError('클러스터링할 텍스트가 없습니다.');
+      return;
+    }
+
+    const textContents = textData.map(item => item.text);
+    const textIds = textData.map(item => item.id);
+
+    // 클러스터 개수 결정
+    let nClusters = clusteringParams.nClusters;
+    if (nClusters === 'auto') {
+      // 자동: 텍스트 개수의 제곱근 또는 min/max 범위 내
+      const autoClusters = Math.ceil(Math.sqrt(textContents.length));
+      nClusters = Math.max(
+        clusteringParams.minClusters,
+        Math.min(autoClusters, clusteringParams.maxClusters)
+      );
+    }
+
+    // 최소 클러스터 개수 체크
+    if (textContents.length < nClusters) {
+      setError(`텍스트 개수(${textContents.length})가 클러스터 개수(${nClusters})보다 적습니다.`);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setClusteringResult(null);
+
+    try {
+      const response = await fetch(`${API_CONSTANTS.CLUSTERING_API_URL}/v1/cluster`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          texts: textContents,
+          n_clusters: nClusters,
+          return_visualization: false
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setClusteringResult(result);
+      
+      // 부모 컴포넌트에 결과 전달 (텍스트 ID 매핑 포함)
+      if (onClusteringParamsChange) {
+        onClusteringParamsChange({
+          ...clusteringParams,
+          result: {
+            ...result,
+            textIds: textIds // 클러스터링에 사용된 텍스트 ID 순서
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Clustering error:', err);
+      setError(err.message || '클러스터링 실행 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -268,11 +356,61 @@ const ClusteringPanel = ({
             </div>
           )}
 
+          {/* 에러 메시지 */}
+          {error && (
+            <div style={{
+              padding: '12px',
+              marginTop: '16px',
+              backgroundColor: '#fee',
+              border: '1px solid #fcc',
+              borderRadius: '6px',
+              color: '#c33',
+              fontSize: '12px'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* 클러스터링 결과 - 숨김 (캔버스에서만 표시) */}
+
           {/* 실행 버튼 */}
           <div className="clusteringActionArea">
-            <button className="clusteringRunButton" onClick={() => onClusteringParamsChange && onClusteringParamsChange(clusteringParams)}>
-              클러스터링 실행
+            <button 
+              className="clusteringRunButton" 
+              onClick={handleRunClustering}
+              disabled={isLoading || !texts || texts.length === 0}
+              style={{
+                opacity: (isLoading || !texts || texts.length === 0) ? 0.5 : 1,
+                cursor: (isLoading || !texts || texts.length === 0) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {isLoading ? '클러스터링 중...' : '클러스터링 실행'}
             </button>
+            
+            {/* 되돌리기 버튼 */}
+            {canUndoClustering && onUndoClustering && (
+              <button 
+                className="clusteringUndoButton" 
+                onClick={onUndoClustering}
+                style={{
+                  marginTop: '8px',
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#f0f0f0',
+                  border: '1px solid #d0d0d0',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#1a1a1a',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#e0e0e0'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+              >
+                되돌리기
+              </button>
+            )}
           </div>
         </div>
 

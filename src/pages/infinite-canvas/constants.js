@@ -127,6 +127,56 @@ export const TOOLBAR_AREA_CONSTANTS = {
 };
 
 // ============================================
+// API 설정
+// ============================================
+export const API_CONSTANTS = {
+  // 클러스터링 API 주소
+  CLUSTERING_API_URL: 'http://localhost:8002', // 클러스터링 API 서버 주소
+  // CLUSTERING_API_URL: 'http://51.20.106.74:8002', // 프로덕션 서버 주소
+};
+
+// ============================================
+// 클러스터링 배치 설정
+// ============================================
+export const CLUSTERING_LAYOUT_CONSTANTS = {
+  // 클러스터 초기 배치 간격 (도형이 겹치지 않도록 충분히 큰 값)
+  CLUSTER_INITIAL_HORIZONTAL_SPACING: 800, // 가로 간격 (px)
+  CLUSTER_INITIAL_VERTICAL_SPACING: 800, // 세로 간격 (px)
+  
+  // 클러스터 가로 배치 개수
+  CLUSTERS_PER_ROW: 5, // 한 줄에 배치할 클러스터 개수
+  
+  // 같은 클러스터 내 텍스트 간 간격 (여백)
+  TEXT_MARGIN: 20, // 텍스트 박스 간 최소 여백 (px)
+  
+  // 클러스터 도형 외곽선 여백
+  CLUSTER_SHAPE_PADDING: 30, // 텍스트 외곽선에서 도형까지의 여백 (px)
+  
+  // 텍스트 박스 기본 크기 (CSS 변수와 동일하게 유지)
+  DEFAULT_TEXT_WIDTH: 500, // 기본 텍스트 박스 너비 (px)
+  DEFAULT_TEXT_HEIGHT: 400, // 기본 텍스트 박스 높이 (px)
+  
+  // 클러스터 테두리 색상 (각 클러스터마다 다른 색상)
+  CLUSTER_BORDER_COLORS: [
+    '#FF6B6B', // 빨간색
+    '#4ECDC4', // 청록색
+    '#45B7D1', // 파란색
+    '#FFA07A', // 연어색
+    '#98D8C8', // 민트색
+    '#F7DC6F', // 노란색
+    '#BB8FCE', // 보라색
+    '#85C1E2', // 하늘색
+    '#F8B739', // 주황색
+    '#52BE80', // 초록색
+    '#EC7063', // 산호색
+    '#5DADE2', // 밝은 파란색
+    '#F1948A', // 분홍색
+    '#82E0AA', // 연두색
+    '#F4D03F', // 금색
+  ],
+};
+
+// ============================================
 // 계산된 값들 (자동 계산)
 // ============================================
 export const COMPUTED_CONSTANTS = {

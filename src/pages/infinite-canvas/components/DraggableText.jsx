@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag }) => {
+const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState(null); // 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
@@ -360,7 +360,10 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
         borderRadius: 'var(--memo-border-radius)',
         boxShadow: 'var(--memo-shadow)',
         transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-        transition: (isDragging || isResizing) ? 'none' : 'transform 0.1s ease',
+        // 드래그나 리사이즈, 클러스터 드래그 중이 아닐 때만 위치 애니메이션 적용
+        transition: (isDragging || isResizing || isClusterDragging) 
+          ? 'none' 
+          : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.1s ease',
         cursor: mode === 'delete' ? 'pointer' : (isResizing ? 'move' : 'move'),
         ...getBorderStyle()
       }}

@@ -75,6 +75,22 @@ export const useCanvas = () => {
     }
   };
 
+  // 동적 크기 캔버스 영역 추가 함수 (클러스터링용)
+  const addCanvasAreaWithSize = (x, y, width, height, metadata = {}) => {
+    const newArea = {
+      x,
+      y,
+      width,
+      height,
+      isInitial: false,
+      id: `canvas-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      ...metadata
+    };
+
+    setCanvasAreas(prev => [...prev, newArea]);
+    return newArea;
+  };
+
   const handleCanvasClick = (e, mode, currentCanvasAreas) => {
     // 캔버스 영역 내에서 클릭했을 때 (텍스트 필드가 아닌 경우)
     const isCanvasArea = e.target === canvasRef.current || 
@@ -446,6 +462,7 @@ export const useCanvas = () => {
     handleWheel,
     resetCanvas,
     addCanvasArea,
+    addCanvasAreaWithSize,
     deleteCanvasArea,
     moveToLocation,
     isAreaSelecting,
