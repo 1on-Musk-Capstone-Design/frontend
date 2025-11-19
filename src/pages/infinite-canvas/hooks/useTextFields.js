@@ -35,6 +35,7 @@ export const useTextFields = () => {
     };
     
     setTexts(prev => [...prev, newText]);
+    return newText.id; // 생성된 텍스트 ID 반환
   };
 
   const resetTexts = () => {

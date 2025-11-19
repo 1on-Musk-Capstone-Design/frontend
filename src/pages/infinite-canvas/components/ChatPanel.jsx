@@ -9,7 +9,8 @@ const ChatPanel = ({
   onCopyInviteLink,
   isShareDropdownOpen = false,
   onToggleShareDropdown,
-  projectName = '프로젝트'
+  projectName = '프로젝트',
+  onSendMessage
 }) => {
   const [localMessages, setLocalMessages] = useState([
     { id: 1, text: "안녕하세요! 무한 캔버스에 오신 것을 환영합니다.", sender: "system", time: "10:30" },
@@ -48,7 +49,7 @@ const ChatPanel = ({
     }
   }, [isHidden, onVisibilityChange]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (newMessage.trim()) {
       const message = {
@@ -59,6 +60,16 @@ const ChatPanel = ({
         timestamp: Date.now() // 정확한 시간순 정렬을 위한 타임스탬프
       };
       setLocalMessages(prev => [...prev, message]);
+      
+      // API로 채팅 메시지 전송
+      if (onSendMessage) {
+        try {
+          await onSendMessage(newMessage);
+        } catch (err) {
+          console.error('채팅 메시지 전송 실패', err);
+        }
+      }
+      
       setNewMessage("");
     }
   };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import ChatPanel from './components/ChatPanel';
 import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
@@ -11,10 +12,15 @@ import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
 import { useSession } from './hooks/useSession';
 import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants';
+import { API_BASE_URL } from '../../config/api';
+import axios from 'axios';
 import './styles/canvas.css';
 
 // 메인 무한 캔버스 컴포넌트
 const InfiniteCanvasPage = () => {
+  const { projectId } = useParams(); // URL에서 워크스페이스 ID 가져오기
+  const workspaceId = projectId ? parseInt(projectId, 10) : null;
+  
   const [mode, setMode] = useState('text'); // 'text' 또는 'move'
   const [chatMessages, setChatMessages] = useState([]);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(true);
@@ -30,6 +36,7 @@ const InfiniteCanvasPage = () => {
   const [clusterShapes, setClusterShapes] = useState([]); // 클러스터 도형 정보 저장
   const [draggingCluster, setDraggingCluster] = useState(null); // 드래그 중인 클러스터 정보
   const [clusterDragStart, setClusterDragStart] = useState({ x: 0, y: 0 }); // 클러스터 드래그 시작 위치
+  const [savedIdeaIds, setSavedIdeaIds] = useState(new Map()); // 로컬 텍스트 ID와 서버 아이디어 ID 매핑
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -132,7 +139,16 @@ const InfiniteCanvasPage = () => {
       // 텍스트 모드: 텍스트 필드 생성
       const clickResult = canvas.handleCanvasClick(e, mode, canvas.canvasAreas);
       if (clickResult) {
-        textFields.addText(clickResult.x, clickResult.y);
+        const newTextId = textFields.addText(clickResult.x, clickResult.y);
+        // 워크스페이스가 있으면 메모 저장
+        if (workspaceId && newTextId) {
+          setTimeout(() => {
+            const textData = textFields.texts.find(t => t.id === newTextId);
+            if (textData) {
+              saveIdea(newTextId, textData);
+            }
+          }, 100);
+        }
       }
     } else if (mode === 'move' && !e.shiftKey && !canvas.hasStartedAreaSelection) {
       // 이동 모드 (Shift 없음, 영역 선택 시작 안됨): 빈 공간 클릭 시에만 선택 해제
@@ -184,9 +200,126 @@ const InfiniteCanvasPage = () => {
     }
   };
 
+  // 메모(아이디어) 저장 함수
+  const saveIdea = async (textId, textData) => {
+    if (!workspaceId) return;
+    
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) return;
+
+      const ideaId = savedIdeaIds.get(textId);
+      const ideaData = {
+        workspaceId,
+        content: textData.text || '',
+        positionX: textData.x || 0,
+        positionY: textData.y || 0,
+        width: textData.width || null,
+        height: textData.height || null,
+      };
+
+      if (ideaId) {
+        // 기존 아이디어 업데이트
+        await axios.put(
+          `${API_BASE_URL}/v1/ideas/${ideaId}`,
+          ideaData,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      } else {
+        // 새 아이디어 생성
+        const res = await axios.post(
+          `${API_BASE_URL}/v1/ideas`,
+          ideaData,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        setSavedIdeaIds(prev => new Map(prev).set(textId, res.data.id));
+      }
+    } catch (err) {
+      console.error('메모 저장 실패', err);
+    }
+  };
+
+  // 메모 삭제 함수
+  const deleteIdea = async (textId) => {
+    if (!workspaceId) return;
+    
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) return;
+
+      const ideaId = savedIdeaIds.get(textId);
+      if (ideaId) {
+        await axios.delete(
+          `${API_BASE_URL}/v1/ideas/${ideaId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        );
+        setSavedIdeaIds(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(textId);
+          return newMap;
+        });
+      }
+    } catch (err) {
+      console.error('메모 삭제 실패', err);
+    }
+  };
+
+  // 채팅 메시지 전송 함수
+  const sendChatMessage = async (content) => {
+    if (!workspaceId) return;
+    
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) return;
+
+      // JWT 토큰에서 user_id 추출
+      const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+      const userId = tokenPayload.user_id || tokenPayload.sub;
+
+      await axios.post(
+        `${API_BASE_URL}/v1/chat/messages`,
+        {
+          workspaceId,
+          userId: String(userId),
+          content
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (err) {
+      console.error('채팅 메시지 전송 실패', err);
+    }
+  };
+
   const handleTextUpdate = (id, updates) => {
     // 텍스트 필드 업데이트
     textFields.updateText(id, updates);
+    
+    // 워크스페이스가 있으면 메모 저장
+    if (workspaceId) {
+      const textData = textFields.texts.find(t => t.id === id);
+      if (textData) {
+        saveIdea(id, { ...textData, ...updates });
+      }
+    }
     
     // 캔버스 밖으로 이동하는지 체크하고 확장
     if (updates.x !== undefined && updates.y !== undefined) {
@@ -737,6 +870,7 @@ const InfiniteCanvasPage = () => {
         isShareDropdownOpen={session.isShareDropdownOpen}
         onToggleShareDropdown={() => session.setIsShareDropdownOpen(!session.isShareDropdownOpen)}
         projectName="무한 캔버스 프로젝트"
+        onSendMessage={sendChatMessage}
       />
       
       {/* 클러스터링 패널 */}
@@ -801,7 +935,10 @@ const InfiniteCanvasPage = () => {
           canvasTransform={canvas.canvasTransform}
           texts={textFields.texts}
           updateText={handleTextUpdate}
-          deleteText={textFields.deleteText}
+          deleteText={(id) => {
+            deleteIdea(id);
+            textFields.deleteText(id);
+          }}
           handleSendToChat={(id, x, y, text) => textFields.handleSendToChat(id, x, y, text, setChatMessages)}
           setIsTextEditing={textFields.setIsTextEditing}
           mode={mode}
