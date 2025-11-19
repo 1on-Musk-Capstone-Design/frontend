@@ -29,7 +29,9 @@ export const useTextFields = () => {
       id: nextId.current++,
       x,
       y,
-      text: ''
+      text: '',
+      width: null, // null이면 CSS 변수 사용
+      height: null // null이면 CSS 변수 사용
     };
     
     setTexts(prev => [...prev, newText]);

@@ -1,18 +1,126 @@
-/* 무한 캔버스 페이지 전용 스타일 */
+/* ============================================
+   무한 캔버스 전체 스타일 파일
+   모든 색상, 크기, 폰트 등을 여기서 조정하세요
+   ============================================ */
 
+/* ============================================
+   CSS 변수 정의 - 색상, 크기, 폰트 등
+   ============================================ */
+:root {
+  /* 메인 테마 색상 */
+  --theme-primary: #01cd15; /* 메인 색상 */
+  --theme-primary-hover: #1e7b0b; /* 메인 색상 호버 */
+  --theme-primary-light: rgba(1, 205, 21, 0.2); /* 메인 색상 연한 버전 */
+  --theme-primary-light-hover: rgba(1, 205, 21, 0.35); /* 메인 색상 연한 버전 호버 */
+  /* --theme-primary: #18a0fb; /* 메인 파란색 */
+   /*--theme-primary-hover: #1592e6; /* 메인 파란색 호버 */
+  
+  /* 배경 색상 */
+  --bg-color: #f5f5f5; /* 전체 배경 색상 (밝은 회색) */
+  --canvas-bg-color: #ffffff; /* 캔버스 배경 색상 (흰색) */
+  
+  /* 채팅 패널 (Figma 스타일 사이드바) */
+  --chat-width: 280px; /* 채팅 패널 너비 */
+  --chat-bg-color: #f8f8f8; /* 채팅 패널 배경 (Figma 스타일 회색) */
+  --chat-sidebar-bg: #ffffff; /* 사이드바 내부 배경 */
+  --chat-border-color: #e5e5e5; /* 채팅 패널 테두리 */
+  --chat-header-height: 48px; /* 헤더 높이 */
+  --chat-header-font-size: 13px; /* 채팅 헤더 폰트 크기 */
+  --chat-header-font-weight: 500; /* 채팅 헤더 폰트 굵기 */
+  --chat-header-text-color: #1a1a1a; /* 채팅 헤더 텍스트 색상 */
+  --chat-section-header-font-size: 11px; /* 섹션 헤더 폰트 크기 */
+  --chat-section-header-font-weight: 600; /* 섹션 헤더 폰트 굵기 */
+  --chat-section-header-color: #6b6b6b; /* 섹션 헤더 색상 */
+  --chat-message-font-size: 13px; /* 채팅 메시지 폰트 크기 */
+  --chat-message-font-weight: 400; /* 채팅 메시지 폰트 굵기 */
+  --chat-message-time-font-size: 11px; /* 채팅 시간 폰트 크기 */
+  --chat-input-font-size: 13px; /* 채팅 입력 필드 폰트 크기 */
+  --chat-message-padding: 12px 16px; /* 메시지 풍선 패딩 */
+  --chat-message-gap: 8px; /* 메시지 간격 */
+  --chat-message-max-width: 75%; /* 메시지 최대 너비 */
+  --chat-message-border-radius: 12px; /* 메시지 풍선 모서리 곡률 */
+  --chat-user-message-bg: var(--theme-primary); /* 내 메시지 배경 */
+  --chat-user-message-text: #ffffff; /* 내 메시지 텍스트 */
+  --chat-system-message-bg: #f0f0f0; /* 상대 메시지 배경 */
+  --chat-system-message-text: #1a1a1a; /* 상대 메시지 텍스트 */
+  --chat-input-bg: #ffffff; /* 채팅 입력 필드 배경 */
+  --chat-input-text: #1a1a1a; /* 채팅 입력 필드 텍스트 */
+  --chat-send-button-bg: var(--theme-primary); /* 전송 버튼 배경 */
+  --chat-send-button-text: #ffffff; /* 전송 버튼 텍스트 (흰색) */
+  
+  /* 메모(텍스트 필드) 스타일 */
+  --memo-width: 500px; /* 메모 너비 */
+  --memo-height: 400px; /* 메모 높이 */
+  --memo-bg-color: #ffffff; /* 메모 배경 색상 */
+  --memo-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); /* 메모 그림자 (더 진하게) */
+  --memo-border-radius: 24px; /* 메모 모서리 곡률 (더 크게) */
+  --memo-font-size: 100px; /* 메모 기본 폰트 크기 */
+  --memo-font-weight: 700; /* 메모 폰트 굵기 (볼드체) */
+  --memo-text-color: #000000; /* 메모 텍스트 색상 */
+  --memo-padding: 24px; /* 메모 내부 패딩 */
+  
+  /* 캔버스 그리드 */
+  --grid-color: #b3b3b3; /* 그리드 색상 */
+  --grid-size: 1000px; /* 그리드 크기 */
+  
+  /* 줌 정보 표시 */
+  --zoom-info-bg: #ffffff; /* 줌 정보 배경 (흰색) */
+  --zoom-info-border: #e0e0e0; /* 줌 정보 테두리 (밝은 회색) */
+  --zoom-info-text: #1a1a1a; /* 줌 정보 텍스트 (어두운 회색) */
+  --zoom-info-font-size: 14px; /* 줌 정보 폰트 크기 */
+  --zoom-info-font-weight: 500; /* 줌 정보 폰트 굵기 */
+  --zoom-info-padding: 12px 16px; /* 줌 정보 패딩 */
+  --zoom-info-border-radius: 8px; /* 줌 정보 모서리 곡률 */
+  
+  /* 모드 표시 */
+  --mode-indicator-bg: #ffffff; /* 모드 표시 배경 (흰색) */
+  --mode-indicator-border: #e0e0e0; /* 모드 표시 테두리 (밝은 회색) */
+  --mode-indicator-text: #1a1a1a; /* 모드 표시 텍스트 (어두운 회색) */
+  --mode-indicator-font-size: 14px; /* 모드 표시 폰트 크기 */
+  --mode-indicator-font-weight: 500; /* 모드 표시 폰트 굵기 */
+  --mode-indicator-padding: 12px 16px; /* 모드 표시 패딩 */
+  --mode-indicator-border-radius: 8px; /* 모드 표시 모서리 곡률 */
+  
+  /* 채팅 토글 버튼 */
+  --chat-toggle-width: 40px; /* 채팅 토글 버튼 너비 */
+  --chat-toggle-height: 80px; /* 채팅 토글 버튼 높이 */
+  --chat-toggle-font-size: 18px; /* 채팅 토글 버튼 폰트 크기 */
+  --chat-toggle-font-weight: bold; /* 채팅 토글 버튼 폰트 굵기 */
+  --chat-toggle-text: #1a1a1a; /* 채팅 토글 버튼 텍스트 (어두운 회색) */
+  --chat-toggle-border-radius: 0 8px 8px 0; /* 채팅 토글 버튼 모서리 */
+  
+  /* 클러스터링 패널 (ChatPanel과 동일한 스타일) */
+  --clustering-width: 280px; /* 클러스터링 패널 너비 */
+  --clustering-bg-color: #f8f8f8; /* 클러스터링 패널 배경 */
+  --clustering-sidebar-bg: #ffffff; /* 사이드바 내부 배경 */
+  --clustering-border-color: #e5e5e5; /* 클러스터링 패널 테두리 */
+  --clustering-header-height: 48px; /* 헤더 높이 */
+  --clustering-header-font-size: 13px; /* 헤더 폰트 크기 */
+  --clustering-header-font-weight: 500; /* 헤더 폰트 굵기 */
+  --clustering-header-text-color: #1a1a1a; /* 헤더 텍스트 색상 */
+  --clustering-section-header-font-size: 11px; /* 섹션 헤더 폰트 크기 */
+  --clustering-section-header-font-weight: 600; /* 섹션 헤더 폰트 굵기 */
+  --clustering-section-header-color: #6b6b6b; /* 섹션 헤더 색상 */
+  --clustering-input-font-size: 13px; /* 입력 필드 폰트 크기 */
+  --clustering-toggle-width: 40px; /* 토글 버튼 너비 */
+  --clustering-toggle-height: 80px; /* 토글 버튼 높이 */
+  --clustering-toggle-font-size: 18px; /* 토글 버튼 폰트 크기 */
+  --clustering-toggle-font-weight: bold; /* 토글 버튼 폰트 굵기 */
+  --clustering-toggle-text: #1a1a1a; /* 토글 버튼 텍스트 */
+  --clustering-toggle-border-radius: 8px 0 0 8px; /* 토글 버튼 모서리 */
+  --clustering-run-button-bg: var(--theme-primary); /* 실행 버튼 배경 */
+  --clustering-run-button-text: #ffffff; /* 실행 버튼 텍스트 */
+}
+
+/* ============================================
+   기본 페이지 스타일
+   ============================================ */
 .infinite-canvas-page {
   width: 100%;
   height: 100vh;
   overflow: hidden;
   position: relative;
-  background-color: #e5e7eb;
-  background-image: 
-    linear-gradient(45deg, #d1d5db 25%, transparent 25%),
-    linear-gradient(-45deg, #d1d5db 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #d1d5db 75%),
-    linear-gradient(-45deg, transparent 75%, #d1d5db 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  background-color: var(--bg-color);
 }
 
 .canvas-container {
@@ -20,76 +128,716 @@
   height: 100%;
   cursor: grab;
   position: relative;
+  overflow: auto; /* 항상 스크롤 가능 */
 }
 
 .canvas-container:active {
   cursor: grabbing;
 }
 
-/* 줌 정보 표시 */
+/* 스크롤바 스타일링 */
+.canvas-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.canvas-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.canvas-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.canvas-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 캔버스 그리드 배경 - 패턴 제거 */
+.canvas-grid {
+  background-image: none;
+  background-color: var(--canvas-bg-color);
+}
+
+/* ============================================
+   줌 정보 표시
+   ============================================ */
 .zoom-info {
   position: fixed;
   top: 16px;
   right: 16px;
   z-index: 9999;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  border-radius: 8px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  padding: 8px;
+  background: var(--zoom-info-bg);
+  border: 1px solid var(--zoom-info-border);
+  border-radius: var(--zoom-info-border-radius);
+  padding: var(--zoom-info-padding);
   will-change: transform;
+  color: var(--zoom-info-text);
+  font-size: var(--zoom-info-font-size);
+  font-weight: var(--zoom-info-font-weight);
 }
 
-/* 모드 표시 */
+/* ============================================
+   모드 표시
+   ============================================ */
 .mode-indicator {
   position: fixed;
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  border-radius: 8px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  padding: 8px;
+  background: var(--mode-indicator-bg);
+  border: 1px solid var(--mode-indicator-border);
+  border-radius: var(--mode-indicator-border-radius);
+  padding: var(--mode-indicator-padding);
   will-change: transform;
 }
 
 .mode-text {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: var(--mode-indicator-font-size);
+  color: var(--mode-indicator-text);
 }
 
 .mode-text .mode-value {
   margin-left: 4px;
-  font-weight: 500;
+  font-weight: var(--mode-indicator-font-weight);
 }
 
 .mode-text .mode-value.text-mode {
-  color: #2563eb;
+  color: var(--mode-indicator-text);
 }
 
 .mode-text .mode-value.move-mode {
-  color: #16a34a;
+  color: var(--mode-indicator-text);
 }
 
 .mode-text .mode-value.delete-mode {
-  color: #dc2626;
+  color: var(--mode-indicator-text);
 }
 
-/* 캔버스 그리드 배경 */
-.canvas-grid {
-  background-image: radial-gradient(circle, #9ca3af 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-position: 0 0;
+/* ============================================
+   채팅 패널 스타일
+   ============================================ */
+.chatPanel {
+  position: fixed;
+  z-index: 9998;
+  width: var(--chat-width);
+  height: 100vh;
+  background-color: var(--chat-bg-color);
+  border-right: 1px solid var(--chat-border-color);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  left: 0;
+  top: 0;
+  transform: translateX(0);
+  will-change: transform;
 }
 
-/* 반응형 디자인 */
+.chatPanel.hidden {
+  transform: translateX(calc(-1 * var(--chat-width)));
+}
+
+.chatToggle {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  width: var(--chat-toggle-width);
+  height: var(--chat-toggle-height);
+  background-color: var(--chat-bg-color);
+  border: 1px solid var(--chat-border-color);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--chat-toggle-text);
+  font-size: var(--chat-toggle-font-size);
+  font-weight: var(--chat-toggle-font-weight);
+  transition: all 0.2s ease;
+}
+
+.chatToggle:hover {
+  background-color: #f0f0f0;
+}
+
+.chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--chat-header-height);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--chat-border-color);
+  background-color: var(--chat-sidebar-bg);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.chatHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.chatHeaderDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--chat-header-text-color);
+}
+
+.chatHeaderText {
+  font-size: var(--chat-header-font-size);
+  font-weight: var(--chat-header-font-weight);
+  color: var(--chat-header-text-color);
+  line-height: 1;
+}
+
+.chatCloseButton {
+  background: none;
+  border: none;
+  color: var(--chat-header-text-color);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  line-height: 1;
+}
+
+.chatCloseButton:hover {
+  background-color: #f0f0f0;
+}
+
+.chatContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chatMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--chat-message-gap);
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-message-gap);
+  background-color: var(--chat-sidebar-bg);
+}
+
+/* 채팅 메시지 스크롤바 스타일링 */
+.chatMessages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chatMessages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatMessages::-webkit-scrollbar-thumb {
+  background: var(--theme-primary-light);
+  border-radius: 4px;
+}
+
+.chatMessages::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-primary-light-hover);
+}
+
+.chatMessage {
+  display: flex;
+  width: 100%;
+  padding: 0;
+  border: none;
+  cursor: default;
+}
+
+.chatMessage.user {
+  justify-content: flex-end; /* 내 메시지는 오른쪽 정렬 */
+}
+
+.chatMessage.system {
+  justify-content: flex-start; /* 상대 메시지는 왼쪽 정렬 */
+}
+
+.chatMessageBubble {
+  max-width: var(--chat-message-max-width);
+  padding: var(--chat-message-padding);
+  border-radius: var(--chat-message-border-radius);
+  font-size: var(--chat-message-font-size);
+  font-weight: var(--chat-message-font-weight);
+  line-height: 1.4;
+  word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chatMessageBubble.user {
+  background-color: var(--chat-user-message-bg);
+  color: var(--chat-user-message-text);
+}
+
+.chatMessageBubble.system {
+  background-color: var(--chat-system-message-bg);
+  color: var(--chat-system-message-text);
+}
+
+.chatMessageBubble p {
+  margin: 0;
+  padding: 0;
+}
+
+.chatMessageTime {
+  font-size: var(--chat-message-time-font-size);
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.chatMessageBubble.user .chatMessageTime {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.chatMessageBubble.system .chatMessageTime {
+  color: var(--chat-section-header-color);
+}
+
+.chatInputArea {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid var(--chat-border-color);
+  background-color: var(--chat-sidebar-bg);
+}
+
+.chatInputForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chatInput {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--chat-border-color);
+  background-color: var(--chat-input-bg);
+  color: var(--chat-input-text);
+  font-size: var(--chat-input-font-size);
+  font-weight: 400;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.chatInput:focus {
+  border-color: var(--chat-send-button-bg);
+}
+
+.chatInput::placeholder {
+  color: var(--chat-section-header-color);
+  opacity: 0.6;
+}
+
+.chatSendButton {
+  padding: 8px 16px;
+  border-radius: 6px;
+  background-color: var(--chat-send-button-bg);
+  color: var(--chat-send-button-text);
+  border: none;
+  font-size: var(--chat-input-font-size);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.chatSendButton:hover {
+  background-color: var(--theme-primary-hover);
+}
+
+/* ============================================
+   클러스터링 패널 스타일
+   ============================================ */
+.clusteringPanel {
+  position: fixed;
+  z-index: 9998;
+  width: var(--clustering-width);
+  height: 100vh;
+  background-color: var(--clustering-bg-color);
+  border-left: 1px solid var(--clustering-border-color);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  right: 0;
+  top: 0;
+  transform: translateX(0);
+  will-change: transform;
+}
+
+.clusteringPanel.hidden {
+  transform: translateX(calc(var(--clustering-width)));
+}
+
+.clusteringToggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  width: var(--clustering-toggle-width);
+  height: var(--clustering-toggle-height);
+  background-color: var(--clustering-bg-color);
+  border: 1px solid var(--clustering-border-color);
+  border-right: none;
+  border-radius: var(--clustering-toggle-border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--clustering-toggle-text);
+  font-size: var(--clustering-toggle-font-size);
+  font-weight: var(--clustering-toggle-font-weight);
+  transition: all 0.2s ease;
+}
+
+.clusteringToggle:hover {
+  background-color: #f0f0f0;
+}
+
+.clusteringHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--clustering-header-height);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--clustering-border-color);
+  background-color: var(--clustering-sidebar-bg);
+  flex-shrink: 0;
+}
+
+.clusteringHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.clusteringHeaderText {
+  font-size: var(--clustering-header-font-size);
+  font-weight: var(--clustering-header-font-weight);
+  color: var(--clustering-header-text-color);
+  line-height: 1;
+}
+
+.clusteringCloseButton {
+  background: none;
+  border: none;
+  color: var(--clustering-header-text-color);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  line-height: 1;
+}
+
+.clusteringCloseButton:hover {
+  background-color: #f0f0f0;
+}
+
+.clusteringContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  background-color: var(--clustering-sidebar-bg);
+  min-height: 0; /* flexbox에서 스크롤을 위해 필요 */
+}
+
+.clusteringSettingsSection {
+  flex-shrink: 0;
+  border-top: 1px solid var(--clustering-border-color);
+  padding: 12px;
+  background-color: var(--clustering-sidebar-bg);
+}
+
+.clusteringSettingsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clusteringSettingItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--clustering-input-font-size);
+  color: var(--clustering-header-text-color);
+}
+
+.clusteringSettingLabel {
+  font-weight: 400;
+}
+
+/* 토글 스위치 스타일 */
+.clusteringToggleSwitch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.clusteringToggleSwitch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.clusteringToggleSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.2s;
+  border-radius: 24px;
+}
+
+.clusteringToggleSlider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+.clusteringToggleSwitch input:checked + .clusteringToggleSlider {
+  background-color: var(--clustering-run-button-bg);
+}
+
+.clusteringToggleSwitch input:checked + .clusteringToggleSlider:before {
+  transform: translateX(20px);
+}
+
+.clusteringToggleSwitch input:focus + .clusteringToggleSlider {
+  box-shadow: 0 0 1px var(--clustering-run-button-bg);
+}
+
+/* 클러스터링 컨텐츠 스크롤바 스타일링 */
+.clusteringContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.clusteringContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.clusteringContent::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.clusteringContent::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.clusteringSection {
+  margin-bottom: 20px;
+}
+
+.clusteringSectionHeader {
+  font-size: var(--clustering-section-header-font-size);
+  font-weight: var(--clustering-section-header-font-weight);
+  color: var(--clustering-section-header-color);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.clusteringSectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clusteringCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--clustering-input-font-size);
+  color: var(--clustering-header-text-color);
+  cursor: pointer;
+}
+
+.clusteringCheckbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--clustering-run-button-bg);
+}
+
+.clusteringInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clusteringRangeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clusteringRangeItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clusteringRangeItem label {
+  font-size: var(--clustering-input-font-size);
+  color: var(--clustering-section-header-color);
+  min-width: 40px;
+}
+
+.clusteringInput {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--clustering-border-color);
+  background-color: var(--clustering-sidebar-bg);
+  color: var(--clustering-header-text-color);
+  font-size: var(--clustering-input-font-size);
+  font-weight: 400;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.clusteringInput:focus {
+  border-color: var(--clustering-run-button-bg);
+}
+
+.clusteringSelect {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--clustering-border-color);
+  background-color: var(--clustering-sidebar-bg);
+  color: var(--clustering-header-text-color);
+  font-size: var(--clustering-input-font-size);
+  font-weight: 400;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.clusteringSelect:focus {
+  border-color: var(--clustering-run-button-bg);
+}
+
+.clusteringDescription {
+  font-size: 10px;
+  color: var(--clustering-section-header-color);
+  margin-top: 6px;
+  line-height: 1.3;
+  padding: 0 2px;
+  opacity: 0.8;
+}
+
+.clusteringActionArea {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--clustering-border-color);
+}
+
+.clusteringRunButton {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 6px;
+  background-color: var(--clustering-run-button-bg);
+  color: var(--clustering-run-button-text);
+  border: none;
+  font-size: var(--clustering-input-font-size);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clusteringRunButton:hover {
+  background-color: var(--theme-primary-hover);
+}
+
+/* ============================================
+   플로팅 툴바 스타일
+   ============================================ */
+.floatingToolbar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background-color: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.toolbarButton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b6b6b;
+  transition: all 0.15s ease;
+  padding: 0;
+  margin: 0;
+}
+
+.toolbarButton:hover {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.toolbarButton.active {
+  background-color: var(--theme-primary);
+  color: #ffffff;
+}
+
+.toolbarButton.active:hover {
+  background-color: var(--theme-primary-hover);
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  background-color: #e5e5e5;
+  margin: 0 4px;
+}
+
+/* ============================================
+   반응형 디자인
+   ============================================ */
 @media (max-width: 768px) {
   .zoom-info {
     top: 8px;
     right: 8px;
-    padding: 6px;
+    padding: 8px 12px;
     font-size: 12px;
   }
   
@@ -98,29 +846,17 @@
     left: 8px;
     right: 8px;
     transform: none;
-    padding: 6px;
+    padding: 8px 12px;
     font-size: 12px;
   }
-}
-
-/* 다크 모드 지원 */
-@media (prefers-color-scheme: dark) {
-  .infinite-canvas-page {
-    background-color: #1f2937;
-    background-image: 
-      linear-gradient(45deg, #374151 25%, transparent 25%),
-      linear-gradient(-45deg, #374151 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #374151 75%),
-      linear-gradient(-45deg, transparent 75%, #374151 75%);
-  }
   
-  .zoom-info,
-  .mode-indicator {
-    background: rgba(31, 41, 55, 0.95);
-    color: #f9fafb;
-  }
-  
-  .canvas-grid {
-    background-image: radial-gradient(circle, #6b7280 1px, transparent 1px);
+  :root {
+    --chat-width: 300px;
+    --chat-header-font-size: 16px;
+    --chat-message-font-size: 14px;
+    --chat-input-font-size: 14px;
+    --clustering-width: 300px;
+    --clustering-header-font-size: 16px;
+    --clustering-input-font-size: 14px;
   }
 }
