@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { Grid, List as ListIcon, Search } from 'lucide-react'
+import ProjectList from './components/ProjectList/ProjectList'
 import Sidebar from './components/Sidebar/Sidebar'
-import ProjectCard from './components/ProjectCard/ProjectCard'
 import styles from './MainPage.module.css'
 import { Project } from './types'
 import Modal from '../../components/Modal/Modal'
@@ -38,6 +39,18 @@ export default function MainPage(): JSX.Element {
   const [generating, setGenerating] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sortBy, setSortBy] = useState<'recent' | 'alphabetical'>('recent')
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [query, setQuery] = useState('')
+
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   function openModal() {
     setIsModalOpen(true)
@@ -384,6 +397,24 @@ export default function MainPage(): JSX.Element {
 
   const displayProjects = projects.length ? projects : dummyProjects;
 
+  // 검색 필터 적용
+  const filteredProjects = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return displayProjects
+    return displayProjects.filter(p => p.title.toLowerCase().includes(q))
+  }, [displayProjects, query])
+
+  // 정렬 적용
+  const sortedProjects = useMemo(() => {
+    const arr = [...filteredProjects]
+    if (sortBy === 'alphabetical') {
+      arr.sort((a, b) => a.title.localeCompare(b.title, 'ko'))
+    } else {
+      // recent: dummy 기준 최근 우선 그대로 (실제 API라면 lastModified timestamp 기준 정렬)
+    }
+    return arr
+  }, [filteredProjects, sortBy])
+
   return (
     <div className={styles.pageRoot}>
       <div className={styles.container}>
@@ -391,40 +422,63 @@ export default function MainPage(): JSX.Element {
 
         <main className={styles.main}>
           <header className={styles.header}>
-            <div>
+            {/* Left: Information group */}
+            <div style={{ textAlign: 'left' }}>
               <h1 className={styles.title}>전체 프로젝트</h1>
               <p className={styles.subtitle}>당신의 최근 프로젝트를 확인하세요.</p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Right: Control group */}
+            <div className="flex items-center gap-3">
+              {/* Search */}
+              <div className="relative w-72">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="프로젝트 검색..."
+                  aria-label="프로젝트 검색"
+                  className="h-10 w-full rounded-xl bg-gray-50 border border-black/10 pl-9 pr-3 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#01CD15]/30 focus:border-[#01CD15]/40"
+                />
+              </div>
+
+              {/* View toggle */}
+              <div className="flex border border-black/10 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  aria-label="그리드 보기"
+                  onClick={() => setViewMode('grid')}
+                  className={`w-10 h-10 flex items-center justify-center ${viewMode === 'grid' ? 'bg-[#01CD15] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <Grid size={18} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="리스트 보기"
+                  onClick={() => setViewMode('list')}
+                  className={`w-10 h-10 flex items-center justify-center ${viewMode === 'list' ? 'bg-[#01CD15] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <ListIcon size={18} />
+                </button>
+              </div>
+
+              {/* Create/Login */}
               {isLoggedIn ? (
-                <>
-                  <button className={styles.createButton} type="button" onClick={openModal}>
-                    새 프로젝트 생성
-                  </button>
-                  <button 
-                    className={styles.logoutButton} 
-                    type="button" 
-                    onClick={handleLogout}
-                    style={{
-                      padding: '10px 16px',
-                      background: 'transparent',
-                      color: '#6b7280',
-                      border: '1px solid rgba(15,23,42,0.06)',
-                      borderRadius: '10px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'all 180ms ease'
-                    }}
-                  >
-                    로그아웃
-                  </button>
-                </>
+                <button
+                  className={styles.createButton}
+                  type="button"
+                  onClick={openModal}
+                  style={{ height: 40, padding: '0 16px', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  새 프로젝트 생성
+                </button>
               ) : (
-                <button 
-                  className={styles.createButton} 
-                  type="button" 
+                <button
+                  className={styles.createButton}
+                  type="button"
                   onClick={handleLogin}
+                  style={{ height: 40, padding: '0 16px', display: 'inline-flex', alignItems: 'center' }}
                 >
                   로그인
                 </button>
@@ -432,35 +486,16 @@ export default function MainPage(): JSX.Element {
             </div>
           </header>
 
-          <section className={styles.gridSection} aria-label="프로젝트 목록">
-            {loading && projects.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-                로딩 중...
-              </div>
-            ) : loadError && projects.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>
-                <p>{loadError}</p>
-                <button 
-                  onClick={() => window.location.reload()} 
-                  style={{ marginTop: '10px', padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  다시 시도
-                </button>
-              </div>
-            ) : (
-              displayProjects.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  id={p.id}
-                  title={p.title}
-                  thumbnailUrl={p.thumbnailUrl}
-                  lastModified={p.lastModified}
-                  onDelete={handleDeleteClick}
-                  onInvite={handleInviteClick}
-                />
-              ))
-            )}
-          </section>
+          <ProjectList
+            projects={sortedProjects}
+            viewMode={viewMode}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
+            onDelete={handleDeleteClick}
+            onInvite={handleInviteClick}
+            loading={loading}
+            loadError={loadError}
+          />
 
           {/* Modal: 새 프로젝트 생성 */}
           <Modal isOpen={isModalOpen} onClose={closeModal}>
