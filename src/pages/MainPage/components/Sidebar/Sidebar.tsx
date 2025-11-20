@@ -133,6 +133,11 @@ export default function Sidebar({ activeMenu = 'home' }: SidebarProps) {
       </nav>
 
       <div className={styles.footer}>
+        <div className={styles.upgradeBox} aria-label="업그레이드 안내">
+          <h4 className={styles.upgradeTitle}>플랜 업그레이드</h4>
+            <p className={styles.upgradeDesc}>더 많은 워크스페이스와 고급 클러스터링 기능을 사용해보세요.</p>
+            <button className={styles.upgradeBtn} type="button" onClick={() => alert('업그레이드 페이지는 아직 준비 중입니다.')}>업그레이드</button>
+        </div>
         <button
           onClick={() => {
             localStorage.removeItem('accessToken')
