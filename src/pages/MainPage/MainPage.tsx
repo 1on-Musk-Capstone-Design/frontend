@@ -88,10 +88,6 @@ export default function MainPage(): JSX.Element {
           }
         )
 
-        console.log('워크스페이스 목록 API 응답:', {
-          count: res.data.length,
-          workspaces: res.data
-        });
 
         // 현재 사용자 ID 추출
         let currentUserId: string | null = null
@@ -124,17 +120,6 @@ export default function MainPage(): JSX.Element {
               if (owner) {
                 ownerName = owner.name || owner.email || '알 수 없음'
                 
-                // 디버깅: OWNER 정보 로그
-                console.log(`워크스페이스 ${workspace.workspaceId} OWNER 정보:`, {
-                  id: owner.id,
-                  name: owner.name,
-                  email: owner.email,
-                  profileImage: owner.profileImage,
-                  profileImageType: typeof owner.profileImage,
-                  profileImageLength: owner.profileImage?.length,
-                  isCurrentUser: currentUserId && String(owner.id) === currentUserId
-                })
-                
                 // profileImage가 유효한 문자열인 경우에만 설정
                 if (owner.profileImage && owner.profileImage.trim() !== '') {
                   // 상대 경로인 경우 절대 경로로 변환
@@ -146,10 +131,8 @@ export default function MainPage(): JSX.Element {
                   } else {
                     ownerProfileImage = owner.profileImage
                   }
-                  console.log(`최종 프로필 이미지 URL: ${ownerProfileImage}`)
                 } else {
                   ownerProfileImage = undefined
-                  console.log(`프로필 이미지가 없거나 빈 문자열입니다.`)
                 }
                 
                 // 현재 사용자가 OWNER인지 확인
@@ -180,7 +163,6 @@ export default function MainPage(): JSX.Element {
         // 초대 수락 플래그가 있으면 제거 (목록 새로고침 완료)
         if (localStorage.getItem('inviteAccepted') === 'true') {
           localStorage.removeItem('inviteAccepted')
-          console.log('초대 수락 후 워크스페이스 목록이 업데이트되었습니다.')
         }
       } catch (err: any) {
         console.error('워크스페이스 목록 불러오기 실패', err)
@@ -522,16 +504,6 @@ export default function MainPage(): JSX.Element {
     }
   }
 
-  // 더미 프로젝트 (API 데이터가 없을 때 시각적 예시 제공)
-  const dummyProjects: Project[] = [
-    { id: 'd1', title: '브레인스토밍 보드', thumbnailUrl: '', lastModified: '오늘' },
-    { id: 'd2', title: '제품 아이디어 정리', thumbnailUrl: '', lastModified: '2일 전' },
-    { id: 'd3', title: 'UI 컴포넌트 설계', thumbnailUrl: '', lastModified: '이번 주' },
-    { id: 'd4', title: '리서치 메모', thumbnailUrl: '', lastModified: '지난 주' },
-    { id: 'd5', title: '마케팅 메시지', thumbnailUrl: '', lastModified: '최근' }
-  ];
-
-  const displayProjects = projects.length ? projects : dummyProjects;
 
   return (
     <div className={styles.pageRoot}>
@@ -597,7 +569,7 @@ export default function MainPage(): JSX.Element {
                 </button>
               </div>
             ) : (
-              displayProjects.map((p) => (
+              projects.map((p) => (
                 <ProjectCard
                   key={p.id}
                   id={p.id}

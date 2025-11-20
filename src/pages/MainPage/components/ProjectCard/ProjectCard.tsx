@@ -19,18 +19,6 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
   const [imageError, setImageError] = React.useState(false)
   const hasValidImage = ownerProfileImage && ownerProfileImage.trim() !== '' && !imageError
 
-  // 디버깅: 프로필 이미지 정보 로그
-  React.useEffect(() => {
-    if (ownerName) {
-      console.log(`ProjectCard [${title}] 프로필 이미지 정보:`, {
-        ownerName,
-        ownerProfileImage,
-        hasValidImage,
-        imageError,
-        isOwner
-      })
-    }
-  }, [ownerName, ownerProfileImage, hasValidImage, imageError, isOwner, title])
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -81,12 +69,8 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
                         src={ownerProfileImage} 
                         alt={ownerName} 
                         className={styles.ownerProfileImage}
-                        onError={(e) => {
-                          console.error(`프로필 이미지 로드 실패 [${title}]:`, ownerProfileImage, e)
+                        onError={() => {
                           setImageError(true)
-                        }}
-                        onLoad={() => {
-                          console.log(`프로필 이미지 로드 성공 [${title}]:`, ownerProfileImage)
                         }}
                       />
                     ) : (
