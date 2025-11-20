@@ -7,16 +7,44 @@ export interface ProjectCardProps {
   thumbnailUrl?: string
   title: string
   lastModified: string
+  ownerName?: string
+  ownerProfileImage?: string
+  isOwner?: boolean
   onDelete?: (id: string) => void
+  onLeave?: (id: string) => void
   onInvite?: (id: string) => void
 }
 
-export default function ProjectCard({ id, thumbnailUrl, title, lastModified, onDelete, onInvite }: ProjectCardProps) {
+export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite }: ProjectCardProps) {
+  const [imageError, setImageError] = React.useState(false)
+  const hasValidImage = ownerProfileImage && ownerProfileImage.trim() !== '' && !imageError
+
+  // 디버깅: 프로필 이미지 정보 로그
+  React.useEffect(() => {
+    if (ownerName) {
+      console.log(`ProjectCard [${title}] 프로필 이미지 정보:`, {
+        ownerName,
+        ownerProfileImage,
+        hasValidImage,
+        imageError,
+        isOwner
+      })
+    }
+  }, [ownerName, ownerProfileImage, hasValidImage, imageError, isOwner, title])
+
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (onDelete) {
       onDelete(id)
+    }
+  }
+
+  const handleLeaveClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onLeave) {
+      onLeave(id)
     }
   }
 
@@ -43,12 +71,41 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, onD
 
           <div className={styles.body}>
             <h3 className={styles.title}>{title}</h3>
-            <p className={styles.meta}>{lastModified}</p>
+            <div className={styles.metaContainer}>
+              <p className={styles.meta}>{lastModified}</p>
+              {ownerName && (
+                <div className={styles.ownerInfo}>
+                  <div className={styles.ownerBadgeContainer}>
+                    {hasValidImage ? (
+                      <img 
+                        src={ownerProfileImage} 
+                        alt={ownerName} 
+                        className={styles.ownerProfileImage}
+                        onError={(e) => {
+                          console.error(`프로필 이미지 로드 실패 [${title}]:`, ownerProfileImage, e)
+                          setImageError(true)
+                        }}
+                        onLoad={() => {
+                          console.log(`프로필 이미지 로드 성공 [${title}]:`, ownerProfileImage)
+                        }}
+                      />
+                    ) : (
+                      <div className={styles.ownerProfilePlaceholder}>
+                        {ownerName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className={styles.ownerText}>
+                      {isOwner ? '내 프로젝트' : ownerName}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </article>
       </Link>
       <div className={styles.actionButtons}>
-        {onInvite && (
+        {onInvite && isOwner && (
           <button
             className={styles.inviteButton}
             onClick={handleInviteClick}
@@ -66,7 +123,7 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, onD
             </svg>
           </button>
         )}
-        {onDelete && (
+        {isOwner && onDelete && (
           <button
             className={styles.deleteButton}
             onClick={handleDeleteClick}
@@ -90,6 +147,24 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, onD
               />
               <path
                 d="M9.33333 7.33333V11.3333"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
+        {!isOwner && onLeave && (
+          <button
+            className={styles.leaveButton}
+            onClick={handleLeaveClick}
+            aria-label={`${title} 나가기`}
+            type="button"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M10.6667 12L14 8M14 8L10.6667 4M14 8H2"
                 stroke="currentColor"
                 strokeWidth="1.5"
                 strokeLinecap="round"

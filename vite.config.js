@@ -7,5 +7,7 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
-  }
+  },
+  // SPA 라우팅을 위한 설정
+  appType: 'spa'
 })

@@ -4,13 +4,6 @@ const ChatPanel = ({
   messages = [], 
   onLocationClick, 
   onVisibilityChange,
-  participants = [],
-  inviteLink = '',
-  onCopyInviteLink,
-  onGenerateInviteLink,
-  isShareDropdownOpen = false,
-  onToggleShareDropdown,
-  projectName = '프로젝트',
   onSendMessage
 }) => {
   const [localMessages, setLocalMessages] = useState([
@@ -21,27 +14,6 @@ const ChatPanel = ({
   const [newMessage, setNewMessage] = useState("");
   const [isHidden, setIsHidden] = useState(false);
   const messagesEndRef = useRef(null);
-  const dropdownRef = useRef(null);
-
-  // 드롭다운 외부 클릭 시 닫기
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target) && 
-          !event.target.closest('.chatShareButton')) {
-        if (onToggleShareDropdown && isShareDropdownOpen) {
-          onToggleShareDropdown();
-        }
-      }
-    };
-
-    if (isShareDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isShareDropdownOpen, onToggleShareDropdown]);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -112,7 +84,7 @@ const ChatPanel = ({
         {/* 헤더 */}
         <div className="chatHeader">
           <div className="chatHeaderTitle" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-            {/* 프로젝트 이름 */}
+            {/* 채팅 제목 */}
             <span 
               className="chatHeaderText" 
               style={{ 
@@ -125,156 +97,9 @@ const ChatPanel = ({
                 flex: '1 1 auto',
                 minWidth: 0
               }}
-              title={projectName}
             >
-              {projectName}
+              채팅
             </span>
-            
-            {/* 참가자 수 표시 */}
-            <span className="chatHeaderText" style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a', flexShrink: 0 }}>
-              {participants.length}명
-            </span>
-            
-            {/* 초대 버튼 */}
-            <button
-              className="chatInviteButton"
-              onClick={onToggleShareDropdown}
-              title="초대하기"
-              style={{
-                backgroundColor: 'var(--theme-primary)',
-                color: '#ffffff',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: 500,
-                transition: 'background-color 0.2s ease',
-                flexShrink: 0,
-                whiteSpace: 'nowrap'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--theme-primary-hover)'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--theme-primary)'}
-            >
-              초대
-            </button>
-            
-            {/* 참가자 드롭다운 */}
-            {isShareDropdownOpen && (
-              <div 
-                ref={dropdownRef}
-                className="chatShareDropdown"
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: '12px',
-                  marginTop: '4px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e5e5',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  padding: '8px',
-                  minWidth: '200px',
-                  zIndex: 10000,
-                  maxHeight: '300px',
-                  overflowY: 'auto'
-                }}
-              >
-                {/* 초대 링크 섹션 */}
-                <div style={{ paddingBottom: '8px', borderBottom: '1px solid #e5e5e5', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b6b6b', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    초대 링크
-                  </div>
-                  {!inviteLink ? (
-                    <button
-                      onClick={onGenerateInviteLink}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        backgroundColor: 'var(--theme-primary)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      초대 링크 생성
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        value={inviteLink}
-                        readOnly
-                        style={{
-                          flex: 1,
-                          padding: '6px 8px',
-                          border: '1px solid #e5e5e5',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          backgroundColor: '#f8f8f8'
-                        }}
-                      />
-                      <button
-                        onClick={onCopyInviteLink}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: 'var(--theme-primary)',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        복사
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                {/* 참가자 목록 */}
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b6b6b', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    참가자 ({participants.length}명)
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {participants.map((participant) => (
-                      <div
-                        key={participant.id}
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          color: '#1a1a1a',
-                          backgroundColor: participant.isCurrentUser ? '#f0f0f0' : 'transparent',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: participant.isCurrentUser ? 'var(--theme-primary)' : '#6b6b6b'
-                          }}
-                        />
-                        <span>{participant.name || participant.id}</span>
-                        {participant.isCurrentUser && (
-                          <span style={{ fontSize: '10px', color: '#6b6b6b', marginLeft: 'auto' }}>(나)</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           <button
             className="chatCloseButton"
