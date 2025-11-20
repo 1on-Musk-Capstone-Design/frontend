@@ -1,31 +1,42 @@
 .pageRoot {
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
-  overflow: hidden;
-  /* 요청: 전체 배경을 화이트로 설정 */
-  background-color: #ffffff;
-  color: var(--text, #111827);
-  /* 전역에 설정된 폰트를 그대로 사용 (inherited) */
+  background-color: #ffffff; /* 전체 화이트 */
+  color: #111827;
   font-family: inherit;
 }
 
-.container {
-  width: 100%;
-  height: 100%;
+.container { /* 유지: 구조 래퍼 (sidebar는 fixed로 분리) */ }
+
+.main {
+  margin-left: 250px; /* fixed sidebar width */
+  padding: 32px 40px 48px 40px;
   display: flex;
-  gap: 20px;
-  padding: 20px;
+  flex-direction: column;
+  min-height: 100vh;
   box-sizing: border-box;
 }
 
-.main {
-  flex: 1;
-  padding: 24px;
+/* 대시보드 헤더 */
+.header {
   display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  /* 메인 컨텐츠는 반투명 카드처럼 보이도록 */
-  background: transparent;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+
+.title {
+  font-size: 2.15rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin: 6px 0 0 0;
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .header {
@@ -71,11 +82,29 @@
 
 .gridSection {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 32px;
   flex: 1;
-  overflow-y: auto;
+  padding-bottom: 64px;
 }
+
+/* Green primary button */
+.createButton {
+  background: #01CD15;
+  color: #ffffff;
+  border: 1px solid #01CD15;
+  padding: 12px 20px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 14px rgba(1,205,21,0.25);
+  transition: background .16s ease, box-shadow .16s ease;
+}
+
+.createButton:hover { background: #10b981; box-shadow: 0 6px 18px rgba(16,185,129,0.30); }
+.createButton:active { background: #059669; }
+.logoutButton { background: transparent; }
 
 @media (max-width: 768px) {
   .container {

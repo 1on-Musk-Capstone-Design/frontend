@@ -373,6 +373,17 @@ export default function MainPage(): JSX.Element {
     }
   }
 
+  // 더미 프로젝트 (API 데이터가 없을 때 시각적 예시 제공)
+  const dummyProjects: Project[] = [
+    { id: 'd1', title: '브레인스토밍 보드', thumbnailUrl: '', lastModified: '오늘' },
+    { id: 'd2', title: '제품 아이디어 정리', thumbnailUrl: '', lastModified: '2일 전' },
+    { id: 'd3', title: 'UI 컴포넌트 설계', thumbnailUrl: '', lastModified: '이번 주' },
+    { id: 'd4', title: '리서치 메모', thumbnailUrl: '', lastModified: '지난 주' },
+    { id: 'd5', title: '마케팅 메시지', thumbnailUrl: '', lastModified: '최근' }
+  ];
+
+  const displayProjects = projects.length ? projects : dummyProjects;
+
   return (
     <div className={styles.pageRoot}>
       <div className={styles.container}>
@@ -422,11 +433,11 @@ export default function MainPage(): JSX.Element {
           </header>
 
           <section className={styles.gridSection} aria-label="프로젝트 목록">
-            {loading ? (
+            {loading && projects.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
                 로딩 중...
               </div>
-            ) : loadError ? (
+            ) : loadError && projects.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>
                 <p>{loadError}</p>
                 <button 
@@ -436,12 +447,8 @@ export default function MainPage(): JSX.Element {
                   다시 시도
                 </button>
               </div>
-            ) : projects.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-                워크스페이스가 없습니다. 새 프로젝트를 생성해보세요.
-              </div>
             ) : (
-              projects.map((p) => (
+              displayProjects.map((p) => (
                 <ProjectCard
                   key={p.id}
                   id={p.id}
