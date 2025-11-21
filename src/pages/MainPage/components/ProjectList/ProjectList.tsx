@@ -11,11 +11,12 @@ interface ProjectListProps {
   toggleFavorite: (id: string) => void
   onDelete: (id: string) => void
   onInvite: (id: string) => void
+  onLeave?: (id: string) => void
   loading: boolean
   loadError: string | null
 }
 
-export default function ProjectList({ projects, viewMode, favorites, toggleFavorite, onDelete, onInvite, loading, loadError }: ProjectListProps) {
+export default function ProjectList({ projects, viewMode, favorites, toggleFavorite, onDelete, onInvite, onLeave, loading, loadError }: ProjectListProps) {
   if (viewMode === 'grid') {
     return (
       <section aria-label="프로젝트 그리드" style={{ marginTop: 24 }}>
@@ -32,7 +33,11 @@ export default function ProjectList({ projects, viewMode, favorites, toggleFavor
                 title={p.title}
                 thumbnailUrl={p.thumbnailUrl}
                 lastModified={p.lastModified}
+                ownerName={p.ownerName}
+                ownerProfileImage={p.ownerProfileImage}
+                isOwner={p.isOwner}
                 onDelete={onDelete}
+                onLeave={onLeave}
                 onInvite={onInvite}
                 isFavorite={favorites.has(p.id)}
                 onToggleFavorite={toggleFavorite}

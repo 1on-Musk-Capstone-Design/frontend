@@ -18,8 +18,7 @@ export interface ProjectCardProps {
   onToggleFavorite?: (id: string) => void
 }
 
-export default function ProjectCard({ id, thumbnailUrl, title, lastModified, onDelete, onInvite, isFavorite = false, onToggleFavorite }: ProjectCardProps) {
-export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite }: ProjectCardProps) {
+export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite }: ProjectCardProps) {
   const [imageError, setImageError] = React.useState(false)
   const hasValidImage = ownerProfileImage && ownerProfileImage.trim() !== '' && !imageError
 
