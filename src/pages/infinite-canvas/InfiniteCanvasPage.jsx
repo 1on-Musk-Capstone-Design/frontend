@@ -4,6 +4,7 @@ import ChatPanel from './components/ChatPanel';
 import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
+import TopToolbar from './components/TopToolbar';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
@@ -42,6 +43,8 @@ const InfiniteCanvasPage = () => {
   const [inviteLink, setInviteLink] = useState(''); // 초대 링크
   const [inviteLinkExpiresAt, setInviteLinkExpiresAt] = useState(''); // 초대 링크 만료일
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); // 초대 모달 상태
+  const [workspaceName, setWorkspaceName] = useState('프로젝트'); // 워크스페이스 이름
+  const [workspaceParticipants, setWorkspaceParticipants] = useState([]); // 워크스페이스 참가자 목록
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -78,6 +81,23 @@ const InfiniteCanvasPage = () => {
         const userId = String(tokenPayload.user_id || tokenPayload.sub);
         setCurrentUserId(userId);
 
+        // 워크스페이스 정보 불러오기
+        try {
+          const workspaceRes = await axios.get(
+            `${API_BASE_URL}/v1/workspaces/${workspaceId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
+            }
+          );
+          if (workspaceRes.data && workspaceRes.data.name) {
+            setWorkspaceName(workspaceRes.data.name);
+          }
+        } catch (err) {
+          console.error('워크스페이스 정보 불러오기 실패', err);
+        }
+
         // 워크스페이스 사용자 목록 불러오기
         let userMap = new Map();
         try {
@@ -90,11 +110,21 @@ const InfiniteCanvasPage = () => {
             }
           );
           
-          // userId -> userName 매핑 생성
+          // userId -> userName 매핑 생성 및 참가자 목록 생성
+          const participantsList = [];
           usersRes.data.forEach((user) => {
-            userMap.set(String(user.id), user.name || user.email || '알 수 없음');
+            const userId = String(user.id);
+            const userName = user.name || user.email || '알 수 없음';
+            userMap.set(userId, userName);
+            
+            // 참가자 목록에 추가 (isCurrentUser는 나중에 TopToolbar에서 설정)
+            participantsList.push({
+              id: userId,
+              name: userName
+            });
           });
           setWorkspaceUsers(userMap);
+          setWorkspaceParticipants(participantsList);
         } catch (err) {
           console.error('워크스페이스 사용자 목록 불러오기 실패', err);
         }
@@ -1093,18 +1123,24 @@ const InfiniteCanvasPage = () => {
 
   return (
     <div className="infinite-canvas-page">
+      {/* 상단 툴바 */}
+      <TopToolbar
+        projectName={workspaceName}
+        participants={workspaceParticipants.map(p => ({
+          ...p,
+          isCurrentUser: currentUserId ? p.id === currentUserId : false
+        }))}
+        inviteLink={inviteLink}
+        onCopyInviteLink={handleCopyInviteLink}
+        onGenerateInviteLink={handleGenerateInviteLink}
+      />
+      
       {/* 채팅창 */}
       <ChatPanel 
         messages={chatMessages}
         onLocationClick={handleLocationClick}
         onVisibilityChange={setIsChatPanelOpen}
         participants={session.participants}
-        inviteLink={inviteLink}
-        onCopyInviteLink={handleCopyInviteLink}
-        onGenerateInviteLink={handleGenerateInviteLink}
-        isShareDropdownOpen={session.isShareDropdownOpen}
-        onToggleShareDropdown={() => session.setIsShareDropdownOpen(!session.isShareDropdownOpen)}
-        projectName="무한 캔버스 프로젝트"
         onSendMessage={sendChatMessage}
       />
       

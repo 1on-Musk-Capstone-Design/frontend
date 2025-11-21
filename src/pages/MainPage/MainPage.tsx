@@ -51,6 +51,10 @@ export default function MainPage(): JSX.Element {
       return next
     })
   }
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false)
+  const [projectToLeave, setProjectToLeave] = useState<{ id: string; title: string } | null>(null)
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState<string | null>(null)
 
   function openModal() {
     setIsModalOpen(true)
@@ -68,15 +72,8 @@ export default function MainPage(): JSX.Element {
     setIsLoggedIn(!!accessToken)
   }, [])
 
-  // 초대 토큰이 있으면 수락 처리
-  useEffect(() => {
-    const pendingInviteToken = localStorage.getItem('pendingInviteToken')
-    if (pendingInviteToken && isLoggedIn) {
-      // 초대 수락 페이지로 이동
-      window.location.href = `/invite/${pendingInviteToken}`
-      localStorage.removeItem('pendingInviteToken')
-    }
-  }, [isLoggedIn])
+  // 초대 토큰이 있으면 수락 처리 (로그인 후 콜백에서 처리하므로 여기서는 제거)
+  // 이 로직은 CallbackPage에서 처리됨
 
   // 워크스페이스 목록 불러오기
   useEffect(() => {
@@ -95,15 +92,6 @@ export default function MainPage(): JSX.Element {
         
         setIsLoggedIn(true)
 
-        // JWT 토큰에서 user_id 추출 (디버깅용)
-        try {
-          const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-          const userId = tokenPayload.user_id || tokenPayload.sub;
-          console.log('현재 로그인한 사용자 ID:', userId);
-        } catch (e) {
-          console.warn('JWT 토큰 파싱 실패:', e);
-        }
-
         const res = await axios.get<WorkspaceListItem[]>(
           `${API_BASE_URL}/v1/workspaces`,
           {
@@ -113,20 +101,82 @@ export default function MainPage(): JSX.Element {
           }
         )
 
-        console.log('워크스페이스 목록 API 응답:', {
-          count: res.data.length,
-          workspaces: res.data
-        });
 
-        // API 응답을 Project 타입으로 변환
-        const workspaceProjects: Project[] = res.data.map((workspace) => ({
-          id: String(workspace.workspaceId),
-          title: workspace.name,
-          thumbnailUrl: '',
-          lastModified: '최근 수정됨', // API에 수정일 정보가 없으면 기본값
-        }))
+        // 현재 사용자 ID 추출
+        let currentUserId: string | null = null
+        try {
+          const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]))
+          currentUserId = String(tokenPayload.user_id || tokenPayload.sub)
+        } catch (e) {
+          console.warn('JWT 토큰 파싱 실패:', e)
+        }
 
-        setProjects(workspaceProjects)
+        // 각 워크스페이스의 사용자 목록을 병렬로 가져와서 OWNER 찾기
+        const workspaceProjectsWithOwners = await Promise.all(
+          res.data.map(async (workspace) => {
+            let ownerName = '알 수 없음'
+            let ownerProfileImage: string | undefined = undefined
+            let isOwner = false
+
+            try {
+              const usersRes = await axios.get(
+                `${API_BASE_URL}/v1/workspaces/${workspace.workspaceId}/users`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                  }
+                }
+              )
+
+              // OWNER 역할을 가진 사용자 찾기
+              const owner = usersRes.data.find((user: any) => user.role === 'OWNER')
+              if (owner) {
+                ownerName = owner.name || owner.email || '알 수 없음'
+                
+                // profileImage가 유효한 문자열인 경우에만 설정
+                if (owner.profileImage && owner.profileImage.trim() !== '') {
+                  // 상대 경로인 경우 절대 경로로 변환
+                  if (owner.profileImage.startsWith('/')) {
+                    ownerProfileImage = `${API_BASE_URL}${owner.profileImage}`
+                  } else if (!owner.profileImage.startsWith('http://') && !owner.profileImage.startsWith('https://')) {
+                    // 상대 경로인 경우 (http/https로 시작하지 않으면)
+                    ownerProfileImage = `${API_BASE_URL}/${owner.profileImage}`
+                  } else {
+                    ownerProfileImage = owner.profileImage
+                  }
+                } else {
+                  ownerProfileImage = undefined
+                }
+                
+                // 현재 사용자가 OWNER인지 확인
+                if (currentUserId && String(owner.id) === currentUserId) {
+                  isOwner = true
+                }
+              } else {
+                console.warn(`워크스페이스 ${workspace.workspaceId}에서 OWNER를 찾을 수 없습니다.`)
+              }
+            } catch (err) {
+              console.error(`워크스페이스 ${workspace.workspaceId} 사용자 목록 불러오기 실패:`, err)
+            }
+
+            return {
+              id: String(workspace.workspaceId),
+              title: workspace.name,
+              thumbnailUrl: '',
+              lastModified: '최근 수정됨',
+              ownerName,
+              ownerProfileImage,
+              isOwner
+            }
+          })
+        )
+
+        setProjects(workspaceProjectsWithOwners)
+        
+        // 초대 수락 플래그가 있으면 제거 (목록 새로고침 완료)
+        if (localStorage.getItem('inviteAccepted') === 'true') {
+          localStorage.removeItem('inviteAccepted')
+        }
       } catch (err: any) {
         console.error('워크스페이스 목록 불러오기 실패', err)
         if (err?.response?.status === 401) {
@@ -180,7 +230,10 @@ export default function MainPage(): JSX.Element {
 
       const res = await axios.post<{ workspaceId: number; name: string }>(
         `${API_BASE_URL}/v1/workspaces`,
-        { name: form.name.trim() },
+        { 
+          name: form.name.trim(),
+          role: 'OWNER' // 워크스페이스 생성자는 OWNER
+        },
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -230,6 +283,89 @@ export default function MainPage(): JSX.Element {
       setInviteLink('')
       setInviteLinkExpiresAt('')
       setInviteError(null)
+    }
+  }
+
+  // 프로젝트 나가기 핸들러
+  function handleLeaveClick(id: string) {
+    const project = projects.find((p) => p.id === id)
+    if (project) {
+      setProjectToLeave({ id, title: project.title })
+      setLeaveModalOpen(true)
+      setLeaveError(null)
+    }
+  }
+
+  function closeLeaveModal() {
+    setLeaveModalOpen(false)
+    setProjectToLeave(null)
+    setLeaveError(null)
+  }
+
+  // 워크스페이스 나가기 확인
+  async function handleLeaveConfirm() {
+    if (!projectToLeave) return
+
+    setLeaving(true)
+    setLeaveError(null)
+
+    try {
+      const accessToken = localStorage.getItem('accessToken')
+      if (!accessToken) {
+        throw new Error('로그인이 필요합니다.')
+      }
+
+      // 현재 사용자 ID 추출
+      let currentUserId: string | null = null
+      try {
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]))
+        currentUserId = String(tokenPayload.user_id || tokenPayload.sub)
+      } catch (e) {
+        throw new Error('사용자 정보를 가져올 수 없습니다.')
+      }
+
+      if (!currentUserId) {
+        throw new Error('사용자 ID를 찾을 수 없습니다.')
+      }
+
+      // 워크스페이스에서 사용자 제거
+      await axios.delete(
+        `${API_BASE_URL}/v1/workspaces/${projectToLeave.id}/users/${currentUserId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      )
+
+      // 프로젝트 목록에서 제거
+      setProjects((s) => s.filter((p) => p.id !== projectToLeave.id))
+      closeLeaveModal()
+    } catch (err: any) {
+      console.error('워크스페이스 나가기 실패', err)
+      
+      let errorMessage = '워크스페이스 나가기 중 오류가 발생했습니다.'
+      
+      if (err?.response) {
+        const status = err.response.status
+        const data = err.response.data
+        
+        if (status === 403) {
+          errorMessage = data?.message || data?.error || '나가기 권한이 없습니다.'
+        } else if (status === 401) {
+          errorMessage = data?.message || data?.error || '인증이 만료되었습니다. 다시 로그인해주세요.'
+        } else if (status === 404) {
+          errorMessage = data?.message || '워크스페이스를 찾을 수 없습니다.'
+        } else {
+          errorMessage = data?.message || data?.error || `서버 오류 (${status})`
+        }
+      } else if (err?.message) {
+        errorMessage = err.message
+      }
+      
+      setLeaveError(errorMessage)
+    } finally {
+      setLeaving(false)
     }
   }
 
@@ -349,6 +485,12 @@ export default function MainPage(): JSX.Element {
       closeDeleteModal()
     } catch (err: any) {
       console.error('워크스페이스 삭제 실패', err)
+      console.error('에러 상세 정보:', {
+        status: err?.response?.status,
+        data: err?.response?.data,
+        headers: err?.response?.headers,
+        workspaceId: projectToDelete.id
+      })
       
       let errorMessage = '워크스페이스 삭제 중 오류가 발생했습니다.'
       
@@ -357,24 +499,13 @@ export default function MainPage(): JSX.Element {
         const data = err.response.data
         
         if (status === 403) {
-          errorMessage = '삭제 권한이 없습니다. 이 워크스페이스의 소유자만 삭제할 수 있습니다.'
-          if (data?.message) {
-            errorMessage = `권한 오류: ${data.message}`
-          }
+          errorMessage = data?.message || data?.error || '삭제 권한이 없습니다. 이 워크스페이스의 소유자만 삭제할 수 있습니다.'
         } else if (status === 401) {
-          errorMessage = '인증이 만료되었습니다. 다시 로그인해주세요.'
-          if (data?.message) {
-            errorMessage = `인증 오류: ${data.message}`
-          }
+          errorMessage = data?.message || data?.error || '인증이 만료되었습니다. 다시 로그인해주세요.'
         } else if (status === 404) {
-          errorMessage = '워크스페이스를 찾을 수 없습니다.'
-          if (data?.message) {
-            errorMessage = data.message
-          }
-        } else if (data?.message) {
-          errorMessage = data.message
-        } else if (data?.error) {
-          errorMessage = data.error
+          errorMessage = data?.message || '워크스페이스를 찾을 수 없습니다.'
+        } else {
+          errorMessage = data?.message || data?.error || `서버 오류 (${status})`
         }
       } else if (err?.message) {
         errorMessage = err.message
@@ -386,16 +517,6 @@ export default function MainPage(): JSX.Element {
     }
   }
 
-  // 더미 프로젝트 (API 데이터가 없을 때 시각적 예시 제공)
-  const dummyProjects: Project[] = [
-    { id: 'd1', title: '브레인스토밍 보드', thumbnailUrl: '', lastModified: '오늘' },
-    { id: 'd2', title: '제품 아이디어 정리', thumbnailUrl: '', lastModified: '2일 전' },
-    { id: 'd3', title: 'UI 컴포넌트 설계', thumbnailUrl: '', lastModified: '이번 주' },
-    { id: 'd4', title: '리서치 메모', thumbnailUrl: '', lastModified: '지난 주' },
-    { id: 'd5', title: '마케팅 메시지', thumbnailUrl: '', lastModified: '최근' }
-  ];
-
-  const displayProjects = projects.length ? projects : dummyProjects;
 
   // 검색 필터 적용
   const filteredProjects = useMemo(() => {
@@ -496,6 +617,39 @@ export default function MainPage(): JSX.Element {
             loading={loading}
             loadError={loadError}
           />
+          <section className={styles.gridSection} aria-label="프로젝트 목록">
+            {loading && projects.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+                로딩 중...
+              </div>
+            ) : loadError && projects.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>
+                <p>{loadError}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  style={{ marginTop: '10px', padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              projects.map((p) => (
+                <ProjectCard
+                  key={p.id}
+                  id={p.id}
+                  title={p.title}
+                  thumbnailUrl={p.thumbnailUrl}
+                  lastModified={p.lastModified}
+                  ownerName={p.ownerName}
+                  ownerProfileImage={p.ownerProfileImage}
+                  isOwner={p.isOwner}
+                  onDelete={handleDeleteClick}
+                  onLeave={handleLeaveClick}
+                  onInvite={handleInviteClick}
+                />
+              ))
+            )}
+          </section>
 
           {/* Modal: 새 프로젝트 생성 */}
           <Modal isOpen={isModalOpen} onClose={closeModal}>
@@ -646,6 +800,50 @@ export default function MainPage(): JSX.Element {
                 disabled={deleting}
               >
                 {deleting ? '삭제 중...' : '삭제하기'}
+              </button>
+            </div>
+          </Modal>
+
+          {/* Modal: 프로젝트 나가기 확인 */}
+          <Modal isOpen={leaveModalOpen} onClose={closeLeaveModal}>
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 600, color: '#111827' }}>
+                프로젝트 나가기
+              </h2>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                정말로 <strong style={{ color: '#111827' }}>"{projectToLeave?.title}"</strong> 프로젝트에서 나가시겠습니까?
+              </p>
+              <p style={{ margin: '8px 0 0 0', color: '#f59e0b', fontSize: '0.875rem' }}>
+                ⚠️ 나가면 이 프로젝트에 다시 접근할 수 없습니다. 다시 참여하려면 초대를 받아야 합니다.
+              </p>
+            </div>
+
+            {leaveError && (
+              <div style={{ color: '#dc2626', marginBottom: '16px', fontSize: '14px' }}>
+                {leaveError}
+              </div>
+            )}
+
+            <div className={styles.formActions}>
+              <button 
+                className={styles.ghostBtn} 
+                type="button" 
+                onClick={closeLeaveModal} 
+                disabled={leaving}
+              >
+                취소
+              </button>
+              <button 
+                className={styles.primaryBtn} 
+                type="button" 
+                onClick={handleLeaveConfirm} 
+                disabled={leaving}
+                style={{ 
+                  background: '#f59e0b',
+                  color: 'white'
+                }}
+              >
+                {leaving ? '나가는 중...' : '나가기'}
               </button>
             </div>
           </Modal>
