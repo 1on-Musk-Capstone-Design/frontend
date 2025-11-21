@@ -521,9 +521,9 @@ export default function MainPage(): JSX.Element {
   // 검색 필터 적용
   const filteredProjects = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return displayProjects
-    return displayProjects.filter(p => p.title.toLowerCase().includes(q))
-  }, [displayProjects, query])
+    if (!q) return projects
+    return projects.filter(p => p.title.toLowerCase().includes(q))
+  }, [projects, query])
 
   // 정렬 적용
   const sortedProjects = useMemo(() => {
@@ -614,42 +614,10 @@ export default function MainPage(): JSX.Element {
             toggleFavorite={toggleFavorite}
             onDelete={handleDeleteClick}
             onInvite={handleInviteClick}
+            onLeave={handleLeaveClick}
             loading={loading}
             loadError={loadError}
           />
-          <section className={styles.gridSection} aria-label="프로젝트 목록">
-            {loading && projects.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-                로딩 중...
-              </div>
-            ) : loadError && projects.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>
-                <p>{loadError}</p>
-                <button 
-                  onClick={() => window.location.reload()} 
-                  style={{ marginTop: '10px', padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  다시 시도
-                </button>
-              </div>
-            ) : (
-              projects.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  id={p.id}
-                  title={p.title}
-                  thumbnailUrl={p.thumbnailUrl}
-                  lastModified={p.lastModified}
-                  ownerName={p.ownerName}
-                  ownerProfileImage={p.ownerProfileImage}
-                  isOwner={p.isOwner}
-                  onDelete={handleDeleteClick}
-                  onLeave={handleLeaveClick}
-                  onInvite={handleInviteClick}
-                />
-              ))
-            )}
-          </section>
 
           {/* Modal: 새 프로젝트 생성 */}
           <Modal isOpen={isModalOpen} onClose={closeModal}>
