@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { Star } from 'lucide-react'
 import styles from './ProjectCard.module.css'
 
 export interface ProjectCardProps {
@@ -13,8 +14,11 @@ export interface ProjectCardProps {
   onDelete?: (id: string) => void
   onLeave?: (id: string) => void
   onInvite?: (id: string) => void
+  isFavorite?: boolean
+  onToggleFavorite?: (id: string) => void
 }
 
+export default function ProjectCard({ id, thumbnailUrl, title, lastModified, onDelete, onInvite, isFavorite = false, onToggleFavorite }: ProjectCardProps) {
 export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite }: ProjectCardProps) {
   const [imageError, setImageError] = React.useState(false)
   const hasValidImage = ownerProfileImage && ownerProfileImage.trim() !== '' && !imageError
@@ -46,6 +50,18 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
 
   return (
     <div className={styles.cardWrapper}>
+      {/* Favorite star overlay */}
+      {onToggleFavorite && (
+        <button
+          type="button"
+          aria-label={isFavorite ? '즐겨찾기 제거' : '즐겨찾기 추가'}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(id); }}
+          className="absolute top-2 left-2 z-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer text-gray-400 hover:text-yellow-500"
+          style={{ color: isFavorite ? '#fbbf24' : undefined }}
+        >
+          <Star size={18} fill={isFavorite ? '#fbbf24' : 'none'} color={isFavorite ? '#fbbf24' : 'currentColor'} />
+        </button>
+      )}
       <Link to={`/canvas/${id}`} className={styles.linkReset} aria-label={`열기 ${title}`}>
         <article className={styles.card}>
           <div className={styles.thumb}>
