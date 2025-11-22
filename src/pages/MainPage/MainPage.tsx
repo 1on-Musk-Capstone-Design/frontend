@@ -55,6 +55,15 @@ export default function MainPage(): JSX.Element {
   const [projectToLeave, setProjectToLeave] = useState<{ id: string; title: string } | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [leaveError, setLeaveError] = useState<string | null>(null)
+  const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false)
+
+  // 모달 상태 추적 (디버깅용)
+  useEffect(() => {
+    if (authExpiredModalOpen) {
+      console.log('인증 만료 모달이 열렸습니다!')
+    }
+  }, [authExpiredModalOpen])
+
 
   function openModal() {
     setIsModalOpen(true)
@@ -83,13 +92,16 @@ export default function MainPage(): JSX.Element {
       
       try {
         const accessToken = localStorage.getItem('accessToken')
+        
         if (!accessToken) {
           setLoadError('로그인이 필요합니다.')
           setLoading(false)
           setIsLoggedIn(false)
+          setAuthExpiredModalOpen(true)
           return
         }
         
+        // accessToken이 있으면 로그인 상태로 설정하고 API 호출 시도
         setIsLoggedIn(true)
 
         const res = await axios.get<WorkspaceListItem[]>(
@@ -155,8 +167,21 @@ export default function MainPage(): JSX.Element {
               } else {
                 console.warn(`워크스페이스 ${workspace.workspaceId}에서 OWNER를 찾을 수 없습니다.`)
               }
-            } catch (err) {
+            } catch (err: any) {
               console.error(`워크스페이스 ${workspace.workspaceId} 사용자 목록 불러오기 실패:`, err)
+              // 사용자 목록 조회 중 인증 오류 발생 시에도 처리
+              if (err?.response?.status === 401 || err?.response?.status === 403) {
+                console.log('사용자 목록 조회 중 인증 오류 감지! 모달 표시 시작')
+                setIsLoggedIn(false)
+                localStorage.removeItem('accessToken')
+                localStorage.removeItem('refreshToken')
+                localStorage.removeItem('userName')
+                localStorage.removeItem('userEmail')
+                setAuthExpiredModalOpen(true)
+                console.log('사용자 목록 조회 중 모달 상태 업데이트 완료')
+                // 더 이상 다른 워크스페이스를 처리할 필요 없으므로 중단
+                throw err
+              }
             }
 
             return {
@@ -179,12 +204,22 @@ export default function MainPage(): JSX.Element {
         }
       } catch (err: any) {
         console.error('워크스페이스 목록 불러오기 실패', err)
-        if (err?.response?.status === 401) {
-          // 인증 오류 시 로그아웃 처리
+        
+        // axios 오류인지 확인
+        const isAxiosError = err?.isAxiosError || err?.response !== undefined || err?.request !== undefined
+        const status = err?.response?.status
+        
+        if (isAxiosError && (status === 401 || status === 403)) {
+          // 인증 오류 시 로그아웃 처리 및 모달 표시
+          console.log('인증 오류 감지! 모달 표시 시작')
           setIsLoggedIn(false)
           localStorage.removeItem('accessToken')
           localStorage.removeItem('refreshToken')
-          setLoadError('로그인이 만료되었습니다. 다시 로그인해주세요.')
+          localStorage.removeItem('userName')
+          localStorage.removeItem('userEmail')
+          console.log('setAuthExpiredModalOpen(true) 호출 전')
+          setAuthExpiredModalOpen(true)
+          console.log('setAuthExpiredModalOpen(true) 호출 후')
         } else {
           setLoadError(err?.response?.data?.message || err?.message || '워크스페이스 목록을 불러오는 중 오류가 발생했습니다.')
         }
@@ -193,15 +228,27 @@ export default function MainPage(): JSX.Element {
       }
     }
 
-    if (isLoggedIn) {
+    // accessToken이 있으면 API 호출 시도, 없으면 모달 표시
+    const accessToken = localStorage.getItem('accessToken')
+    
+    if (accessToken) {
       fetchWorkspaces()
     } else {
+      setIsLoggedIn(false)
       setLoading(false)
+      // accessToken이 없으면 인증 만료 모달 표시
+      setAuthExpiredModalOpen(true)
     }
-  }, [isLoggedIn])
+  }, [])
 
   // 로그인 핸들러
   const handleLogin = () => {
+    window.location.href = '/auth'
+  }
+
+  // 인증 만료 모달 닫기 및 로그인 페이지로 이동
+  const handleAuthExpiredConfirm = () => {
+    setAuthExpiredModalOpen(false)
     window.location.href = '/auth'
   }
 
@@ -254,11 +301,22 @@ export default function MainPage(): JSX.Element {
       closeModal()
     } catch (err: any) {
       console.error('워크스페이스 생성 실패', err)
-      setCreateError(
-        err?.response?.data?.message || 
-        err?.message || 
-        '워크스페이스 생성 중 오류가 발생했습니다.'
-      )
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        // 인증 오류 시 로그아웃 처리 및 모달 표시
+        setIsLoggedIn(false)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('userName')
+        localStorage.removeItem('userEmail')
+        closeModal()
+        setAuthExpiredModalOpen(true)
+      } else {
+        setCreateError(
+          err?.response?.data?.message || 
+          err?.message || 
+          '워크스페이스 생성 중 오류가 발생했습니다.'
+        )
+      }
     } finally {
       setCreating(false)
     }
@@ -350,10 +408,16 @@ export default function MainPage(): JSX.Element {
         const status = err.response.status
         const data = err.response.data
         
-        if (status === 403) {
-          errorMessage = data?.message || data?.error || '나가기 권한이 없습니다.'
-        } else if (status === 401) {
-          errorMessage = data?.message || data?.error || '인증이 만료되었습니다. 다시 로그인해주세요.'
+        if (status === 401 || status === 403) {
+          // 인증 오류 시 로그아웃 처리 및 모달 표시
+          setIsLoggedIn(false)
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('userName')
+          localStorage.removeItem('userEmail')
+          closeLeaveModal()
+          setAuthExpiredModalOpen(true)
+          return
         } else if (status === 404) {
           errorMessage = data?.message || '워크스페이스를 찾을 수 없습니다.'
         } else {
@@ -424,11 +488,22 @@ export default function MainPage(): JSX.Element {
       setInviteLinkExpiresAt(res.data.expiresAt)
     } catch (err: any) {
       console.error('초대 링크 생성 실패', err)
-      setInviteError(
-        err?.response?.data?.message ||
-        err?.message ||
-        '초대 링크 생성 중 오류가 발생했습니다.'
-      )
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        // 인증 오류 시 로그아웃 처리 및 모달 표시
+        setIsLoggedIn(false)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('userName')
+        localStorage.removeItem('userEmail')
+        closeInviteModal()
+        setAuthExpiredModalOpen(true)
+      } else {
+        setInviteError(
+          err?.response?.data?.message ||
+          err?.message ||
+          '초대 링크 생성 중 오류가 발생했습니다.'
+        )
+      }
     } finally {
       setGenerating(false)
     }
@@ -498,10 +573,16 @@ export default function MainPage(): JSX.Element {
         const status = err.response.status
         const data = err.response.data
         
-        if (status === 403) {
-          errorMessage = data?.message || data?.error || '삭제 권한이 없습니다. 이 워크스페이스의 소유자만 삭제할 수 있습니다.'
-        } else if (status === 401) {
-          errorMessage = data?.message || data?.error || '인증이 만료되었습니다. 다시 로그인해주세요.'
+        if (status === 401 || status === 403) {
+          // 인증 오류 시 로그아웃 처리 및 모달 표시
+          setIsLoggedIn(false)
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('userName')
+          localStorage.removeItem('userEmail')
+          closeDeleteModal()
+          setAuthExpiredModalOpen(true)
+          return
         } else if (status === 404) {
           errorMessage = data?.message || '워크스페이스를 찾을 수 없습니다.'
         } else {
@@ -812,6 +893,48 @@ export default function MainPage(): JSX.Element {
                 }}
               >
                 {leaving ? '나가는 중...' : '나가기'}
+              </button>
+            </div>
+          </Modal>
+
+          {/* Modal: 인증 만료 */}
+          <Modal isOpen={authExpiredModalOpen} onClose={() => {}}>
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 600, color: '#111827' }}>
+                로그인이 만료되었습니다
+              </h2>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                세션이 만료되어 다시 로그인이 필요합니다.
+              </p>
+              <p style={{ margin: '8px 0 0 0', color: '#f59e0b', fontSize: '0.875rem' }}>
+                ⚠️ 로그인 페이지로 이동합니다.
+              </p>
+            </div>
+
+            <div className={styles.formActions}>
+              <button 
+                type="button" 
+                onClick={handleAuthExpiredConfirm}
+                style={{ 
+                  width: '100%',
+                  background: '#01CD15',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#1e7b0b'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#01CD15'
+                }}
+              >
+                로그인하기
               </button>
             </div>
           </Modal>

@@ -16,6 +16,12 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
+  useEffect(() => {
+    if (isOpen) {
+      console.log('Modal 컴포넌트: 모달이 열렸습니다')
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   return (
