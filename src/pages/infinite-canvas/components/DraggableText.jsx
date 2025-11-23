@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -245,10 +245,8 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     onDelete(id);
   };
 
-  // 삭제 모드에서의 테두리 스타일 계산 (테두리 없이 그림자만)
-  const getBorderStyle = () => {
-    console.log('DraggableText getBorderStyle', { id, isSelected, isHighlighted, mode });
-    
+  // 삭제 모드에서의 테두리 스타일 계산 (테두리 없이 그림자만) - useMemo로 메모이제이션
+  const borderStyle = useMemo(() => {
     // 기본적으로 테두리 없음, 그림자만 사용
     const baseStyle = {
       border: 'none',
@@ -270,7 +268,6 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     
     // 다중 선택 상태
     if (isSelected) {
-      console.log('Text is selected, applying emerald shadow');
       return {
         ...baseStyle,
         boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)'
@@ -301,7 +298,7 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       ...baseStyle,
       boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)'
     } : baseStyle;
-  };
+  }, [isSelected, isHighlighted, mode, isHovered, isLongPressing, pressProgress, isDragging, isEditing]);
 
   // 리사이즈 핸들 렌더링 (오른쪽과 아래만)
   const renderResizeHandles = () => {
@@ -365,7 +362,7 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
           ? 'none' 
           : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.1s ease',
         cursor: mode === 'delete' ? 'pointer' : (isResizing ? 'move' : 'move'),
-        ...getBorderStyle()
+        ...borderStyle
       }}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}

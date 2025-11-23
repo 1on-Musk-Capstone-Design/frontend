@@ -6,6 +6,11 @@
 export const API_BASE_URL = "http://51.20.106.74:8080/api";
 
 /**
+ * Socket.IO 서버 주소
+ */
+export const SOCKET_SERVER_URL = "http://51.20.106.74:9092";
+
+/**
  * API 엔드포인트 헬퍼 함수
  */
 export const getApiUrl = (endpoint: string): string => {

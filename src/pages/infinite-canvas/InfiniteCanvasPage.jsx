@@ -12,6 +12,8 @@ import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
 import { useSession } from './hooks/useSession';
+import { useChatWebSocket } from './hooks/useChatWebSocket';
+import { useCanvasWebSocket } from './hooks/useCanvasWebSocket';
 import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants';
 import { API_BASE_URL } from '../../config/api';
 import axios from 'axios';
@@ -207,6 +209,36 @@ const InfiniteCanvasPage = () => {
 
     loadWorkspaceData();
   }, [workspaceId]);
+
+  // 채팅 메시지 수신 핸들러
+  const handleChatMessageReceived = (message) => {
+    setChatMessages(prev => [...prev, message]);
+  };
+
+  // 채팅 웹소켓 연결
+  const chatWebSocket = useChatWebSocket(
+    workspaceId,
+    currentUserId,
+    workspaceUsers,
+    handleChatMessageReceived
+  );
+
+  // 캔버스 웹소켓 연결 (실시간 협업용)
+  const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
+    onParticipantJoined: (data) => {
+      console.log('참가자 참가:', data);
+      // 참가자 목록 업데이트 로직 추가 가능
+    },
+    onParticipantLeft: (data) => {
+      console.log('참가자 나가기:', data);
+      // 참가자 목록 업데이트 로직 추가 가능
+    },
+    onIdeaUpdated: (data) => {
+      console.log('아이디어 업데이트:', data);
+      // 다른 사용자가 업데이트한 아이디어를 화면에 반영하는 로직
+      // data에는 업데이트된 아이디어 정보가 포함됨
+    }
+  });
 
   // 브라우저 줌 완전 차단 - 피그마 스타일
   useEffect(() => {
@@ -464,50 +496,57 @@ const InfiniteCanvasPage = () => {
       const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
       const userId = tokenPayload.user_id || tokenPayload.sub;
 
-      await axios.post(
-        `${API_BASE_URL}/v1/chat/messages`,
-        {
-          workspaceId,
-          userId: String(userId),
-          content
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
+      // 웹소켓이 연결되어 있으면 웹소켓으로 전송, 아니면 REST API로 전송
+      if (chatWebSocket.isConnected && chatWebSocket.sendMessage(content)) {
+        // 웹소켓으로 전송 성공
+        return;
+      } else {
+        // 웹소켓이 없으면 REST API로 전송
+        await axios.post(
+          `${API_BASE_URL}/v1/chat/messages`,
+          {
+            workspaceId,
+            userId: String(userId),
+            content
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
           }
-        }
-      );
+        );
 
-      // 메시지 전송 후 목록 새로고침
-      const messagesRes = await axios.get(
-        `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
+        // 메시지 전송 후 목록 새로고침
+        const messagesRes = await axios.get(
+          `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
           }
-        }
-      );
+        );
 
-      const loadedMessages = messagesRes.data.map((msg) => {
-        const msgUserId = msg.userId ? String(msg.userId) : null;
-        const isMyMessage = msgUserId === String(userId);
-        const userName = msgUserId ? (workspaceUsers.get(msgUserId) || '알 수 없음') : null;
-        
-        return {
-          id: msg.id || Date.now() + Math.random(),
-          text: msg.content || msg.text || '',
-          sender: msgUserId ? (isMyMessage ? 'me' : 'other') : 'system',
-          userName: userName,
-          userId: msgUserId,
-          time: msg.createdAt 
-            ? new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-            : new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-          timestamp: msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now()
-        };
-      });
+        const loadedMessages = messagesRes.data.map((msg) => {
+          const msgUserId = msg.userId ? String(msg.userId) : null;
+          const isMyMessage = msgUserId === String(userId);
+          const userName = msgUserId ? (workspaceUsers.get(msgUserId) || '알 수 없음') : null;
+          
+          return {
+            id: msg.id || Date.now() + Math.random(),
+            text: msg.content || msg.text || '',
+            sender: msgUserId ? (isMyMessage ? 'me' : 'other') : 'system',
+            userName: userName,
+            userId: msgUserId,
+            time: msg.createdAt 
+              ? new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+              : new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now()
+          };
+        });
 
-      setChatMessages(loadedMessages);
+        setChatMessages(loadedMessages);
+      }
     } catch (err) {
       console.error('채팅 메시지 전송 실패', err);
     }
