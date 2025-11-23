@@ -46,6 +46,7 @@ export default function Sidebar({ activeMenu = 'home' }: SidebarProps) {
     const fetchUserInfo = async () => {
       try {
         const accessToken = localStorage.getItem('accessToken')
+        
         if (!accessToken) {
           // 토큰이 없으면 localStorage에서 기본 정보 사용
           const storedName = localStorage.getItem('userName')
@@ -53,6 +54,7 @@ export default function Sidebar({ activeMenu = 'home' }: SidebarProps) {
             setUserName(storedName)
             setUserInitials(getInitials(storedName))
           }
+          // MainPage에서 모달을 표시하므로 여기서는 표시하지 않음
           return
         }
 
@@ -82,13 +84,29 @@ export default function Sidebar({ activeMenu = 'home' }: SidebarProps) {
         if (res.data.email) {
           localStorage.setItem('userEmail', res.data.email)
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('사용자 정보 불러오기 실패', err)
-        // 실패 시 localStorage에서 기본 정보 사용
-        const storedName = localStorage.getItem('userName')
-        if (storedName) {
-          setUserName(storedName)
-          setUserInitials(getInitials(storedName))
+        
+        // axios 오류인지 확인
+        const isAxiosError = err?.isAxiosError || err?.response !== undefined || err?.request !== undefined
+        const status = err?.response?.status
+        
+        // 401 또는 403 오류인 경우 토큰 제거 (MainPage에서 모달 표시)
+        if (isAxiosError && (status === 401 || status === 403)) {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('userName')
+          localStorage.removeItem('userEmail')
+          // MainPage에서 모달을 표시하므로 여기서는 표시하지 않음
+          // 페이지 새로고침하여 MainPage의 모달이 표시되도록 함
+          window.location.reload()
+        } else {
+          // 실패 시 localStorage에서 기본 정보 사용
+          const storedName = localStorage.getItem('userName')
+          if (storedName) {
+            setUserName(storedName)
+            setUserInitials(getInitials(storedName))
+          }
         }
       }
     }
