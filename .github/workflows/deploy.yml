@@ -93,9 +93,15 @@ jobs:
       - name: Ensure 404.html and .nojekyll exists in dist
         run: |
           # dist/404.html이 없으면 index.html을 복사
+          # 404.html은 index.html의 정확한 복사본이어야 함
+          # React Router가 현재 경로를 인식할 수 있도록
           if [ ! -f dist/404.html ]; then
             cp dist/index.html dist/404.html
             echo "Created dist/404.html from index.html"
+          else
+            # 이미 있으면 index.html로 덮어쓰기 (항상 최신 버전 유지)
+            cp dist/index.html dist/404.html
+            echo "Updated dist/404.html from index.html"
           fi
           # .nojekyll 파일 추가 (Jekyll 처리 비활성화)
           touch dist/.nojekyll
