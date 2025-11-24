@@ -90,6 +90,18 @@ jobs:
           </html>
           EOF
       
+      - name: Ensure 404.html and .nojekyll exists in dist
+        run: |
+          # dist/404.html이 없으면 index.html을 복사
+          if [ ! -f dist/404.html ]; then
+            cp dist/index.html dist/404.html
+            echo "Created dist/404.html from index.html"
+          fi
+          # .nojekyll 파일 추가 (Jekyll 처리 비활성화)
+          touch dist/.nojekyll
+          echo "Created dist/.nojekyll"
+          ls -la dist/ | grep -E "(index|404|\.nojekyll)"
+      
       - name: Deploy to github.mingjaam.io/onit
         uses: peaceiris/actions-gh-pages@v3
         with:
