@@ -40,9 +40,16 @@ cat capstone.pem
 **중요:** 
 - `-----BEGIN RSA PRIVATE KEY-----` 부터 `-----END RSA PRIVATE KEY-----` 까지 **전체 내용**을 복사
 - 줄바꿈도 포함하여 정확히 복사
-- 공백이나 추가 문자 없이 붙여넣기
+- **앞뒤 공백 없이** 붙여넣기
 - Windows에서 복사한 경우 줄바꿈 문자(`\r`)가 포함될 수 있으므로, 워크플로우에서 자동으로 제거됩니다
 - SSH 키가 암호화되어 있지 않은지 확인 (passphrase가 없어야 함)
+
+**⚠️ SSH 키 오류 발생 시:**
+1. GitHub Secrets에서 `SSH_PRIVATE_KEY` 삭제
+2. 로컬에서 `cat ~/capstone.pem` 실행
+3. 출력 전체를 복사 (줄바꿈 포함, 앞뒤 공백 없이)
+4. GitHub Secrets에 다시 추가
+5. 워크플로우 재실행
 
 ## 2. 워크플로우 확인
 
