@@ -36,12 +36,11 @@ export const getSocketServerUrl = (): string => {
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 환경 (localhost:3000): Vite 프록시 사용 (CORS 문제 해결)
+  // 로컬 개발 환경 (localhost:3000): 백엔드 서버 직접 사용
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // 로컬에서는 Vite 프록시를 통해 백엔드 WebSocket 사용
-    // vite.config.js의 proxy 설정이 /ws를 http://51.20.106.74:8080으로 프록시
-    // 같은 origin이므로 CORS 문제 없음
-    return 'http://localhost:3000';
+    // 로컬에서는 백엔드 WebSocket 서버 직접 사용
+    // 백엔드에서 CORS 허용 필요
+    return 'http://51.20.106.74:8080';
   }
   
   // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
