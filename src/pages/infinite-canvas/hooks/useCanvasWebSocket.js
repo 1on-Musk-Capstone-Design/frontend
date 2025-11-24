@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import io from 'socket.io-client';
+import { useEffect, useRef, useState } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { SOCKET_SERVER_URL } from '../../../config/api';
 
 /**
@@ -9,7 +10,8 @@ import { SOCKET_SERVER_URL } from '../../../config/api';
  * @param {Object} callbacks - 이벤트 콜백 함수들
  */
 export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) => {
-  const socketRef = useRef(null);
+  const clientRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
   const callbacksRef = useRef(callbacks);
   
   // 콜백 함수들을 ref에 저장하여 최신 버전 유지
@@ -22,131 +24,241 @@ export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) =
 
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) return;
+    
+    // 이미 연결되어 있으면 재연결하지 않음
+    if (clientRef.current && clientRef.current.active && clientRef.current.connected) {
+      console.log('[캔버스 웹소켓] 이미 연결되어 있음, 재연결 스킵');
+      return;
+    }
 
-    // 웹소켓 연결
-    const socket = io(SOCKET_SERVER_URL, {
-      auth: {
-        token: accessToken
+    // STOMP 클라이언트 생성
+    const socket = new SockJS(`${SOCKET_SERVER_URL}/ws`);
+    const stompClient = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      connectHeaders: {
+        Authorization: `Bearer ${accessToken}`,
+        workspaceId: String(workspaceId),
+        userId: String(currentUserId)
       },
-      query: {
-        workspaceId: workspaceId,
-        userId: currentUserId
+      onConnect: (frame) => {
+        console.log('[캔버스 웹소켓] STOMP 연결 성공:', frame);
+        setIsConnected(true);
+        
+        // 워크스페이스 참여
+        stompClient.publish({
+          destination: `/app/workspace/join`,
+          body: JSON.stringify({ workspaceId: String(workspaceId) }),
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
+        
+        // 아이디어 업데이트 구독 (백엔드: /topic/workspace/{workspaceId}/ideas)
+        // 백엔드 형식: {"action": "created|updated|deleted", "data": {...}}
+        const ideasSubscriptionPath = `/topic/workspace/${workspaceId}/ideas`;
+        console.log('[캔버스 웹소켓] 아이디어 구독 경로:', ideasSubscriptionPath);
+        stompClient.subscribe(ideasSubscriptionPath, (message) => {
+          console.log('[캔버스 웹소켓] ===== 아이디어 업데이트 수신 =====');
+          console.log('[캔버스 웹소켓] 메시지 body:', message.body);
+          
+          try {
+            const updateData = JSON.parse(message.body);
+            console.log('[캔버스 웹소켓] 파싱된 데이터:', updateData);
+            
+            // 백엔드 형식: {"action": "created|updated|deleted", "data": {...}}
+            // data 필드에서 실제 아이디어 정보 추출
+            const ideaData = updateData.data || updateData;
+            const action = updateData.action || 'update';
+            
+            console.log('[캔버스 웹소켓] 아이디어 액션:', action);
+            console.log('[캔버스 웹소켓] 아이디어 데이터:', ideaData);
+            
+            if (callbacksRef.current.onIdeaUpdated) {
+              // 백엔드 형식에 맞게 데이터 변환
+              callbacksRef.current.onIdeaUpdated({
+                action: action,
+                ...ideaData
+              });
+            }
+          } catch (e) {
+            console.error('[캔버스 웹소켓] 메시지 파싱 오류:', e);
+            console.error('[캔버스 웹소켓] 원본 body:', message.body);
+          }
+        });
+
+        // 캔버스 변경 구독 (백엔드: /topic/workspace/{workspaceId}/canvas)
+        // 백엔드 형식: {"action": "created|updated|deleted", "data": {...}}
+        const canvasSubscriptionPath = `/topic/workspace/${workspaceId}/canvas`;
+        console.log('[캔버스 웹소켓] 캔버스 구독 경로:', canvasSubscriptionPath);
+        stompClient.subscribe(canvasSubscriptionPath, (message) => {
+          console.log('[캔버스 웹소켓] ===== 캔버스 변경 수신 =====');
+          console.log('[캔버스 웹소켓] 메시지 body:', message.body);
+          
+          try {
+            const updateData = JSON.parse(message.body);
+            console.log('[캔버스 웹소켓] 파싱된 데이터:', updateData);
+            
+            // 백엔드 형식: {"action": "created|updated|deleted", "data": {...}}
+            const canvasData = updateData.data || updateData;
+            const action = updateData.action || 'update';
+            
+            console.log('[캔버스 웹소켓] 캔버스 액션:', action);
+            console.log('[캔버스 웹소켓] 캔버스 데이터:', canvasData);
+            
+            // 캔버스 변경은 아이디어 업데이트와 동일하게 처리
+            if (callbacksRef.current.onIdeaUpdated) {
+              callbacksRef.current.onIdeaUpdated({
+                action: action,
+                ...canvasData
+              });
+            }
+          } catch (e) {
+            console.error('[캔버스 웹소켓] 캔버스 변경 파싱 오류:', e);
+            console.error('[캔버스 웹소켓] 원본 body:', message.body);
+          }
+        });
+
+        // 참가자 참여/나가기 구독 (백엔드: /topic/workspace/{workspaceId}/users)
+        const usersSubscriptionPath = `/topic/workspace/${workspaceId}/users`;
+        console.log('[캔버스 웹소켓] 사용자 구독 경로:', usersSubscriptionPath);
+        stompClient.subscribe(usersSubscriptionPath, (message) => {
+          console.log('[캔버스 웹소켓] 참가자 이벤트:', message.body);
+          
+          try {
+            const data = JSON.parse(message.body);
+            if (data.type === 'joined' || data.action === 'join') {
+              if (callbacksRef.current.onParticipantJoined) {
+                callbacksRef.current.onParticipantJoined(data);
+              }
+            } else if (data.type === 'left' || data.action === 'leave') {
+              if (callbacksRef.current.onParticipantLeft) {
+                callbacksRef.current.onParticipantLeft(data);
+              }
+            }
+          } catch (e) {
+            console.error('[캔버스 웹소켓] 참가자 이벤트 파싱 오류:', e);
+          }
+        });
       },
-      transports: ['websocket'], // websocket만 사용
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-      withCredentials: false,
-      forceNew: false
-    });
-
-    socketRef.current = socket;
-
-    // 연결 성공
-    socket.on('connect', () => {
-      console.log('[캔버스 웹소켓] 연결 성공:', socket.id);
-      
-      // 세션 참여 (workspaceId를 sessionId로 사용)
-      const sessionId = String(workspaceId);
-      socket.emit('join_session', sessionId);
-    });
-
-    // 연결 확인 메시지 수신
-    socket.on('connected', (message) => {
-      console.log('[캔버스 웹소켓] 서버 연결 확인:', message);
-    });
-
-    // 세션 참여 성공
-    socket.on('joined_session', (message) => {
-      console.log('[캔버스 웹소켓] 세션 참여 성공:', message);
-    });
-
-    // 다른 사용자 참여 알림
-    socket.on('user_joined', (message) => {
-      console.log('[캔버스 웹소켓] 다른 사용자 참여:', message);
-      if (callbacksRef.current.onParticipantJoined) {
-        callbacksRef.current.onParticipantJoined({ message });
+      onStompError: (frame) => {
+        console.error('[캔버스 웹소켓] STOMP 오류:', frame);
+        console.error('[캔버스 웹소켓] STOMP 오류 상세:', {
+          command: frame.command,
+          headers: frame.headers,
+          body: frame.body
+        });
+        setIsConnected(false);
+      },
+      onWebSocketClose: (event) => {
+        console.log('[캔버스 웹소켓] 연결 해제:', event);
+        console.log('[캔버스 웹소켓] 연결 해제 상세:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
+        setIsConnected(false);
+      },
+      onDisconnect: () => {
+        console.log('[캔버스 웹소켓] 연결 종료');
+        setIsConnected(false);
+      },
+      onWebSocketError: (event) => {
+        console.error('[캔버스 웹소켓] WebSocket 오류:', event);
       }
     });
 
-    // 다른 사용자 나가기 알림
-    socket.on('user_left', (message) => {
-      console.log('[캔버스 웹소켓] 다른 사용자 나가기:', message);
-      if (callbacksRef.current.onParticipantLeft) {
-        callbacksRef.current.onParticipantLeft({ message });
-      }
-    });
-
-    // 연결 오류
-    socket.on('connect_error', (error) => {
-      console.error('[캔버스 웹소켓] 연결 오류:', error);
-      console.error('[캔버스 웹소켓] 오류 상세:', {
-        message: error.message,
-        type: error.type,
-        description: error.description,
-        context: error.context
-      });
-    });
-
-    // 연결 해제
-    socket.on('disconnect', (reason) => {
-      console.log('[캔버스 웹소켓] 연결 해제:', reason);
-    });
-
-    // 아이디어 업데이트 알림 (백엔드: idea_updated 이벤트)
-    socket.on('idea_updated', (data) => {
-      console.log('[캔버스 웹소켓] 아이디어 업데이트:', data);
-      
-      // 백엔드에서 String으로 보내므로 JSON 파싱 시도
-      let updateData;
-      try {
-        updateData = typeof data === 'string' ? JSON.parse(data) : data;
-      } catch (e) {
-        updateData = { data };
-      }
-      
-      if (callbacksRef.current.onIdeaUpdated) {
-        callbacksRef.current.onIdeaUpdated(updateData);
-      }
-    });
+    clientRef.current = stompClient;
+    
+    // 연결 시도
+    console.log('[캔버스 웹소켓] 연결 시도:', `${SOCKET_SERVER_URL}/ws`);
+    stompClient.activate();
 
     // 연결 해제 시 정리
     return () => {
-      if (socket) {
+      if (stompClient) {
         console.log('[캔버스 웹소켓] 연결 종료');
         
-        // 연결된 상태에서만 세션 나가기 및 연결 해제
-        if (socket.connected) {
+        // 연결이 활성화되어 있고 연결된 상태에서만 나가기 메시지 전송
+        if (stompClient.active && stompClient.connected) {
           const sessionId = String(workspaceId);
-          socket.emit('leave_session', sessionId);
-          socket.disconnect();
-        } else {
-          // 연결 중이거나 연결되지 않은 경우 바로 정리
-          socket.removeAllListeners();
-          socket.close();
+          const accessToken = localStorage.getItem('accessToken');
+          if (accessToken) {
+            try {
+              stompClient.publish({
+                destination: `/app/workspace/leave`,
+                body: JSON.stringify({ workspaceId: sessionId }),
+                headers: {
+                  Authorization: `Bearer ${accessToken}`
+                }
+              });
+            } catch (error) {
+              console.warn('[캔버스 웹소켓] 나가기 메시지 전송 실패:', error);
+            }
+          }
+        }
+        
+        // 연결 해제
+        if (stompClient.active) {
+          stompClient.deactivate();
         }
       }
     };
-  }, [workspaceId, currentUserId]); // callbacks 제거
+  }, [workspaceId, currentUserId]);
 
-  // 아이디어 업데이트 이벤트 전송 (백엔드: idea_update 이벤트)
+  // 아이디어 업데이트 이벤트 전송
   const emitIdeaUpdate = (ideaData) => {
-    if (!socketRef.current || !socketRef.current.connected) return false;
+    console.log('[캔버스 웹소켓] emitIdeaUpdate 호출:', {
+      ideaData,
+      hasClient: !!clientRef.current,
+      isActive: clientRef.current?.active,
+      isConnected: isConnected,
+      clientConnected: clientRef.current?.connected
+    });
+    
+    if (!clientRef.current) {
+      console.warn('[캔버스 웹소켓] 클라이언트가 없음');
+      return false;
+    }
+    
+    // active와 connected 모두 확인
+    if (!clientRef.current.active || !clientRef.current.connected) {
+      console.warn('[캔버스 웹소켓] STOMP 연결되지 않음:', {
+        active: clientRef.current.active,
+        connected: clientRef.current.connected
+      });
+      return false;
+    }
 
     const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) return false;
+    if (!accessToken) {
+      console.warn('[캔버스 웹소켓] accessToken 없음');
+      return false;
+    }
 
     try {
-      // 백엔드는 String 타입으로 받으므로 JSON 문자열로 전송
-      const updateData = JSON.stringify({
+      const updateData = {
         workspaceId: workspaceId,
         ...ideaData
+      };
+
+      console.log('[캔버스 웹소켓] 아이디어 업데이트 전송:', {
+        destination: '/app/idea/update',
+        updateData
       });
 
-      socketRef.current.emit('idea_update', updateData);
+      // STOMP를 통해 메시지 전송 (백엔드: /app/idea/update)
+      clientRef.current.publish({
+        destination: `/app/idea/update`,
+        body: JSON.stringify(updateData),
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
 
+      console.log('[캔버스 웹소켓] 아이디어 업데이트 전송 완료');
       return true;
     } catch (error) {
       console.error('[캔버스 웹소켓] 아이디어 업데이트 이벤트 전송 실패:', error);
@@ -155,8 +267,8 @@ export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) =
   };
 
   return {
-    socket: socketRef.current,
-    isConnected: socketRef.current?.connected || false,
+    client: clientRef.current,
+    isConnected: isConnected,
     emitIdeaUpdate
   };
 };
