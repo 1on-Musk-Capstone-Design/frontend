@@ -8,12 +8,22 @@ export default defineConfig({
     port: 3000,
     open: true,
     // WebSocket 프록시 설정 (로컬 개발 시 백엔드 WebSocket 사용)
+    // SockJS가 /ws/info, /ws/websocket 등의 경로를 사용하므로 모두 프록시
     proxy: {
       '/ws': {
         target: 'http://51.20.106.74:8080',
         ws: true,
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path, // 경로 그대로 전달
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('WebSocket proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Proxying WebSocket request:', req.method, req.url);
+          });
+        }
       }
     }
   },

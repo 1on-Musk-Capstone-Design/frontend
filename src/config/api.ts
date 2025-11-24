@@ -23,7 +23,7 @@ export const API_BASE_URL = getApiBaseUrl();
 /**
  * STOMP WebSocket 서버 주소
  * 환경에 따라 ws/wss 자동 선택
- * - 로컬 개발 환경: 백엔드 서버 직접 사용 (http://51.20.106.74:8080)
+ * - 로컬 개발 환경: Vite 프록시를 통해 백엔드 WebSocket 사용 (http://localhost:3000)
  * - 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
  * 
  * SockJS는 http:// 또는 https:// 프로토콜을 받아서 자동으로 ws/wss로 변환합니다.
@@ -32,11 +32,12 @@ export const getSocketServerUrl = (): string => {
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 환경: 백엔드 WebSocket 서버 직접 사용
+  // 로컬 개발 환경: Vite 프록시 사용 (CORS 문제 해결)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // 로컬에서는 백엔드 서버의 WebSocket 직접 사용
-    // SockJS는 http://를 받아서 자동으로 ws://로 변환
-    return 'http://51.20.106.74:8080';
+    // 로컬에서는 Vite 프록시를 통해 백엔드 WebSocket 사용
+    // vite.config.js의 proxy 설정이 /ws를 http://51.20.106.74:8080으로 프록시
+    // 같은 origin이므로 CORS 문제 없음
+    return 'http://localhost:3000';
   }
   
   // 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
