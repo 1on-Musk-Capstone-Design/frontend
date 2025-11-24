@@ -1,5 +1,13 @@
 # 서버 배포 가이드
 
+## 중요: 구글 OAuth를 위한 도메인 설정
+
+**구글 OAuth 리다이렉트 URI는 IP 주소가 아닌 도메인이 필요합니다.**
+
+도메인 설정 및 HTTPS 구성은 **[DOMAIN_SETUP.md](./DOMAIN_SETUP.md)** 파일을 참고하세요.
+
+---
+
 ## CI/CD 자동 배포 설정 (권장)
 
 GitHub Actions를 사용하여 `main` 브랜치에 푸시할 때마다 자동으로 빌드하고 서버에 배포합니다.
