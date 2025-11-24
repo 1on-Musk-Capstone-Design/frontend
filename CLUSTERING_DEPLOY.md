@@ -1,5 +1,10 @@
 # AI 클러스터링 API 배포 가이드
 
+## 저장소
+
+AI 클러스터링 API는 별도 저장소에서 관리됩니다:
+- **GitHub**: https://github.com/1on-Musk-Capstone-Design/ai-clusturing.git
+
 ## 개요
 
 AI 클러스터링 API는 Python FastAPI 서버로, 텍스트 클러스터링 기능을 제공합니다.
@@ -8,11 +13,14 @@ AI 클러스터링 API는 Python FastAPI 서버로, 텍스트 클러스터링 �
 
 ### 방법 1: 직접 실행 (간단)
 
-#### 1. 서버에 코드 업로드
+#### 1. 저장소 클론 및 서버에 업로드
 
 ```bash
-# 로컬에서
-cd clustering-api
+# 별도 저장소 클론
+git clone https://github.com/1on-Musk-Capstone-Design/ai-clusturing.git
+cd ai-clusturing
+
+# 서버에 업로드
 scp -i ~/capstone.pem -r * ec2-user@51.20.106.74:/home/ec2-user/clustering-api/
 ```
 
