@@ -1,6 +1,39 @@
 # 서버 배포 가이드
 
-## 같은 서버에 API와 프론트엔드 배포 (권장)
+## CI/CD 자동 배포 설정 (권장)
+
+GitHub Actions를 사용하여 `main` 브랜치에 푸시할 때마다 자동으로 빌드하고 서버에 배포합니다.
+
+### GitHub Secrets 설정
+
+1. GitHub 저장소 → Settings → Secrets and variables → Actions
+2. New repository secret 클릭
+3. 다음 3개의 Secret을 추가:
+
+   - **SSH_HOST**: `51.20.106.74`
+   - **SSH_USER**: `ec2-user`
+   - **SSH_PRIVATE_KEY**: SSH 키 파일(`capstone.pem`)의 전체 내용
+     ```bash
+     # 로컬에서 SSH 키 내용 확인
+     cat ~/capstone.pem
+     # 또는
+     cat capstone.pem
+     ```
+     전체 내용을 복사하여 Secret에 붙여넣기 (-----BEGIN RSA PRIVATE KEY----- 부터 -----END RSA PRIVATE KEY----- 까지)
+
+### 자동 배포 동작
+
+- `main` 브랜치에 푸시하면 자동으로 빌드 및 배포
+- GitHub Actions 탭에서 배포 상태 확인 가능
+- 배포 실패 시 알림 확인 가능
+
+### 수동 배포 실행
+
+GitHub Actions 탭 → "Build and Deploy" 워크플로우 → "Run workflow" 버튼 클릭
+
+---
+
+## 같은 서버에 API와 프론트엔드 배포 (수동 배포)
 
 API 서버(51.20.106.74:8080)와 같은 서버에 프론트엔드를 배포하는 방법입니다.
 
