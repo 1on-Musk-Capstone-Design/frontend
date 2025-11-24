@@ -1,0 +1,47 @@
+name: Build and Deploy to github.mingjaam.io/onit
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # 수동 실행도 가능
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Deploy to github.mingjaam.io/onit
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          # GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)에서 토큰 생성
+          # 권한: repo (전체)
+          # 현재 리포지토리의 Settings > Secrets and variables > Actions에서 다음 시크릿 추가:
+          # - GH_PAGES_TOKEN: 생성한 Personal Access Token
+          # - DEPLOY_REPO: "mingjaam/github.mingjaam.io" (실제 리포지토리 이름으로 변경 필요)
+          personal_token: ${{ secrets.ONIT_AUTO_DEPLOY }}
+          external_repository: ${{ secrets.DEPLOY_REPO }}
+          publish_branch: main # 또는 gh-pages (리포지토리 설정에 따라)
+          publish_dir: ./dist
+          destination_dir: onit # onit 하위 폴더에 배포
+          keep_files: false # 기존 파일 삭제 후 새로 배포
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+
