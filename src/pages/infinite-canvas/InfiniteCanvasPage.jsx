@@ -311,11 +311,44 @@ const InfiniteCanvasPage = () => {
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
     onParticipantJoined: (data) => {
       console.log('참가자 참가:', data);
-      // 참가자 목록 업데이트 로직 추가 가능
+      // 참가자 목록 업데이트
+      setWorkspaceParticipants(prev => {
+        const userId = String(data.userId || data.id || data.user_id);
+        const userName = data.userName || data.name || data.user_name || workspaceUsers.get(userId) || '알 수 없음';
+        
+        // 이미 존재하는 참가자인지 확인
+        const exists = prev.some(p => p.id === userId);
+        if (exists) {
+          return prev;
+        }
+        
+        // 새 참가자 추가
+        return [...prev, {
+          id: userId,
+          name: userName
+        }];
+      });
+      
+      // workspaceUsers에도 추가 (없는 경우)
+      if (data.userId || data.id || data.user_id) {
+        const userId = String(data.userId || data.id || data.user_id);
+        const userName = data.userName || data.name || data.user_name;
+        if (userName && !workspaceUsers.has(userId)) {
+          setWorkspaceUsers(prev => {
+            const newMap = new Map(prev);
+            newMap.set(userId, userName);
+            return newMap;
+          });
+        }
+      }
     },
     onParticipantLeft: (data) => {
       console.log('참가자 나가기:', data);
-      // 참가자 목록 업데이트 로직 추가 가능
+      // 참가자 목록에서 제거
+      setWorkspaceParticipants(prev => {
+        const userId = String(data.userId || data.id || data.user_id);
+        return prev.filter(p => p.id !== userId);
+      });
     },
     onIdeaUpdated: (data) => {
       console.log('아이디어 업데이트:', data);
@@ -741,6 +774,7 @@ const InfiniteCanvasPage = () => {
         try {
           const accessToken = localStorage.getItem('accessToken');
           if (accessToken) {
+            // REST API로 삭제
             await axios.delete(
               `${API_BASE_URL}/v1/ideas/${ideaId}`,
               {
@@ -749,6 +783,17 @@ const InfiniteCanvasPage = () => {
                 }
               }
             );
+            
+            // 웹소켓으로 삭제 이벤트 브로드캐스트
+            if (canvasWebSocket.emitIdeaUpdate) {
+              canvasWebSocket.emitIdeaUpdate({
+                id: ideaId,
+                action: 'deleted',
+                workspaceId: workspaceId,
+                userId: currentUserId
+              });
+            }
+            
             setSavedIdeaIds(prev => {
               const newMap = new Map(prev);
               newMap.delete(textId);
@@ -869,6 +914,7 @@ const InfiniteCanvasPage = () => {
 
       const ideaId = savedIdeaIds.get(textId);
       if (ideaId) {
+        // REST API로 삭제
         await axios.delete(
           `${API_BASE_URL}/v1/ideas/${ideaId}`,
           {
@@ -877,6 +923,18 @@ const InfiniteCanvasPage = () => {
             }
           }
         );
+        
+        // 웹소켓으로 삭제 이벤트 브로드캐스트
+        const textData = textFields.texts.find(t => t.id === textId);
+        if (textData && canvasWebSocket.emitIdeaUpdate) {
+          canvasWebSocket.emitIdeaUpdate({
+            id: ideaId,
+            action: 'deleted',
+            workspaceId: workspaceId,
+            userId: currentUserId
+          });
+        }
+        
         setSavedIdeaIds(prev => {
           const newMap = new Map(prev);
           newMap.delete(textId);
@@ -1172,6 +1230,21 @@ const InfiniteCanvasPage = () => {
   const handleCanvasAreaDelete = (areaIndex) => {
     // 삭제할 캔버스 영역 정보 가져오기
     const areaToDelete = canvas.canvasAreas[areaIndex];
+    
+    // 영역 내의 텍스트들 찾기
+    const textsInArea = textFields.texts.filter(text => 
+      text.x >= areaToDelete.x && text.x <= areaToDelete.x + areaToDelete.width &&
+      text.y >= areaToDelete.y && text.y <= areaToDelete.y + areaToDelete.height
+    );
+    
+    // 각 텍스트에 대해 삭제 처리 (서버에 저장된 경우 브로드캐스트)
+    textsInArea.forEach(text => {
+      const ideaId = savedIdeaIds.get(text.id);
+      if (ideaId) {
+        // 서버에 저장된 메모는 deleteIdea로 삭제 (브로드캐스트 포함)
+        deleteIdea(text.id);
+      }
+    });
     
     // 즉시 삭제 (하이라이트 효과 없이)
     textFields.deleteTextsInArea(areaToDelete);
