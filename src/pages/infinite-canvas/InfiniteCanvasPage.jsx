@@ -41,7 +41,8 @@ const InfiniteCanvasPage = () => {
   const [clusterDragStart, setClusterDragStart] = useState({ x: 0, y: 0 }); // 클러스터 드래그 시작 위치
   const [savedIdeaIds, setSavedIdeaIds] = useState(new Map()); // 로컬 텍스트 ID와 서버 아이디어 ID 매핑
   const [draggingTextIds, setDraggingTextIds] = useState(new Set()); // 드래그 중인 텍스트 ID들
-  const [pendingUpdates, setPendingUpdates] = useState(new Map()); // 드래그 종료 후 저장할 업데이트들
+  const [resizingTextIds, setResizingTextIds] = useState(new Set()); // 리사이즈 중인 텍스트 ID들
+  const [pendingUpdates, setPendingUpdates] = useState(new Map()); // 드래그/리사이즈 종료 후 저장할 업데이트들
   const pendingUpdateTimers = useRef(new Map()); // 디바운싱을 위한 타이머들
   const [newlyCreatedTextId, setNewlyCreatedTextId] = useState(null); // 새로 생성된 메모 ID (자동 포커스용)
   const [currentUserId, setCurrentUserId] = useState(null); // 현재 사용자 ID
@@ -330,21 +331,22 @@ const InfiniteCanvasPage = () => {
           .find(([_, serverId]) => serverId === ideaId)?.[0];
         
         // 자신이 보낸 업데이트는 무시 (이미 로컬에서 처리됨)
-        // userId 체크 또는 savedIdeaIds에 이미 매핑되어 있는지 확인
-        const isMyUpdate = (ideaData.userId && String(ideaData.userId) === String(currentUserId)) ||
-                           (localId && textFields.texts.some(t => t.id === localId));
+        // userId만 체크 (localId 체크는 제거 - 모든 로컬 메모가 자신의 것으로 간주되는 문제 방지)
+        const isMyUpdate = ideaData.userId && String(ideaData.userId) === String(currentUserId);
         
-        // created 액션인 경우, 서버 ID가 이미 매핑되어 있으면 자신이 생성한 것으로 간주
+        // created 액션인 경우, 서버 ID가 이미 매핑되어 있고 userId가 자신이면 자신이 생성한 것으로 간주
         const isMyCreated = (action === 'created' || action === 'create') && 
+                           ideaData.userId && String(ideaData.userId) === String(currentUserId) &&
                            Array.from(savedIdeaIds.values()).includes(ideaId);
         
         if (isMyUpdate || isMyCreated) {
-          console.log('자신이 보낸 업데이트 무시 (userId 또는 로컬 매핑 확인):', ideaId, localId, 'isMyCreated:', isMyCreated);
+          console.log('자신이 보낸 업데이트 무시 (userId 확인):', ideaId, localId, 'userId:', ideaData.userId, 'currentUserId:', currentUserId, 'isMyCreated:', isMyCreated);
           return;
         }
         
-        if (localId && draggingTextIds.has(localId)) {
-          console.log('드래그 중인 메모는 원격 업데이트 무시:', localId);
+        // 드래그 또는 리사이즈 중인 메모는 원격 업데이트 무시 (로컬 업데이트 우선)
+        if (localId && (draggingTextIds.has(localId) || resizingTextIds.has(localId))) {
+          console.log('드래그/리사이즈 중인 메모는 원격 업데이트 무시:', localId, 'dragging:', draggingTextIds.has(localId), 'resizing:', resizingTextIds.has(localId));
           return;
         }
         
@@ -964,11 +966,12 @@ const InfiniteCanvasPage = () => {
       (updates.x === undefined || updates.x === currentTextData?.x) &&
       (updates.y === undefined || updates.y === currentTextData?.y);
     
-    // 드래그 중인 경우 서버 저장은 하지 않고, 드래그 종료 후에 저장
+    // 드래그 또는 리사이즈 중인 경우 서버 저장은 하지 않고, 종료 후에 저장
     const isDragging = draggingTextIds.has(id);
+    const isResizing = resizingTextIds.has(id);
     
-    if (isDragging && !isTextEdit) {
-      // 드래그 중이고 텍스트 수정이 아닌 경우: 업데이트를 pendingUpdates에 저장 (드래그 종료 후 일괄 저장)
+    if ((isDragging || isResizing) && !isTextEdit) {
+      // 드래그/리사이즈 중이고 텍스트 수정이 아닌 경우: 업데이트를 pendingUpdates에 저장 (종료 후 일괄 저장)
       setPendingUpdates(prev => {
         const newMap = new Map(prev);
         const existing = newMap.get(id) || {};
@@ -1029,6 +1032,35 @@ const InfiniteCanvasPage = () => {
     });
     
     // 드래그 종료 후 pendingUpdates 저장
+    setPendingUpdates(prev => {
+      const pendingUpdate = prev.get(id);
+      if (pendingUpdate && workspaceId) {
+        const textData = textFields.texts.find(t => t.id === id);
+        if (textData) {
+          saveIdea(id, { ...textData, ...pendingUpdate });
+        }
+        const newMap = new Map(prev);
+        newMap.delete(id);
+        return newMap;
+      }
+      return prev;
+    });
+  }, [workspaceId, textFields.texts]);
+  
+  // 리사이즈 시작 핸들러
+  const handleTextResizeStart = useCallback((id) => {
+    setResizingTextIds(prev => new Set(prev).add(id));
+  }, []);
+  
+  // 리사이즈 종료 핸들러
+  const handleTextResizeEnd = useCallback((id) => {
+    setResizingTextIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
+    
+    // 리사이즈 종료 후 pendingUpdates 저장
     setPendingUpdates(prev => {
       const pendingUpdate = prev.get(id);
       if (pendingUpdate && workspaceId) {
@@ -1671,6 +1703,8 @@ const InfiniteCanvasPage = () => {
           onEndGroupDrag={textFields.endGroupDrag}
           onTextDragStart={handleTextDragStart}
           onTextDragEnd={handleTextDragEnd}
+          onTextResizeStart={handleTextResizeStart}
+          onTextResizeEnd={handleTextResizeEnd}
           newlyCreatedTextId={newlyCreatedTextId}
           isAnimating={canvas.isAnimating}
           showGrid={showGrid}

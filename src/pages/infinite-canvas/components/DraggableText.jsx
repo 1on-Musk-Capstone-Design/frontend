@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false, onDragStart, onDragEnd, autoFocus = false }) => {
+const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false, onDragStart, onDragEnd, onResizeStart, onResizeEnd, autoFocus = false }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState(null); // 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
+  const [resizeState, setResizeState] = useState({ width: null, height: null }); // 리사이즈 중 로컬 상태
   const [isEditing, setIsEditing] = useState(false);
   const [currentText, setCurrentText] = useState(text);
   const [isHovered, setIsHovered] = useState(false);
@@ -47,8 +48,8 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-height')) || 400;
   };
   
-  const currentWidth = getDefaultWidth();
-  const currentHeight = getDefaultHeight();
+  const currentWidth = resizeState.width !== null ? resizeState.width : getDefaultWidth();
+  const currentHeight = resizeState.height !== null ? resizeState.height : getDefaultHeight();
 
   const handleResizeStart = (e, handle) => {
     if (isEditing || mode === 'delete') return;
@@ -65,6 +66,11 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       width: currentWidth,
       height: currentHeight
     });
+    
+    // 리사이즈 시작 콜백 호출
+    if (onResizeStart) {
+      onResizeStart(id);
+    }
   };
 
   const handleMouseDown = (e) => {
@@ -131,6 +137,7 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
 
   const handleMouseUp = useCallback(() => {
     const wasDragging = isDragging;
+    const wasResizing = isResizing;
     
     if (mode === 'delete' && longPressTimer) {
       // 길게 클릭 취소 - 즉시 효과 해제
@@ -152,12 +159,30 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       onDragEnd(id);
     }
     
-    // 리사이즈 종료
-    if (isResizing) {
+    // 리사이즈 종료: 최종 상태를 브로드캐스트
+    if (wasResizing) {
+      const finalWidth = resizeState.width !== null ? resizeState.width : currentWidth;
+      const finalHeight = resizeState.height !== null ? resizeState.height : currentHeight;
+      
+      // 리사이즈 종료 시 최종 상태를 브로드캐스트
+      onUpdate(id, { 
+        x: x, 
+        y: y, 
+        width: finalWidth, 
+        height: finalHeight, 
+        text: currentText 
+      });
+      
       setIsResizing(false);
       setResizeHandle(null);
+      setResizeState({ width: null, height: null });
+      
+      // 리사이즈 종료 콜백 호출
+      if (onResizeEnd) {
+        onResizeEnd(id);
+      }
     }
-  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag, isResizing, isDragging, onDragEnd, id]);
+  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag, isResizing, isDragging, onDragEnd, id, resizeState, currentWidth, currentHeight, x, y, currentText, onUpdate, onResizeEnd]);
 
   const handleMouseLeave = () => {
     setIsHovered(false);
@@ -181,14 +206,12 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
 
   const handleMouseMove = useCallback((e) => {
     if (isResizing) {
-      // 리사이즈 중
+      // 리사이즈 중: 로컬 상태만 업데이트 (브로드캐스트는 마우스를 뗄 때)
       const deltaX = (e.clientX - dragStart.x) / canvasTransform.scale;
       const deltaY = (e.clientY - dragStart.y) / canvasTransform.scale;
       
       let newWidth = initialSize.width;
       let newHeight = initialSize.height;
-      let newX = x;
-      let newY = y;
       
       // 리사이즈 핸들에 따라 크기 조정 (오른쪽과 아래만)
       if (resizeHandle === 'e' || resizeHandle === 'se') {
@@ -200,9 +223,13 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
         newHeight = Math.max(100, initialSize.height + deltaY);
       }
       
+      // 리사이즈 중에는 로컬 상태만 업데이트 (브로드캐스트는 하지 않음)
+      setResizeState({ width: newWidth, height: newHeight });
+      
+      // 로컬 UI 업데이트를 위해 onUpdate 호출 (하지만 handleTextUpdate에서 리사이즈 중이면 브로드캐스트하지 않음)
       onUpdate(id, { 
-        x: newX, 
-        y: newY, 
+        x: x, 
+        y: y, 
         width: newWidth, 
         height: newHeight, 
         text: currentText 
@@ -212,6 +239,7 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     
     if (!isDragging) return;
     
+    // 드래그 중: 로컬 업데이트만 (브로드캐스트는 마우스를 뗄 때)
     // 줌 레벨을 고려한 정확한 좌표 계산
     const newX = (e.clientX - dragStart.x - canvasTransform.x) / canvasTransform.scale;
     const newY = (e.clientY - dragStart.y - canvasTransform.y) / canvasTransform.scale;
@@ -220,7 +248,7 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     if (isMultiSelecting && isSelected && onUpdateGroupDrag) {
       onUpdateGroupDrag(id, newX, newY);
     } else {
-      // 일반 드래그
+      // 일반 드래그: 로컬 업데이트만 (브로드캐스트는 handleMouseUp에서)
       onUpdate(id, { x: newX, y: newY, text: currentText });
     }
   }, [isDragging, isResizing, resizeHandle, dragStart, initialSize, id, x, y, currentText, onUpdate, canvasTransform, isMultiSelecting, isSelected, onUpdateGroupDrag]);
