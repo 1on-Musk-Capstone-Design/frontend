@@ -6,7 +6,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    // WebSocket 프록시 설정 (로컬 개발 시 백엔드 WebSocket 사용)
+    proxy: {
+      '/ws': {
+        target: 'http://51.20.106.74:8080',
+        ws: true,
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   // SPA 라우팅을 위한 설정
   appType: 'spa',
