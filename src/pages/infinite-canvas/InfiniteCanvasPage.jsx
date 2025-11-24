@@ -45,6 +45,7 @@ const InfiniteCanvasPage = () => {
   const [pendingUpdates, setPendingUpdates] = useState(new Map()); // 드래그/리사이즈 종료 후 저장할 업데이트들
   const pendingUpdateTimers = useRef(new Map()); // 디바운싱을 위한 타이머들
   const [newlyCreatedTextId, setNewlyCreatedTextId] = useState(null); // 새로 생성된 메모 ID (자동 포커스용)
+  const [pendingServerIds, setPendingServerIds] = useState(new Set()); // 서버 저장 중인 서버 ID들 (중복 방지용)
   const [currentUserId, setCurrentUserId] = useState(null); // 현재 사용자 ID
   const [workspaceUsers, setWorkspaceUsers] = useState(new Map()); // userId -> userName 매핑
   const [inviteLink, setInviteLink] = useState(''); // 초대 링크
@@ -339,8 +340,12 @@ const InfiniteCanvasPage = () => {
                            ideaData.userId && String(ideaData.userId) === String(currentUserId) &&
                            Array.from(savedIdeaIds.values()).includes(ideaId);
         
-        if (isMyUpdate || isMyCreated) {
-          console.log('자신이 보낸 업데이트 무시 (userId 확인):', ideaId, localId, 'userId:', ideaData.userId, 'currentUserId:', currentUserId, 'isMyCreated:', isMyCreated);
+        // pendingServerIds에 있는 서버 ID는 무시 (서버 저장 중인 메모)
+        const isPendingServerId = (action === 'created' || action === 'create') && 
+                                 ideaId && pendingServerIds.has(ideaId);
+        
+        if (isMyUpdate || isMyCreated || isPendingServerId) {
+          console.log('자신이 보낸 업데이트 무시 (userId 확인):', ideaId, localId, 'userId:', ideaData.userId, 'currentUserId:', currentUserId, 'isMyCreated:', isMyCreated, 'isPendingServerId:', isPendingServerId);
           return;
         }
         
@@ -410,6 +415,42 @@ const InfiniteCanvasPage = () => {
                 const existingEntry = Array.from(newMap.entries()).find(([_, sid]) => sid === ideaId);
                 if (!existingEntry) {
                   newMap.set(latestEmptyText.id, ideaId);
+                }
+                return newMap;
+              });
+            }
+            return; // 중복 생성 방지
+          }
+          
+          // 위치 기반 중복 체크: 같은 위치에 이미 메모가 있는지 확인 (추가 안전장치)
+          const ideaX = ideaData.positionX || ideaData.x || 0;
+          const ideaY = ideaData.positionY || ideaData.y || 0;
+          const positionTolerance = 10; // 10px 오차 허용
+          
+          const existingTextAtPosition = textFields.texts.find(t => {
+            const tServerId = Array.from(savedIdeaIds.entries())
+              .find(([localId]) => localId === t.id)?.[1];
+            // 서버 ID가 없거나 다른 서버 ID를 가진 메모 중에서
+            // 같은 위치에 있는 메모 찾기
+            if (tServerId === ideaId) return false; // 같은 서버 ID면 제외
+            
+            const distance = Math.sqrt(
+              Math.pow(t.x - ideaX, 2) + Math.pow(t.y - ideaY, 2)
+            );
+            return distance < positionTolerance;
+          });
+          
+          if (existingTextAtPosition) {
+            console.log('같은 위치에 이미 메모가 있음, 중복 생성 방지:', existingTextAtPosition.id, ideaId, '위치:', ideaX, ideaY);
+            // 기존 메모에 서버 ID 매핑만 추가 (중복 생성 방지)
+            if (ideaId) {
+              const existingLocalId = existingTextAtPosition.id;
+              setSavedIdeaIds(prev => {
+                const newMap = new Map(prev);
+                // 중복 체크
+                const existingEntry = Array.from(newMap.entries()).find(([_, sid]) => sid === ideaId);
+                if (!existingEntry) {
+                  newMap.set(existingLocalId, ideaId);
                 }
                 return newMap;
               });
@@ -767,7 +808,22 @@ const InfiniteCanvasPage = () => {
             }
           }
         );
-        setSavedIdeaIds(prev => new Map(prev).set(textId, res.data.id));
+        const serverId = res.data.id;
+        
+        // 서버 ID를 pendingServerIds에 추가 (웹소켓 중복 방지)
+        setPendingServerIds(prev => new Set(prev).add(serverId));
+        
+        // 매핑 저장
+        setSavedIdeaIds(prev => new Map(prev).set(textId, serverId));
+        
+        // 짧은 시간 후 pendingServerIds에서 제거 (웹소켓 메시지가 도착할 시간을 고려)
+        setTimeout(() => {
+          setPendingServerIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(serverId);
+            return newSet;
+          });
+        }, 2000); // 2초 후 제거
         
         // WebSocket으로 브로드캐스트 (백엔드가 자동으로 브로드캐스트하지만, 확실하게 하기 위해)
         // 백엔드에서 REST API 호출 시 자동으로 브로드캐스트하므로 여기서는 생략 가능
