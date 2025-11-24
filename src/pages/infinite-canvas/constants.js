@@ -129,10 +129,27 @@ export const TOOLBAR_AREA_CONSTANTS = {
 // ============================================
 // API 설정
 // ============================================
+/**
+ * 클러스터링 API URL
+ * 환경에 따라 자동 선택
+ */
+const getClusteringApiUrl = () => {
+  const hostname = window.location.hostname;
+  
+  // 로컬 개발 환경
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8002';
+  }
+  
+  // 프로덕션 환경: Nginx 프록시 사용 또는 직접 연결
+  // Nginx 프록시 사용 시: '/clustering'
+  // 직접 연결 시: 'http://51.20.106.74:8002'
+  return 'http://51.20.106.74:8002';
+};
+
 export const API_CONSTANTS = {
   // 클러스터링 API 주소
-  CLUSTERING_API_URL: 'http://localhost:8002', // 클러스터링 API 서버 주소
-  // CLUSTERING_API_URL: 'http://51.20.106.74:8002', // 프로덕션 서버 주소
+  CLUSTERING_API_URL: getClusteringApiUrl(),
 };
 
 // ============================================
