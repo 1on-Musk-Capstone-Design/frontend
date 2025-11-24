@@ -9,5 +9,15 @@ export default defineConfig({
     open: true
   },
   // SPA 라우팅을 위한 설정
-  appType: 'spa'
+  appType: 'spa',
+  // 브라우저 환경에서 global 폴리필 추가 (sockjs-client 호환성)
+  define: {
+    global: 'globalThis',
+  },
+  resolve: {
+    alias: {
+      // Node.js polyfills for browser
+      buffer: 'buffer',
+    }
+  }
 })
