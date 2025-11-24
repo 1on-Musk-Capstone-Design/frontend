@@ -34,13 +34,17 @@ export default function LoginForm() {
       }
 
       // 백엔드가 redirect_uri 파라미터를 무시하는 경우를 대비하여
-      // 받은 URL의 redirect_uri를 현재 도메인으로 교체
-      const currentRedirectUri = encodeURIComponent(redirectUri);
-      
-      // redirect_uri 파라미터 교체 (URL 인코딩된 값도 처리)
-      if (loginUrl.includes('redirect_uri=')) {
+      // URL을 파싱해서 redirect_uri만 교체
+      try {
+        const url = new URL(loginUrl);
+        url.searchParams.set('redirect_uri', redirectUri);
+        loginUrl = url.toString();
+        console.log('[구글 로그인] redirect_uri 교체 완료:', redirectUri);
+      } catch (e) {
+        // URL 파싱 실패 시 정규식으로 대체
+        const currentRedirectUri = encodeURIComponent(redirectUri);
         loginUrl = loginUrl.replace(/redirect_uri=[^&]+/, `redirect_uri=${currentRedirectUri}`);
-        console.log('[구글 로그인] redirect_uri 교체:', redirectUri);
+        console.log('[구글 로그인] redirect_uri 교체 (정규식):', redirectUri);
       }
 
       window.location.href = loginUrl;
