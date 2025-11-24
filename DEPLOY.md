@@ -4,32 +4,102 @@
 
 API 서버(51.20.106.74:8080)와 같은 서버에 프론트엔드를 배포하는 방법입니다.
 
-### 1. 서버 준비
+### 1. 서버 접속
 
 ```bash
-# 서버에 접속
-ssh user@51.20.106.74
+# SSH로 서버 접속
+# 사용자명과 IP 주소는 실제 정보로 변경
+ssh username@51.20.106.74
 
-# 디렉토리 생성
-sudo mkdir -p /var/www/onit
-sudo chown -R $USER:$USER /var/www/onit
+# 또는 SSH 키를 사용하는 경우
+ssh -i ~/.ssh/your-key.pem username@51.20.106.74
+
+# 포트가 다른 경우
+ssh -p 22 username@51.20.106.74
 ```
 
-### 2. 빌드 파일 업로드
+**서버 접속 정보 확인 방법:**
+- 서버 관리자에게 SSH 접속 정보 요청
+- 사용자명, IP 주소, 포트, 인증 방법(비밀번호/SSH 키) 확인
+
+### 2. 서버 준비
+
+```bash
+# 서버에 접속한 후
+# 디렉토리 생성
+sudo mkdir -p /var/www/onit
+
+# 권한 설정 (현재 사용자에게 소유권 부여)
+sudo chown -R $USER:$USER /var/www/onit
+
+# 또는 특정 사용자에게 권한 부여
+sudo chown -R www-data:www-data /var/www/onit
+```
+
+### 3. 빌드 파일 업로드
+
+#### 방법 A: 로컬에서 빌드 후 업로드
 
 ```bash
 # 로컬에서 빌드
 npm run build
 
-# 서버에 업로드
-scp -r dist/* user@51.20.106.74:/var/www/onit/
+# 서버에 업로드 (로컬 터미널에서 실행)
+scp -r dist/* username@51.20.106.74:/var/www/onit/
+
+# 또는 SSH 키 사용
+scp -i ~/.ssh/your-key.pem -r dist/* username@51.20.106.74:/var/www/onit/
+
+# 특정 포트 사용
+scp -P 22 -r dist/* username@51.20.106.74:/var/www/onit/
 ```
 
-### 3. Nginx 설정
+#### 방법 B: 서버에서 직접 빌드
 
 ```bash
+# 서버에 접속
+ssh username@51.20.106.74
+
+# 프로젝트 클론 (또는 기존 프로젝트 디렉토리로 이동)
+git clone https://github.com/your-repo/frontend.git
+cd frontend
+
+# 의존성 설치
+npm install
+
+# 빌드
+npm run build
+
+# 빌드 결과물을 배포 디렉토리로 복사
+sudo cp -r dist/* /var/www/onit/
+sudo chown -R www-data:www-data /var/www/onit
+```
+
+#### 방법 C: rsync 사용 (증분 업로드, 권장)
+
+```bash
+# 로컬에서 실행
+# rsync 설치 필요: brew install rsync (macOS) 또는 apt-get install rsync (Linux)
+
+# 빌드
+npm run build
+
+# 서버에 동기화 (변경된 파일만 업로드)
+rsync -avz --delete dist/ username@51.20.106.74:/var/www/onit/
+
+# SSH 키 사용
+rsync -avz --delete -e "ssh -i ~/.ssh/your-key.pem" dist/ username@51.20.106.74:/var/www/onit/
+```
+
+### 4. Nginx 설정
+
+```bash
+# 서버에 접속한 상태에서
 # Nginx 설정 파일 생성
 sudo nano /etc/nginx/sites-available/onit
+
+# 또는 vi 에디터 사용
+sudo vi /etc/nginx/sites-available/onit
 ```
 
 `nginx.conf.production` 파일의 내용을 복사하거나 다음 설정 사용:
@@ -86,23 +156,62 @@ server {
 }
 ```
 
-### 4. Nginx 활성화 및 재시작
+### 5. Nginx 활성화 및 재시작
 
 ```bash
+# 서버에 접속한 상태에서
 # 심볼릭 링크 생성
 sudo ln -s /etc/nginx/sites-available/onit /etc/nginx/sites-enabled/
 
-# 설정 테스트
+# 설정 테스트 (오류 확인)
 sudo nginx -t
 
 # Nginx 재시작
 sudo systemctl restart nginx
+
+# 또는 reload (서비스 중단 없이 설정만 다시 로드)
+sudo systemctl reload nginx
+
+# Nginx 상태 확인
+sudo systemctl status nginx
 ```
 
-### 5. 접속 확인
+### 6. 접속 확인
 
-- 프론트엔드: `http://51.20.106.74`
-- API: `http://51.20.106.74/api` (Nginx가 자동으로 프록시)
+```bash
+# 서버에서 확인
+curl http://localhost
+
+# 또는 브라우저에서 접속
+# 프론트엔드: http://51.20.106.74
+# API: http://51.20.106.74/api (Nginx가 자동으로 프록시)
+```
+
+### 7. 문제 해결
+
+#### Nginx 오류 확인
+```bash
+# Nginx 로그 확인
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
+```
+
+#### 권한 문제
+```bash
+# 파일 권한 확인
+ls -la /var/www/onit
+
+# 권한 수정 (필요한 경우)
+sudo chmod -R 755 /var/www/onit
+sudo chown -R www-data:www-data /var/www/onit
+```
+
+#### 포트 확인
+```bash
+# 80 포트 사용 중인지 확인
+sudo netstat -tulpn | grep :80
+sudo lsof -i :80
+```
 
 ---
 
