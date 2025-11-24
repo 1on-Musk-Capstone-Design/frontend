@@ -13,8 +13,14 @@ function App() {
   console.log('현재 경로:', window.location.pathname)
   console.log('전체 URL:', window.location.href)
   
+  // GitHub Pages 배포 경로에 맞춘 basename 설정
+  // 로컬 개발 환경에서는 빈 문자열, 프로덕션에서는 /onit
+  const basename = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? ''
+    : '/onit';
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         {/* 초대 수락 페이지 - 경로 파라미터와 쿼리 파라미터 모두 지원 */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
