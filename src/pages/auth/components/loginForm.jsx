@@ -24,7 +24,7 @@ export default function LoginForm() {
         }
       );
 
-      const loginUrl = res.data;
+      let loginUrl = res.data;
 
       if (!loginUrl) throw new Error("로그인 URL을 받아오지 못했습니다.");
 
@@ -32,6 +32,11 @@ export default function LoginForm() {
       if (loginUrl.includes('your-google-client-id') || loginUrl.includes('YOUR_CLIENT_ID')) {
         throw new Error("백엔드 설정 오류: Google OAuth 클라이언트 ID가 설정되지 않았습니다.\n\n백엔드에서 GOOGLE_CLIENT_ID 환경 변수를 확인해주세요.");
       }
+
+      // 백엔드가 redirect_uri 파라미터를 무시하는 경우를 대비하여
+      // 받은 URL의 redirect_uri를 현재 도메인으로 교체
+      const currentRedirectUri = encodeURIComponent(redirectUri);
+      loginUrl = loginUrl.replace(/redirect_uri=[^&]+/, `redirect_uri=${currentRedirectUri}`);
 
       window.location.href = loginUrl;
     } catch (err) {
