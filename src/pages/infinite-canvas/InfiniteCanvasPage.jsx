@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import ChatPanel from './components/ChatPanel';
 import ClusteringPanel from './components/ClusteringPanel';
@@ -40,6 +40,10 @@ const InfiniteCanvasPage = () => {
   const [draggingCluster, setDraggingCluster] = useState(null); // 드래그 중인 클러스터 정보
   const [clusterDragStart, setClusterDragStart] = useState({ x: 0, y: 0 }); // 클러스터 드래그 시작 위치
   const [savedIdeaIds, setSavedIdeaIds] = useState(new Map()); // 로컬 텍스트 ID와 서버 아이디어 ID 매핑
+  const [draggingTextIds, setDraggingTextIds] = useState(new Set()); // 드래그 중인 텍스트 ID들
+  const [pendingUpdates, setPendingUpdates] = useState(new Map()); // 드래그 종료 후 저장할 업데이트들
+  const pendingUpdateTimers = useRef(new Map()); // 디바운싱을 위한 타이머들
+  const [newlyCreatedTextId, setNewlyCreatedTextId] = useState(null); // 새로 생성된 메모 ID (자동 포커스용)
   const [currentUserId, setCurrentUserId] = useState(null); // 현재 사용자 ID
   const [workspaceUsers, setWorkspaceUsers] = useState(new Map()); // userId -> userName 매핑
   const [inviteLink, setInviteLink] = useState(''); // 초대 링크
@@ -143,18 +147,52 @@ const InfiniteCanvasPage = () => {
 
         console.log('불러온 메모 목록:', ideasRes.data);
 
-        // 메모를 텍스트 필드로 변환
-        const loadedTexts = ideasRes.data.map((idea, index) => {
-          // 로컬 ID 생성 (기존 텍스트가 있으면 최대값 + 1, 없으면 1부터 시작)
-          const maxId = textFields.texts.length > 0 
-            ? Math.max(...textFields.texts.map(t => typeof t.id === 'number' ? t.id : 0))
-            : 0;
-          const localId = maxId + index + 1;
+        // 기존 서버 ID 매핑 확인 (중복 방지)
+        const existingServerIds = new Set(Array.from(savedIdeaIds.values()));
+        
+        // 메모를 텍스트 필드로 변환 (중복 제외)
+        const loadedTexts = [];
+        let maxId = textFields.texts.length > 0 
+          ? Math.max(...textFields.texts.map(t => typeof t.id === 'number' ? t.id : 0))
+          : 0;
+        
+        const newMappings = new Map();
+        
+        ideasRes.data.forEach((idea) => {
+          // 이미 같은 서버 ID를 가진 메모가 있는지 확인
+          if (existingServerIds.has(idea.id)) {
+            console.log('이미 존재하는 서버 ID, 스킵:', idea.id);
+            return; // 중복 메모는 스킵
+          }
           
-          // 서버 ID와 로컬 ID 매핑 저장
-          setSavedIdeaIds(prev => new Map(prev).set(localId, idea.id));
+          // 이미 로컬에 매핑된 서버 ID인지 확인
+          const existingLocalId = Array.from(savedIdeaIds.entries())
+            .find(([_, serverId]) => serverId === idea.id)?.[0];
+          
+          if (existingLocalId) {
+            console.log('이미 매핑된 서버 ID, 업데이트만 수행:', idea.id, existingLocalId);
+            // 기존 메모 업데이트
+            const updates = {};
+            if (idea.positionX !== undefined) updates.x = idea.positionX;
+            if (idea.positionY !== undefined) updates.y = idea.positionY;
+            if (idea.content !== undefined) updates.text = idea.content;
+            if (idea.patchSizeX !== undefined) updates.width = idea.patchSizeX !== null ? idea.patchSizeX : null;
+            if (idea.patchSizeY !== undefined) updates.height = idea.patchSizeY !== null ? idea.patchSizeY : null;
+            
+            if (Object.keys(updates).length > 0) {
+              textFields.updateText(existingLocalId, updates);
+            }
+            return; // 새로 추가하지 않음
+          }
+          
+          // 새 메모 생성
+          maxId += 1;
+          const localId = maxId;
+          
+          // 서버 ID와 로컬 ID 매핑 저장 (나중에 일괄 적용)
+          newMappings.set(localId, idea.id);
 
-          return {
+          loadedTexts.push({
             id: localId,
             x: idea.positionX || 0,
             y: idea.positionY || 0,
@@ -162,12 +200,32 @@ const InfiniteCanvasPage = () => {
             // API의 patchSizeX, patchSizeY를 width, height로 변환
             width: idea.patchSizeX !== null && idea.patchSizeX !== undefined ? idea.patchSizeX : null,
             height: idea.patchSizeY !== null && idea.patchSizeY !== undefined ? idea.patchSizeY : null
-          };
+          });
         });
 
-        // 텍스트 필드에 추가
+        // 새 매핑 일괄 적용
+        if (newMappings.size > 0) {
+          setSavedIdeaIds(prev => {
+            const newMap = new Map(prev);
+            newMappings.forEach((serverId, localId) => {
+              // 중복 체크: 같은 서버 ID가 이미 매핑되어 있는지 확인
+              const existingEntry = Array.from(newMap.entries()).find(([_, sid]) => sid === serverId);
+              if (!existingEntry) {
+                newMap.set(localId, serverId);
+              } else {
+                console.warn('서버 ID가 이미 매핑되어 있음, 스킵:', serverId, existingEntry[0]);
+              }
+            });
+            return newMap;
+          });
+        }
+
+        // 텍스트 필드에 추가 (중복 제외된 것만)
         if (loadedTexts.length > 0) {
+          console.log('새로 추가할 메모 개수:', loadedTexts.length);
           textFields.loadTexts(loadedTexts);
+        } else {
+          console.log('추가할 새 메모가 없음 (모두 중복)');
         }
 
         // 기존 채팅 메시지 불러오기
@@ -211,9 +269,21 @@ const InfiniteCanvasPage = () => {
   }, [workspaceId]);
 
   // 채팅 메시지 수신 핸들러
-  const handleChatMessageReceived = (message) => {
-    setChatMessages(prev => [...prev, message]);
-  };
+  const handleChatMessageReceived = useCallback((message) => {
+    console.log('[채팅] 메시지 수신 핸들러 호출:', message);
+    console.log('[채팅] 현재 메시지 목록:', chatMessages);
+    
+    // 중복 메시지 방지 (같은 ID가 이미 있으면 추가하지 않음)
+    setChatMessages(prev => {
+      const exists = prev.some(msg => msg.id === message.id);
+      if (exists) {
+        console.log('[채팅] 중복 메시지 무시:', message.id);
+        return prev;
+      }
+      console.log('[채팅] 새 메시지 추가:', message);
+      return [...prev, message];
+    });
+  }, [chatMessages]);
 
   // 채팅 웹소켓 연결
   const chatWebSocket = useChatWebSocket(
@@ -235,8 +305,213 @@ const InfiniteCanvasPage = () => {
     },
     onIdeaUpdated: (data) => {
       console.log('아이디어 업데이트:', data);
-      // 다른 사용자가 업데이트한 아이디어를 화면에 반영하는 로직
-      // data에는 업데이트된 아이디어 정보가 포함됨
+      
+      // 새로 생성된 메모가 서버에 저장되면 autoFocus 해제
+      if (data.action === 'created' || data.action === 'create') {
+        const ideaData = data.data || data;
+        const ideaId = ideaData.id || ideaData.ideaId;
+        const localId = Array.from(savedIdeaIds.entries())
+          .find(([_, serverId]) => serverId === ideaId)?.[0];
+        
+        if (localId === newlyCreatedTextId) {
+          setNewlyCreatedTextId(null);
+        }
+      }
+      
+      try {
+        // 백엔드 형식: {"action": "created|updated|deleted", "data": {...}}
+        // data 필드에서 실제 아이디어 정보 추출
+        const ideaData = data.data || data;
+        const action = data.action || (ideaData.id ? 'updated' : 'created');
+        
+        // 드래그 중인 메모는 원격 업데이트 무시 (로컬 업데이트 우선)
+        const ideaId = ideaData.id || ideaData.ideaId;
+        const localId = Array.from(savedIdeaIds.entries())
+          .find(([_, serverId]) => serverId === ideaId)?.[0];
+        
+        // 자신이 보낸 업데이트는 무시 (이미 로컬에서 처리됨)
+        // userId 체크 또는 savedIdeaIds에 이미 매핑되어 있는지 확인
+        const isMyUpdate = (ideaData.userId && String(ideaData.userId) === String(currentUserId)) ||
+                           (localId && textFields.texts.some(t => t.id === localId));
+        
+        // created 액션인 경우, 서버 ID가 이미 매핑되어 있으면 자신이 생성한 것으로 간주
+        const isMyCreated = (action === 'created' || action === 'create') && 
+                           Array.from(savedIdeaIds.values()).includes(ideaId);
+        
+        if (isMyUpdate || isMyCreated) {
+          console.log('자신이 보낸 업데이트 무시 (userId 또는 로컬 매핑 확인):', ideaId, localId, 'isMyCreated:', isMyCreated);
+          return;
+        }
+        
+        if (localId && draggingTextIds.has(localId)) {
+          console.log('드래그 중인 메모는 원격 업데이트 무시:', localId);
+          return;
+        }
+        
+        if (action === 'deleted' || action === 'delete') {
+          // 삭제: 서버 ID로 로컬 ID 찾아서 삭제
+          const deleteLocalId = Array.from(savedIdeaIds.entries())
+            .find(([_, serverId]) => serverId === ideaId)?.[0];
+          
+          if (deleteLocalId) {
+            console.log('아이디어 삭제:', deleteLocalId, ideaId);
+            textFields.deleteText(deleteLocalId);
+            setSavedIdeaIds(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(deleteLocalId);
+              return newMap;
+            });
+          }
+        } else if (action === 'created' || action === 'create') {
+          // 생성: 새 텍스트 필드 추가
+          // 먼저 이미 같은 서버 ID를 가진 메모가 있는지 확인
+          const existingLocalId = Array.from(savedIdeaIds.entries())
+            .find(([_, serverId]) => serverId === ideaId)?.[0];
+          
+          if (existingLocalId) {
+            // 이미 존재하는 메모면 무시 (자신이 생성한 메모이거나 이미 로드된 메모)
+            console.log('이미 존재하는 메모 (created 액션 무시):', existingLocalId, ideaId);
+            return; // 중복 생성 방지
+          }
+          
+          // 서버 ID가 이미 매핑되어 있는지 확인 (다른 로컬 ID에 매핑되어 있을 수 있음)
+          const existingServerIdMapping = Array.from(savedIdeaIds.entries())
+            .find(([_, serverId]) => serverId === ideaId);
+          
+          if (existingServerIdMapping) {
+            console.log('서버 ID가 이미 다른 로컬 ID에 매핑되어 있음 (created 액션 무시):', existingServerIdMapping[0], ideaId);
+            return; // 중복 생성 방지
+          }
+          
+          // 추가 체크: 로컬 텍스트 목록에서 서버 ID가 없는 빈 메모가 있는지 확인
+          // (빈 메모 생성 후 이동한 경우, created 액션이 늦게 도착할 수 있음)
+          // 모든 빈 메모를 확인 (위치와 관계없이)
+          const existingEmptyTexts = textFields.texts.filter(t => {
+            const tServerId = Array.from(savedIdeaIds.entries())
+              .find(([localId]) => localId === t.id)?.[1];
+            // 서버 ID가 없고, 빈 텍스트인 경우
+            return !tServerId && (!t.text || t.text.trim() === '');
+          });
+          
+          // 빈 메모가 있고, created 액션도 빈 메모인 경우
+          if (existingEmptyTexts.length > 0 && (!ideaData.content || ideaData.content.trim() === '')) {
+            // 가장 최근에 생성된 빈 메모에 서버 ID 매핑 (ID가 가장 큰 것)
+            const latestEmptyText = existingEmptyTexts.reduce((latest, current) => 
+              current.id > latest.id ? current : latest
+            );
+            
+            console.log('빈 메모 발견, 서버 ID 매핑만 추가:', latestEmptyText.id, ideaId, '기존 빈 메모 개수:', existingEmptyTexts.length);
+            if (ideaId) {
+              setSavedIdeaIds(prev => {
+                const newMap = new Map(prev);
+                // 중복 체크
+                const existingEntry = Array.from(newMap.entries()).find(([_, sid]) => sid === ideaId);
+                if (!existingEntry) {
+                  newMap.set(latestEmptyText.id, ideaId);
+                }
+                return newMap;
+              });
+            }
+            return; // 중복 생성 방지
+          }
+          
+          const maxId = textFields.texts.length > 0 
+            ? Math.max(...textFields.texts.map(t => typeof t.id === 'number' ? t.id : 0))
+            : 0;
+          const newId = maxId + 1;
+          
+          const newText = {
+            id: newId,
+            x: ideaData.positionX || ideaData.x || 0,
+            y: ideaData.positionY || ideaData.y || 0,
+            text: ideaData.content || ideaData.text || '',
+            width: ideaData.patchSizeX !== null && ideaData.patchSizeX !== undefined ? ideaData.patchSizeX : null,
+            height: ideaData.patchSizeY !== null && ideaData.patchSizeY !== undefined ? ideaData.patchSizeY : null
+          };
+          
+          console.log('아이디어 생성:', newText, ideaId);
+          
+          // 서버에서 받은 아이디어 ID 저장
+          if (ideaId) {
+            setSavedIdeaIds(prev => {
+              // 중복 체크: 같은 서버 ID가 이미 매핑되어 있는지 확인
+              const existingEntry = Array.from(prev.entries()).find(([_, sid]) => sid === ideaId);
+              if (existingEntry) {
+                console.warn('서버 ID가 이미 매핑되어 있음:', ideaId, existingEntry[0]);
+                return prev; // 기존 매핑 유지
+              }
+              return new Map(prev).set(newId, ideaId);
+            });
+          }
+          
+          textFields.loadTexts([newText]);
+        } else if (action === 'updated' || action === 'update') {
+          // 수정: 기존 텍스트 필드 업데이트
+          const updateLocalId = Array.from(savedIdeaIds.entries())
+            .find(([_, serverId]) => serverId === ideaId)?.[0];
+          
+          if (updateLocalId) {
+            // 현재 텍스트 데이터 가져오기
+            const currentTextData = textFields.texts.find(t => t.id === updateLocalId);
+            
+            const updates = {};
+            if (ideaData.positionX !== undefined) updates.x = ideaData.positionX;
+            if (ideaData.positionY !== undefined) updates.y = ideaData.positionY;
+            if (ideaData.content !== undefined) updates.text = ideaData.content;
+            if (ideaData.patchSizeX !== undefined) updates.width = ideaData.patchSizeX !== null ? ideaData.patchSizeX : null;
+            if (ideaData.patchSizeY !== undefined) updates.height = ideaData.patchSizeY !== null ? ideaData.patchSizeY : null;
+            
+            console.log('아이디어 수정:', updateLocalId, ideaId, updates);
+            console.log('현재 텍스트 데이터:', currentTextData);
+            console.log('업데이트 전 텍스트:', currentTextData?.text);
+            console.log('업데이트 후 텍스트:', updates.text);
+            
+            if (Object.keys(updates).length > 0) {
+              // 직접 updateText 호출 (handleTextUpdate를 거치지 않음 - 무한 루프 방지)
+              textFields.updateText(updateLocalId, updates);
+              console.log('텍스트 업데이트 완료:', updateLocalId);
+            } else {
+              console.warn('업데이트할 내용이 없음:', updateLocalId, ideaId);
+            }
+          } else {
+            // 로컬에 없는 아이디어면 새로 추가
+            // 먼저 이미 같은 서버 ID를 가진 메모가 있는지 확인
+            const existingLocalId = Array.from(savedIdeaIds.entries())
+              .find(([_, serverId]) => serverId === ideaId)?.[0];
+            
+            if (existingLocalId) {
+              // 이미 존재하는 메모면 업데이트로 처리
+              console.log('로컬에 없는 것으로 판단했지만 서버 ID 매핑 발견, 업데이트로 처리:', existingLocalId, ideaId);
+              const currentTextData = textFields.texts.find(t => t.id === existingLocalId);
+              
+              const updates = {};
+              if (ideaData.positionX !== undefined) updates.x = ideaData.positionX;
+              if (ideaData.positionY !== undefined) updates.y = ideaData.positionY;
+              if (ideaData.content !== undefined) updates.text = ideaData.content;
+              if (ideaData.patchSizeX !== undefined) updates.width = ideaData.patchSizeX !== null ? ideaData.patchSizeX : null;
+              if (ideaData.patchSizeY !== undefined) updates.height = ideaData.patchSizeY !== null ? ideaData.patchSizeY : null;
+              
+              if (Object.keys(updates).length > 0 && currentTextData) {
+                textFields.updateText(existingLocalId, updates);
+              }
+              return; // 중복 생성 방지
+            }
+            
+            // updated 액션인데 localId를 찾지 못한 경우는 이상한 상황
+            // 보통은 자신이 생성한 메모를 수정하는 경우이므로, 자신이 보낸 업데이트는 이미 무시됨
+            // 하지만 다른 사용자가 생성한 메모를 수정하는 경우일 수 있으므로 로그만 남기고 스킵
+            console.warn('updated 액션인데 로컬 ID를 찾을 수 없음. 서버 ID:', ideaId, '데이터:', ideaData);
+            console.warn('현재 savedIdeaIds:', Array.from(savedIdeaIds.entries()));
+            console.warn('현재 texts:', textFields.texts.map(t => ({ id: t.id, text: t.text })));
+            
+            // updated 액션인데 localId를 찾지 못하면 새로 추가하지 않음 (중복 방지)
+            // 대신 로그만 남기고 무시
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('아이디어 업데이트 처리 오류:', error);
+      }
     }
   });
 
@@ -321,15 +596,18 @@ const InfiniteCanvasPage = () => {
       const clickResult = canvas.handleCanvasClick(e, mode, canvas.canvasAreas);
       if (clickResult) {
         const newTextId = textFields.addText(clickResult.x, clickResult.y);
-        // 워크스페이스가 있으면 메모 저장
-        if (workspaceId && newTextId) {
-          setTimeout(() => {
-            const textData = textFields.texts.find(t => t.id === newTextId);
-            if (textData) {
-              saveIdea(newTextId, textData);
-            }
-          }, 100);
-        }
+        // 새로 생성된 메모 ID 저장 (자동 포커스용)
+        setNewlyCreatedTextId(newTextId);
+        // 워크스페이스가 있으면 메모 저장 (빈 메모는 저장하지 않음 - saveIdea에서 처리)
+        // 빈 메모는 사용자가 내용을 입력한 후에만 저장됨
+        // if (workspaceId && newTextId) {
+        //   setTimeout(() => {
+        //     const textData = textFields.texts.find(t => t.id === newTextId);
+        //     if (textData) {
+        //       saveIdea(newTextId, textData);
+        //     }
+        //   }, 100);
+        // }
       }
     } else if (mode === 'move' && !e.shiftKey && !canvas.hasStartedAreaSelection) {
       // 이동 모드 (Shift 없음, 영역 선택 시작 안됨): 빈 공간 클릭 시에만 선택 해제
@@ -385,6 +663,36 @@ const InfiniteCanvasPage = () => {
   const saveIdea = async (textId, textData) => {
     if (!workspaceId) return;
     
+    // 빈 텍스트면 저장하지 않음
+    if (!textData.text || textData.text.trim() === '') {
+      console.log('빈 메모는 저장하지 않음:', textId);
+      // 이미 서버에 저장된 메모면 삭제
+      const ideaId = savedIdeaIds.get(textId);
+      if (ideaId) {
+        try {
+          const accessToken = localStorage.getItem('accessToken');
+          if (accessToken) {
+            await axios.delete(
+              `${API_BASE_URL}/v1/ideas/${ideaId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`
+                }
+              }
+            );
+            setSavedIdeaIds(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(textId);
+              return newMap;
+            });
+          }
+        } catch (err) {
+          console.error('빈 메모 삭제 실패', err);
+        }
+      }
+      return;
+    }
+    
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) return;
@@ -426,7 +734,7 @@ const InfiniteCanvasPage = () => {
 
       if (ideaId) {
         // 기존 아이디어 업데이트
-        await axios.put(
+        const res = await axios.put(
           `${API_BASE_URL}/v1/ideas/${ideaId}`,
           ideaData,
           {
@@ -436,6 +744,15 @@ const InfiniteCanvasPage = () => {
             }
           }
         );
+        
+        // WebSocket으로 브로드캐스트 (백엔드가 자동으로 브로드캐스트하지만, 확실하게 하기 위해)
+        // 백엔드에서 REST API 호출 시 자동으로 브로드캐스트하므로 여기서는 생략 가능
+        // 하지만 명시적으로 보내고 싶다면:
+        // canvasWebSocket.emitIdeaUpdate({
+        //   action: 'update',
+        //   id: ideaId,
+        //   ...ideaData
+        // });
       } else {
         // 새 아이디어 생성
         const res = await axios.post(
@@ -449,6 +766,9 @@ const InfiniteCanvasPage = () => {
           }
         );
         setSavedIdeaIds(prev => new Map(prev).set(textId, res.data.id));
+        
+        // WebSocket으로 브로드캐스트 (백엔드가 자동으로 브로드캐스트하지만, 확실하게 하기 위해)
+        // 백엔드에서 REST API 호출 시 자동으로 브로드캐스트하므로 여기서는 생략 가능
       }
     } catch (err) {
       console.error('메모 저장 실패', err);
@@ -486,6 +806,8 @@ const InfiniteCanvasPage = () => {
 
   // 채팅 메시지 전송 함수
   const sendChatMessage = async (content) => {
+    console.log('[채팅] 메시지 전송 시도:', content);
+    console.log('[채팅] WebSocket 연결 상태:', chatWebSocket.isConnected);
     if (!workspaceId) return;
     
     try {
@@ -613,14 +935,68 @@ const InfiniteCanvasPage = () => {
   };
 
   const handleTextUpdate = (id, updates) => {
-    // 텍스트 필드 업데이트
+    // 현재 텍스트 데이터 가져오기 (상태 업데이트 전)
+    const currentTextData = textFields.texts.find(t => t.id === id);
+    
+    // 빈 텍스트로 업데이트되는 경우 삭제
+    if (updates.text !== undefined && (!updates.text || updates.text.trim() === '')) {
+      console.log('빈 텍스트로 업데이트, 메모 삭제:', id);
+      deleteIdea(id);
+      textFields.deleteText(id);
+      // 새로 생성된 메모 ID 초기화
+      if (id === newlyCreatedTextId) {
+        setNewlyCreatedTextId(null);
+      }
+      return;
+    }
+    
+    // 텍스트가 입력되면 새로 생성된 메모 ID 초기화
+    if (updates.text !== undefined && updates.text.trim() !== '' && id === newlyCreatedTextId) {
+      setNewlyCreatedTextId(null);
+    }
+    
+    // 텍스트 필드 업데이트 (즉시 로컬 반영)
     textFields.updateText(id, updates);
     
-    // 워크스페이스가 있으면 메모 저장
-    if (workspaceId) {
-      const textData = textFields.texts.find(t => t.id === id);
-      if (textData) {
-        saveIdea(id, { ...textData, ...updates });
+    // 텍스트 수정인지 확인 (text 필드가 있고, x, y가 변경되지 않았으면 텍스트만 수정된 것으로 간주)
+    // x, y가 undefined이거나 기존 값과 동일하면 텍스트만 수정된 것으로 간주
+    const isTextEdit = updates.text !== undefined && 
+      (updates.x === undefined || updates.x === currentTextData?.x) &&
+      (updates.y === undefined || updates.y === currentTextData?.y);
+    
+    // 드래그 중인 경우 서버 저장은 하지 않고, 드래그 종료 후에 저장
+    const isDragging = draggingTextIds.has(id);
+    
+    if (isDragging && !isTextEdit) {
+      // 드래그 중이고 텍스트 수정이 아닌 경우: 업데이트를 pendingUpdates에 저장 (드래그 종료 후 일괄 저장)
+      setPendingUpdates(prev => {
+        const newMap = new Map(prev);
+        const existing = newMap.get(id) || {};
+        newMap.set(id, { ...existing, ...updates });
+        return newMap;
+      });
+    } else {
+      // 드래그 중이 아니거나 텍스트 수정인 경우: 서버에 저장
+      if (workspaceId && currentTextData) {
+        // 기존 타이머가 있으면 취소
+        clearTimeout(pendingUpdateTimers.current.get(id));
+        
+        if (isTextEdit) {
+          // 텍스트 수정은 즉시 저장 (디바운싱 없이)
+          // 업데이트된 텍스트를 포함하여 저장
+          saveIdea(id, { ...currentTextData, text: updates.text });
+        } else {
+          // 위치 변경은 디바운싱 적용
+          const timer = setTimeout(() => {
+            // 상태가 업데이트된 후의 최신 데이터 사용
+            const latestTextData = textFields.texts.find(t => t.id === id);
+            if (latestTextData) {
+              saveIdea(id, { ...latestTextData, ...updates });
+            }
+            pendingUpdateTimers.current.delete(id);
+          }, 300); // 300ms 디바운스
+          pendingUpdateTimers.current.set(id, timer);
+        }
       }
     }
     
@@ -638,6 +1014,35 @@ const InfiniteCanvasPage = () => {
       }
     }
   };
+  
+  // 드래그 시작 핸들러
+  const handleTextDragStart = useCallback((id) => {
+    setDraggingTextIds(prev => new Set(prev).add(id));
+  }, []);
+  
+  // 드래그 종료 핸들러
+  const handleTextDragEnd = useCallback((id) => {
+    setDraggingTextIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
+    
+    // 드래그 종료 후 pendingUpdates 저장
+    setPendingUpdates(prev => {
+      const pendingUpdate = prev.get(id);
+      if (pendingUpdate && workspaceId) {
+        const textData = textFields.texts.find(t => t.id === id);
+        if (textData) {
+          saveIdea(id, { ...textData, ...pendingUpdate });
+        }
+        const newMap = new Map(prev);
+        newMap.delete(id);
+        return newMap;
+      }
+      return prev;
+    });
+  }, [workspaceId, textFields.texts]);
 
   // 그룹 드래그 시 캔버스 확장
   const handleGroupDragCanvasExpansion = (x, y) => {
@@ -1264,6 +1669,9 @@ const InfiniteCanvasPage = () => {
           onStartGroupDrag={textFields.startGroupDrag}
           onUpdateGroupDrag={(baseTextId, newX, newY) => textFields.updateGroupDrag(baseTextId, newX, newY, handleGroupDragCanvasExpansion)}
           onEndGroupDrag={textFields.endGroupDrag}
+          onTextDragStart={handleTextDragStart}
+          onTextDragEnd={handleTextDragEnd}
+          newlyCreatedTextId={newlyCreatedTextId}
           isAnimating={canvas.isAnimating}
           showGrid={showGrid}
           clusterShapes={clusterShapes}

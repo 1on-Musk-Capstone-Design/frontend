@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false }) => {
+const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false, onDragStart, onDragEnd, autoFocus = false }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState(null); // 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
@@ -14,6 +14,27 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
   const [pressProgress, setPressProgress] = useState(0);
   const textareaRef = useRef(null);
   const memoRef = useRef(null);
+  
+  // text prop이 변경되면 currentText도 업데이트 (편집 중이 아닐 때만)
+  useEffect(() => {
+    if (!isEditing && text !== currentText) {
+      setCurrentText(text);
+    }
+  }, [text, isEditing]);
+  
+  // autoFocus가 true이고 빈 메모면 자동으로 편집 모드 진입
+  useEffect(() => {
+    if (autoFocus && (!text || text.trim() === '') && !isEditing) {
+      setIsEditing(true);
+      onEditingChange(true);
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.select();
+        }
+      }, 0);
+    }
+  }, [autoFocus, text, isEditing, onEditingChange]);
   
   // CSS 변수에서 기본 크기 가져오기
   const getDefaultWidth = () => {
@@ -101,9 +122,16 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       x: e.clientX - (x * canvasTransform.scale + canvasTransform.x),
       y: e.clientY - (y * canvasTransform.scale + canvasTransform.y)
     });
+    
+    // 드래그 시작 핸들러 호출
+    if (onDragStart) {
+      onDragStart(id);
+    }
   };
 
   const handleMouseUp = useCallback(() => {
+    const wasDragging = isDragging;
+    
     if (mode === 'delete' && longPressTimer) {
       // 길게 클릭 취소 - 즉시 효과 해제
       clearTimeout(longPressTimer);
@@ -119,12 +147,17 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
     
     setIsDragging(false);
     
+    // 드래그 종료 핸들러 호출
+    if (wasDragging && onDragEnd) {
+      onDragEnd(id);
+    }
+    
     // 리사이즈 종료
     if (isResizing) {
       setIsResizing(false);
       setResizeHandle(null);
     }
-  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag, isResizing]);
+  }, [mode, longPressTimer, isMultiSelecting, isSelected, onEndGroupDrag, isResizing, isDragging, onDragEnd, id]);
 
   const handleMouseLeave = () => {
     setIsHovered(false);
@@ -223,6 +256,15 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
   const handleBlur = () => {
     setIsEditing(false);
     onEditingChange(false);
+    
+    // 빈 텍스트면 삭제 (단, 새로 생성된 메모가 아니거나 내용이 입력된 경우에만)
+    if (!currentText || currentText.trim() === '') {
+      // autoFocus가 true이고 아직 내용이 없으면 삭제하지 않음 (사용자가 입력할 수 있도록)
+      // 하지만 blur가 발생했다는 것은 다른 곳을 클릭했다는 의미이므로 삭제
+      onDelete(id);
+      return;
+    }
+    
     onUpdate(id, { x, y, text: currentText });
   };
 
@@ -231,10 +273,22 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       e.preventDefault();
       setIsEditing(false);
       onEditingChange(false);
+      
+      // 빈 텍스트면 삭제
+      if (!currentText || currentText.trim() === '') {
+        onDelete(id);
+        return;
+      }
+      
       onUpdate(id, { x, y, text: currentText });
     }
     if (e.key === 'Escape') {
-      setCurrentText(text);
+      // 빈 텍스트면 삭제, 아니면 원래 텍스트로 복원
+      if (!currentText || currentText.trim() === '') {
+        onDelete(id);
+      } else {
+        setCurrentText(text);
+      }
       setIsEditing(false);
       onEditingChange(false);
     }

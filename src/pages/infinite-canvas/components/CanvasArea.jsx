@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DraggableText from './DraggableText';
 import { CANVAS_AREA_CONSTANTS } from '../constants';
 
-const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isAnimating = false, showGrid = false, clusterShapes = [], onClusterDragStart, onClusterDrag, onClusterDragEnd, draggingCluster }) => {
+const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteText, handleSendToChat, setIsTextEditing, mode, onCanvasAreaDelete, highlightedTextIds, onHighlightTextsInArea, onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseUp, selectedTextIds, isMultiSelecting, selectionArea, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isAnimating = false, showGrid = false, clusterShapes = [], onClusterDragStart, onClusterDrag, onClusterDragEnd, draggingCluster, onTextDragStart, onTextDragEnd, newlyCreatedTextId }) => {
   // 클러스터 드래그 중인 텍스트 ID 집합
   const draggingClusterTextIds = draggingCluster ? new Set(draggingCluster.textIds || []) : new Set();
   const [hoveredAreaIndex, setHoveredAreaIndex] = useState(null);
@@ -329,6 +329,9 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
           onStartGroupDrag={onStartGroupDrag}
           onUpdateGroupDrag={onUpdateGroupDrag}
           onEndGroupDrag={onEndGroupDrag}
+          onDragStart={onTextDragStart}
+          onDragEnd={onTextDragEnd}
+          autoFocus={newlyCreatedTextId === text.id}
         />
       ))}
     </div>
