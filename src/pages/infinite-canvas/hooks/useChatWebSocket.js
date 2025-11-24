@@ -52,6 +52,13 @@ export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onM
         // MESSAGE 프레임이 오는지 확인 (중요!)
         if (str.includes('MESSAGE')) {
           console.log('[채팅 웹소켓] ⭐⭐⭐ MESSAGE 프레임 수신됨! ⭐⭐⭐', str);
+          // MESSAGE 프레임의 destination 확인
+          if (str.includes('destination')) {
+            const destinationMatch = str.match(/destination:([^\s]+)/);
+            if (destinationMatch) {
+              console.log('[채팅 웹소켓] MESSAGE destination:', destinationMatch[1]);
+            }
+          }
         }
         // ERROR 프레임 확인
         if (str.includes('ERROR')) {
@@ -61,8 +68,16 @@ export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onM
         if (str.includes('RECEIPT')) {
           console.log('[채팅 웹소켓] ✅ RECEIPT 프레임 수신됨 (백엔드가 메시지 받음):', str);
         }
+        // SEND 프레임 확인 (메시지 전송 확인)
+        if (str.includes('SEND')) {
+          console.log('[채팅 웹소켓] 📤 SEND 프레임:', str);
+        }
+        // SUBSCRIBE 프레임 확인
+        if (str.includes('SUBSCRIBE')) {
+          console.log('[채팅 웹소켓] 📥 SUBSCRIBE 프레임:', str);
+        }
         // 일반 디버그 로그는 필요시만 출력
-        if (str.includes('MESSAGE') || str.includes('ERROR') || str.includes('RECEIPT')) {
+        if (str.includes('MESSAGE') || str.includes('ERROR') || str.includes('RECEIPT') || str.includes('SEND') || str.includes('SUBSCRIBE')) {
           console.log('[채팅 웹소켓] STOMP 디버그:', str);
         }
       },
@@ -295,6 +310,10 @@ export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onM
         
         console.log('[채팅 웹소켓] publish 호출 완료: /app/chat/message');
         console.log('[채팅 웹소켓] publish 결과:', publishResult);
+        
+        // 백엔드가 메시지를 받았는지 확인하기 위해 잠시 대기
+        // RECEIPT 프레임이 오는지 확인 (디버그 로그에서 확인 가능)
+        console.log('[채팅 웹소켓] 백엔드 응답 대기 중... (RECEIPT 프레임 확인)');
       } catch (publishError) {
         console.error('[채팅 웹소켓] publish 오류:', publishError);
         throw publishError;
@@ -313,7 +332,14 @@ export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onM
           });
           
           // 브로드캐스트 메시지가 오지 않았는지 확인
-          console.warn('[채팅 웹소켓] ⚠️ 브로드캐스트 메시지가 수신되지 않았습니다. 백엔드 로그를 확인해주세요.');
+          console.warn('[채팅 웹소켓] ⚠️ 브로드캐스트 메시지가 수신되지 않았습니다.');
+          console.warn('[채팅 웹소켓] 가능한 원인:');
+          console.warn('  1. 백엔드가 /app/chat/message를 처리하지 않음');
+          console.warn('  2. 백엔드가 /topic/workspace/{workspaceId}/messages로 브로드캐스트하지 않음');
+          console.warn('  3. 구독 경로가 잘못됨 (현재 구독 경로:', `/topic/workspace/${workspaceId}/messages`, ')');
+          console.warn('[채팅 웹소켓] 백엔드 로그를 확인하고 다음을 확인하세요:');
+          console.warn('  - @MessageMapping("/chat/message") 또는 @MessageMapping("/app/chat/message") 존재 여부');
+          console.warn('  - SimpMessagingTemplate.convertAndSend("/topic/workspace/" + workspaceId + "/messages", ...) 호출 여부');
         }, 2000); // 2초 대기하여 브로드캐스트 메시지 확인
       
       console.log('[채팅 웹소켓] 구독 경로 확인:', `/topic/workspace/${workspaceId}/messages`);

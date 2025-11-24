@@ -183,6 +183,11 @@ const InfiniteCanvasPage = () => {
             
             if (Object.keys(updates).length > 0) {
               textFields.updateText(existingLocalId, updates);
+              
+              // 위치가 업데이트된 경우 캔버스 확장 체크
+              if (updates.x !== undefined && updates.y !== undefined) {
+                checkAndExpandCanvas(updates.x, updates.y);
+              }
             }
             return; // 새로 추가하지 않음
           }
@@ -226,6 +231,13 @@ const InfiniteCanvasPage = () => {
         if (loadedTexts.length > 0) {
           console.log('새로 추가할 메모 개수:', loadedTexts.length);
           textFields.loadTexts(loadedTexts);
+          
+          // 로드된 메모들의 위치에 대해 캔버스 확장 체크
+          loadedTexts.forEach(text => {
+            if (text.x !== undefined && text.y !== undefined) {
+              checkAndExpandCanvas(text.x, text.y);
+            }
+          });
         } else {
           console.log('추가할 새 메모가 없음 (모두 중복)');
         }
@@ -488,6 +500,9 @@ const InfiniteCanvasPage = () => {
           }
           
           textFields.loadTexts([newText]);
+          
+          // 웹소켓으로 받은 메모의 위치에 대해 캔버스 확장 체크
+          checkAndExpandCanvas(newText.x, newText.y);
         } else if (action === 'updated' || action === 'update') {
           // 수정: 기존 텍스트 필드 업데이트
           const updateLocalId = Array.from(savedIdeaIds.entries())
@@ -512,6 +527,12 @@ const InfiniteCanvasPage = () => {
             if (Object.keys(updates).length > 0) {
               // 직접 updateText 호출 (handleTextUpdate를 거치지 않음 - 무한 루프 방지)
               textFields.updateText(updateLocalId, updates);
+              
+              // 위치가 업데이트된 경우 캔버스 확장 체크
+              if (updates.x !== undefined && updates.y !== undefined) {
+                checkAndExpandCanvas(updates.x, updates.y);
+              }
+              
               console.log('텍스트 업데이트 완료:', updateLocalId);
             } else {
               console.warn('업데이트할 내용이 없음:', updateLocalId, ideaId);
@@ -536,6 +557,11 @@ const InfiniteCanvasPage = () => {
               
               if (Object.keys(updates).length > 0 && currentTextData) {
                 textFields.updateText(existingLocalId, updates);
+                
+                // 위치가 업데이트된 경우 캔버스 확장 체크
+                if (updates.x !== undefined && updates.y !== undefined) {
+                  checkAndExpandCanvas(updates.x, updates.y);
+                }
               }
               return; // 중복 생성 방지
             }
@@ -1061,16 +1087,7 @@ const InfiniteCanvasPage = () => {
     
     // 캔버스 밖으로 이동하는지 체크하고 확장
     if (updates.x !== undefined && updates.y !== undefined) {
-      // 최신 캔버스 영역 상태 사용
-      const currentAreas = canvas.canvasAreas;
-      const isOutsideCanvas = !currentAreas.some(area => 
-        updates.x >= area.x && updates.x <= area.x + area.width &&
-        updates.y >= area.y && updates.y <= area.y + area.height
-      );
-      
-      if (isOutsideCanvas) {
-        canvas.addCanvasArea(updates.x, updates.y);
-      }
+      checkAndExpandCanvas(updates.x, updates.y);
     }
   };
   
@@ -1132,8 +1149,10 @@ const InfiniteCanvasPage = () => {
     });
   }, [workspaceId, textFields.texts]);
 
-  // 그룹 드래그 시 캔버스 확장
-  const handleGroupDragCanvasExpansion = (x, y) => {
+  // 캔버스 확장 체크 함수 (공통 로직)
+  const checkAndExpandCanvas = useCallback((x, y) => {
+    if (x === undefined || y === undefined) return;
+    
     const currentAreas = canvas.canvasAreas;
     const isOutsideCanvas = !currentAreas.some(area => 
       x >= area.x && x <= area.x + area.width &&
@@ -1143,6 +1162,11 @@ const InfiniteCanvasPage = () => {
     if (isOutsideCanvas) {
       canvas.addCanvasArea(x, y);
     }
+  }, [canvas]);
+
+  // 그룹 드래그 시 캔버스 확장
+  const handleGroupDragCanvasExpansion = (x, y) => {
+    checkAndExpandCanvas(x, y);
   };
 
   const handleCanvasAreaDelete = (areaIndex) => {
@@ -1502,6 +1526,8 @@ const InfiniteCanvasPage = () => {
     // 텍스트 위치 업데이트
     textUpdates.forEach(update => {
       textFields.updateText(update.id, { x: update.x, y: update.y });
+      // 클러스터링으로 이동한 메모의 위치에 대해 캔버스 확장 체크
+      checkAndExpandCanvas(update.x, update.y);
     });
     
     console.log('클러스터링 결과로 텍스트 위치 조정 완료', {
@@ -1630,10 +1656,14 @@ const InfiniteCanvasPage = () => {
     draggingCluster.textIds.forEach(textId => {
       const initialPos = draggingCluster.initialTextPositions[textId];
       if (initialPos) {
+        const newX = initialPos.x + deltaX;
+        const newY = initialPos.y + deltaY;
         textFields.updateText(textId, {
-          x: initialPos.x + deltaX,
-          y: initialPos.y + deltaY
+          x: newX,
+          y: newY
         });
+        // 클러스터 드래그로 이동한 메모의 위치에 대해 캔버스 확장 체크
+        checkAndExpandCanvas(newX, newY);
       }
     });
   };
