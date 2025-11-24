@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: "/onit/", // GitHub Pages 배포 경로에 맞춘 base 경로
   plugins: [react()],
   server: {
     port: 3000,
