@@ -28,16 +28,42 @@ jobs:
       - name: Build project
         run: npm run build
       
+      - name: Check dist folder
+        run: |
+          echo "Checking dist folder..."
+          ls -la dist/ || echo "Dist folder not found!"
+          echo "Dist folder exists:"
+          test -d dist && echo "Yes" || echo "No"
+          echo "Files in dist:"
+          find dist -type f | head -20 || echo "No files found"
+      
+      - name: Debug repository info
+        run: |
+          echo "DEPLOY_REPO secret exists:"
+          if [ -n "${{ secrets.DEPLOY_REPO }}" ]; then
+            echo "Yes: ${{ secrets.DEPLOY_REPO }}"
+          else
+            echo "No - DEPLOY_REPO secret is not set!"
+          fi
+          echo "Token secret exists:"
+          if [ -n "${{ secrets.ONIT_AUTO_DEPLOY }}" ]; then
+            echo "Yes (token length: ${#ONIT_AUTO_DEPLOY})"
+          else
+            echo "No - ONIT_AUTO_DEPLOY secret is not set!"
+          fi
+        env:
+          ONIT_AUTO_DEPLOY: ${{ secrets.ONIT_AUTO_DEPLOY }}
+      
       - name: Deploy to github.mingjaam.io/onit
         uses: peaceiris/actions-gh-pages@v3
         with:
           # GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)에서 토큰 생성
           # 권한: repo (전체)
           # 현재 리포지토리의 Settings > Secrets and variables > Actions에서 다음 시크릿 추가:
-          # - GH_PAGES_TOKEN: 생성한 Personal Access Token
-          # - DEPLOY_REPO: "mingjaam/github.mingjaam.io" (실제 리포지토리 이름으로 변경 필요)
+          # - ONIT_AUTO_DEPLOY: 생성한 Personal Access Token
+          # 리포지토리 형식: "owner/repo-name" (점(.)이 있으면 그대로 사용)
           personal_token: ${{ secrets.ONIT_AUTO_DEPLOY }}
-          external_repository: ${{ secrets.DEPLOY_REPO }}
+          external_repository: Mingjaam/Mingjaam.github.io
           publish_branch: main # 또는 gh-pages (리포지토리 설정에 따라)
           publish_dir: ./dist
           destination_dir: onit # onit 하위 폴더에 배포
