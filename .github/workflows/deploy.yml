@@ -54,6 +54,29 @@ jobs:
         env:
           ONIT_AUTO_DEPLOY: ${{ secrets.ONIT_AUTO_DEPLOY }}
       
+      - name: Create root 404.html
+        run: |
+          mkdir -p dist-root
+          cat > dist-root/404.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="ko">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Redirecting...</title>
+            <script>
+              // 현재 경로를 가져와서 /onit/ 경로로 리다이렉트
+              const currentPath = window.location.pathname;
+              const newPath = '/onit' + (currentPath === '/' ? '' : currentPath);
+              window.location.replace(newPath);
+            </script>
+          </head>
+          <body>
+            <p>Redirecting to <a href="/onit">/onit</a>...</p>
+          </body>
+          </html>
+          EOF
+      
       - name: Deploy to github.mingjaam.io/onit
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -68,6 +91,17 @@ jobs:
           publish_dir: ./dist
           destination_dir: onit # onit 하위 폴더에 배포
           keep_files: false # 기존 파일 삭제 후 새로 배포
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+      
+      - name: Deploy 404.html to root
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.ONIT_AUTO_DEPLOY }}
+          external_repository: Mingjaam/Mingjaam.github.io
+          publish_branch: main
+          publish_dir: ./dist-root
+          keep_files: true # 기존 파일 유지 (onit 폴더 유지)
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
 
