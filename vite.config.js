@@ -12,16 +12,20 @@ export default defineConfig({
     proxy: {
       '/ws': {
         target: 'http://51.20.106.74:8080',
-        ws: true,
+        ws: true, // WebSocket 업그레이드 지원
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path, // 경로 그대로 전달
+        rewrite: (path) => path, // 경로 그대로 전달 (/ws/info → /ws/info)
+        // HTTP 요청도 프록시 (SockJS의 /ws/info는 HTTP GET 요청)
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('WebSocket proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Proxying WebSocket request:', req.method, req.url);
+            console.log('Proxying request:', req.method, req.url, '→', proxyReq.path);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Proxy response:', req.url, proxyRes.statusCode);
           });
         }
       }
