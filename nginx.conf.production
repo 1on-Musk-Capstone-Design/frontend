@@ -1,0 +1,54 @@
+# Nginx 설정 - API와 프론트엔드 같은 서버에 배포
+# API: http://51.20.106.74:8080/api
+# 프론트엔드: 정적 파일 서빙
+
+server {
+    listen 80;
+    server_name your-domain.com;  # 실제 도메인으로 변경
+    root /var/www/onit;
+    index index.html;
+
+    # 프론트엔드 정적 파일 서빙
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API 프록시 (백엔드 API로 요청 전달)
+    location /api/ {
+        proxy_pass http://localhost:8080/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # WebSocket 프록시 (STOMP WebSocket)
+    location /ws {
+        proxy_pass http://localhost:8080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+
+    # 정적 파일 캐싱
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Gzip 압축
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+}
+

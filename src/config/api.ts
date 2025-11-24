@@ -5,8 +5,7 @@
  */
 
 export const getApiBaseUrl = (): string => {
-  // 현재 프로토콜 확인
-  const protocol = window.location.protocol;
+  // 현재 호스트 확인
   const hostname = window.location.hostname;
   
   // 로컬 개발 환경
@@ -14,14 +13,9 @@ export const getApiBaseUrl = (): string => {
     return 'http://51.20.106.74:8080/api';
   }
   
-  // 프로덕션 환경 (HTTPS인 경우)
-  if (protocol === 'https:') {
-    // HTTPS로 배포된 경우 API도 HTTPS 사용 (Mixed Content 방지)
-    return 'https://51.20.106.74:8080/api';
-  }
-  
-  // 기본값 (HTTP)
-  return 'http://51.20.106.74:8080/api';
+  // 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
+  // Nginx가 /api 경로를 백엔드로 프록시하므로 상대 경로 사용
+  return '/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -37,7 +31,6 @@ export const API_BASE_URL = getApiBaseUrl();
 export const getSocketServerUrl = (): string => {
   // 현재 호스트 확인
   const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
   
   // 로컬 개발 환경
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -46,15 +39,11 @@ export const getSocketServerUrl = (): string => {
     return 'http://localhost:3000';
   }
   
-  // 프로덕션 환경 (https://mingjaam.github.io/onit/ 등)
-  if (protocol === 'https:') {
-    // 프로덕션 서버 주소 (HTTPS 기반이므로 SockJS가 자동으로 wss로 변환)
-    // 실제 WebSocket 서버 주소 사용
-    return 'https://51.20.106.74:8080/api';
-  }
-  
-  // 기본값 (HTTP인 경우 ws 사용)
-  return 'http://51.20.106.74:8080/api';
+  // 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
+  // Nginx가 /ws 경로를 백엔드 WebSocket으로 프록시하므로 상대 경로 사용
+  // SockJS는 현재 프로토콜(http/https)에 맞춰 자동으로 ws/wss로 변환
+  // window.location.origin을 사용하여 현재 프로토콜과 호스트 포함
+  return `${window.location.origin}/api`;
 };
 
 export const SOCKET_SERVER_URL = getSocketServerUrl();
