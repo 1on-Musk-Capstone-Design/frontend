@@ -1,4 +1,4 @@
-name: Build and Deploy to github.mingjaam.io/onit
+name: Build
 
 on:
   push:
@@ -7,14 +7,12 @@ on:
   workflow_dispatch: # 수동 실행도 가능
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout source repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,111 +26,9 @@ jobs:
       - name: Build project
         run: npm run build
       
-      - name: Check dist folder
-        run: |
-          echo "Checking dist folder..."
-          ls -la dist/ || echo "Dist folder not found!"
-          echo "Dist folder exists:"
-          test -d dist && echo "Yes" || echo "No"
-          echo "Files in dist:"
-          find dist -type f | head -20 || echo "No files found"
-      
-      - name: Debug repository info
-        run: |
-          echo "DEPLOY_REPO secret exists:"
-          if [ -n "${{ secrets.DEPLOY_REPO }}" ]; then
-            echo "Yes: ${{ secrets.DEPLOY_REPO }}"
-          else
-            echo "No - DEPLOY_REPO secret is not set!"
-          fi
-          echo "Token secret exists:"
-          if [ -n "${{ secrets.ONIT_AUTO_DEPLOY }}" ]; then
-            echo "Yes (token length: ${#ONIT_AUTO_DEPLOY})"
-          else
-            echo "No - ONIT_AUTO_DEPLOY secret is not set!"
-          fi
-        env:
-          ONIT_AUTO_DEPLOY: ${{ secrets.ONIT_AUTO_DEPLOY }}
-      
-      - name: Create root 404.html
-        run: |
-          mkdir -p dist-root
-          cat > dist-root/404.html << 'EOF'
-          <!DOCTYPE html>
-          <html lang="ko">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Redirecting...</title>
-            <script>
-              // 현재 경로를 가져와서 /onit/ 경로로 리다이렉트
-              // 이미 /onit/로 시작하는 경로는 그대로 두기
-              const currentPath = window.location.pathname;
-              let newPath;
-              
-              if (currentPath.startsWith('/onit/')) {
-                // 이미 /onit/로 시작하면 그대로 사용
-                newPath = currentPath;
-              } else if (currentPath === '/onit') {
-                // /onit만 있으면 /onit/로
-                newPath = '/onit/';
-              } else {
-                // /onit/로 시작하지 않으면 /onit/ 추가
-                newPath = '/onit' + (currentPath === '/' ? '' : currentPath);
-              }
-              
-              window.location.replace(newPath);
-            </script>
-          </head>
-          <body>
-            <p>Redirecting to <a href="/onit">/onit</a>...</p>
-          </body>
-          </html>
-          EOF
-      
-      - name: Ensure 404.html and .nojekyll exists in dist
-        run: |
-          # dist/404.html이 없으면 index.html을 복사
-          # 404.html은 index.html의 정확한 복사본이어야 함
-          # React Router가 현재 경로를 인식할 수 있도록
-          if [ ! -f dist/404.html ]; then
-            cp dist/index.html dist/404.html
-            echo "Created dist/404.html from index.html"
-          else
-            # 이미 있으면 index.html로 덮어쓰기 (항상 최신 버전 유지)
-            cp dist/index.html dist/404.html
-            echo "Updated dist/404.html from index.html"
-          fi
-          # .nojekyll 파일 추가 (Jekyll 처리 비활성화)
-          touch dist/.nojekyll
-          echo "Created dist/.nojekyll"
-          ls -la dist/ | grep -E "(index|404|\.nojekyll)"
-      
-      - name: Deploy to github.mingjaam.io/onit
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
         with:
-          # GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)에서 토큰 생성
-          # 권한: repo (전체)
-          # 현재 리포지토리의 Settings > Secrets and variables > Actions에서 다음 시크릿 추가:
-          # - ONIT_AUTO_DEPLOY: 생성한 Personal Access Token
-          # 리포지토리 형식: "owner/repo-name" (점(.)이 있으면 그대로 사용)
-          personal_token: ${{ secrets.ONIT_AUTO_DEPLOY }}
-          external_repository: Mingjaam/Mingjaam.github.io
-          publish_branch: main # 또는 gh-pages (리포지토리 설정에 따라)
-          publish_dir: ./dist
-          destination_dir: onit # onit 하위 폴더에 배포
-          keep_files: false # 기존 파일 삭제 후 새로 배포
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-      
-      - name: Deploy 404.html to root
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          personal_token: ${{ secrets.ONIT_AUTO_DEPLOY }}
-          external_repository: Mingjaam/Mingjaam.github.io
-          publish_branch: main
-          publish_dir: ./dist-root
-          keep_files: true # 기존 파일 유지 (onit 폴더 유지)
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+          name: dist
+          path: dist/
 
