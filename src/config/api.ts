@@ -2,18 +2,21 @@
  * API 설정
  * 모든 API 기본 URL을 여기서 관리합니다.
  * 환경에 따라 HTTP/HTTPS 자동 선택
+ * 
+ * - 로컬 개발: http://localhost:3000 → http://51.20.106.74:8080/api
+ * - 프로덕션: https://on-it.kro.kr → /api (Nginx 프록시)
  */
 
 export const getApiBaseUrl = (): string => {
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 환경
+  // 로컬 개발 환경 (localhost:3000)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://51.20.106.74:8080/api';
   }
   
-  // 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
+  // 프로덕션 환경 (on-it.kro.kr): 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
   // Nginx가 /api 경로를 백엔드로 프록시하므로 상대 경로 사용
   return '/api';
 };
@@ -23,8 +26,9 @@ export const API_BASE_URL = getApiBaseUrl();
 /**
  * STOMP WebSocket 서버 주소
  * 환경에 따라 ws/wss 자동 선택
- * - 로컬 개발 환경: Vite 프록시를 통해 백엔드 WebSocket 사용 (http://localhost:3000)
- * - 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
+ * 
+ * - 로컬 개발 (localhost:3000): Vite 프록시를 통해 백엔드 WebSocket 사용
+ * - 프로덕션 (on-it.kro.kr): Nginx 프록시를 통해 백엔드 WebSocket 사용
  * 
  * SockJS는 http:// 또는 https:// 프로토콜을 받아서 자동으로 ws/wss로 변환합니다.
  */
@@ -32,7 +36,7 @@ export const getSocketServerUrl = (): string => {
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 환경: Vite 프록시 사용 (CORS 문제 해결)
+  // 로컬 개발 환경 (localhost:3000): Vite 프록시 사용 (CORS 문제 해결)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     // 로컬에서는 Vite 프록시를 통해 백엔드 WebSocket 사용
     // vite.config.js의 proxy 설정이 /ws를 http://51.20.106.74:8080으로 프록시
@@ -40,7 +44,7 @@ export const getSocketServerUrl = (): string => {
     return 'http://localhost:3000';
   }
   
-  // 프로덕션 환경: 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
+  // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
   // Nginx가 /ws 경로를 백엔드 WebSocket으로 프록시하므로 상대 경로 사용
   // SockJS는 현재 프로토콜(http/https)에 맞춰 자동으로 ws/wss로 변환
   // window.location.origin을 사용하여 현재 프로토콜과 호스트 포함

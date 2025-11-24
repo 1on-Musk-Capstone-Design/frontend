@@ -1,5 +1,10 @@
 # 로컬 개발 및 서버 배포 동시 운영 가이드
 
+## 환경 정보
+
+- **로컬 개발**: `http://localhost:3000`
+- **프로덕션 배포**: `https://on-it.kro.kr`
+
 ## 개요
 
 로컬에서 개발하면서 동시에 서버에 프로덕션 빌드를 배포하여 운영할 수 있습니다.
@@ -18,8 +23,8 @@ npm run dev
   - Hot Module Replacement (HMR) 지원
   - 빠른 리로드
   - 개발 도구 사용 가능
-- **API 연결**: `http://51.20.106.74:8080/api` (서버 API 사용)
-- **WebSocket**: `http://localhost:3000` (로컬 WebSocket 서버 필요 시)
+- **API 연결**: `http://51.20.106.74:8080/api` (서버 API 직접 사용)
+- **WebSocket**: `http://localhost:3000/ws` (Vite 프록시를 통해 백엔드로 전달, CORS 문제 해결)
 
 ### 서버 프로덕션 배포
 
