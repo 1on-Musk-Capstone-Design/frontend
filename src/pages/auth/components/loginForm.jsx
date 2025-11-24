@@ -11,9 +11,17 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
+      // 현재 도메인 기반 리다이렉트 URI 생성
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      
       const res = await axios.get(
         `${API_BASE_URL}/v1/auth-google/login-uri`,
-        { timeout: 10000 }
+        {
+          params: {
+            redirect_uri: redirectUri
+          },
+          timeout: 10000
+        }
       );
 
       const loginUrl = res.data;
