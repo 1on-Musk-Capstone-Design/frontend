@@ -6,9 +6,11 @@
 export const API_BASE_URL = "http://51.20.106.74:8080/api";
 
 /**
- * Socket.IO 서버 주소
+ * STOMP WebSocket 서버 주소
+ * Spring Boot STOMP는 같은 HTTP 서버 포트를 사용하므로 API_BASE_URL과 동일한 호스트/포트 사용
+ * 백엔드 가이드에 따르면 /api/ws 엔드포인트 사용
  */
-export const SOCKET_SERVER_URL = "http://51.20.106.74:9092";
+export const SOCKET_SERVER_URL = "http://51.20.106.74:8080/api";
 
 /**
  * API 엔드포인트 헬퍼 함수
