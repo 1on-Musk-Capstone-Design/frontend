@@ -39,8 +39,9 @@ export const getSocketServerUrl = (): string => {
   // 로컬 개발 환경 (localhost:3000): 백엔드 서버 직접 사용
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     // 로컬에서는 백엔드 WebSocket 서버 직접 사용
-    // 백엔드에서 CORS 허용 필요
-    return 'http://51.20.106.74:8080';
+    // 백엔드 context-path가 /api이므로 /api 포함
+    // SockJS가 /ws를 추가하므로 최종 경로는 /api/ws가 됨
+    return 'http://51.20.106.74:8080/api';
   }
   
   // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
