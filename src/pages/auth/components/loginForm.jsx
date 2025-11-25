@@ -14,6 +14,10 @@ export default function LoginForm() {
       // 현재 환경에 맞는 리다이렉트 URI 생성
       const redirectUri = getOAuthRedirectUri();
       
+      // 디버깅: 콜백 URL 확인
+      console.log('OAuth 리다이렉트 URI:', redirectUri);
+      console.log('현재 origin:', window.location.origin);
+      
       const res = await axios.get(
         `${API_BASE_URL}/v1/auth-google/login-uri`,
         {

@@ -24,13 +24,20 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
 
     const handleScroll = () => {
       if (canvasRef && canvasRef.current) {
-        // requestAnimationFrame을 사용하여 스크롤 후 정확한 위치 계산
+        // 스크롤 이벤트는 빠르게 발생하므로 throttle 대신 requestAnimationFrame 사용
+        // 하지만 위치 계산은 useMemo에서 직접 읽으므로 여기서는 상태만 업데이트
         requestAnimationFrame(() => {
           if (canvasRef && canvasRef.current) {
-            setScrollOffset({
-              x: canvasRef.current.scrollLeft || 0,
-              y: canvasRef.current.scrollTop || 0
-            });
+            const newScrollX = canvasRef.current.scrollLeft || 0;
+            const newScrollY = canvasRef.current.scrollTop || 0;
+            
+            // 값이 변경된 경우에만 상태 업데이트 (불필요한 리렌더링 방지)
+            if (newScrollX !== scrollOffset.x || newScrollY !== scrollOffset.y) {
+              setScrollOffset({
+                x: newScrollX,
+                y: newScrollY
+              });
+            }
           }
         });
       }
@@ -65,16 +72,26 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
 
   // 위치 계산을 useMemo로 최적화하여 canvasTransform 변경 시 즉시 반영되도록 함
   const { dotPosition, isDefaultPositionVisible } = useMemo(() => {
-    // canvas-container의 스크롤 오프셋과 위치 가져오기
-    // 매번 최신 값을 읽어오도록 함 (스크롤 후 정확한 위치 계산을 위해)
+    // canvas-container의 위치와 스크롤 오프셋 가져오기
+    // 매번 최신 값을 직접 읽어서 정확한 위치 계산
     let containerOffsetX = 0;
     let containerOffsetY = 0;
+    let currentScrollX = 0;
+    let currentScrollY = 0;
     
     if (canvasRef && canvasRef.current) {
       // 스크롤 후에도 정확한 위치를 위해 매번 getBoundingClientRect() 호출
       const rect = canvasRef.current.getBoundingClientRect();
       containerOffsetX = rect.left;
       containerOffsetY = rect.top;
+      
+      // 스크롤 오프셋도 최신 값으로 직접 읽기 (상태 대신)
+      currentScrollX = canvasRef.current.scrollLeft || 0;
+      currentScrollY = canvasRef.current.scrollTop || 0;
+    } else {
+      // canvasRef가 없으면 상태 값 사용
+      currentScrollX = scrollOffset.x;
+      currentScrollY = scrollOffset.y;
     }
 
     // 사용 가능한 영역 계산
@@ -86,9 +103,11 @@ const CenterIndicator = ({ canvasTransform, isChatPanelOpen = false, isClusterin
     };
 
     // 캔버스 중앙(0, 0)의 화면 좌표 계산
-    // canvasTransform은 canvas-container 내부 좌표이므로, 실제 화면 좌표로 변환
-    const canvasCenterScreenX = containerOffsetX + scrollOffset.x + canvasTransform.x;
-    const canvasCenterScreenY = containerOffsetY + scrollOffset.y + canvasTransform.y;
+    // canvasTransform.x, y는 canvas-container 내부 좌표계에서의 translate 값
+    // 화면 좌표로 변환: container의 뷰포트 위치 + 스크롤 오프셋 + transform 값
+    // getBoundingClientRect()는 뷰포트 기준이므로 스크롤 오프셋을 더해야 함
+    const canvasCenterScreenX = containerOffsetX + currentScrollX + canvasTransform.x;
+    const canvasCenterScreenY = containerOffsetY + currentScrollY + canvasTransform.y;
 
     // 사용 가능한 영역 계산
     const availableWidth = windowSize.width - availableArea.left - availableArea.right;
