@@ -37,7 +37,7 @@ export default function ProjectList({ projects, viewMode, favorites, toggleFavor
                 ownerProfileImage={p.ownerProfileImage}
                 isOwner={p.isOwner}
                 onDelete={onDelete}
-                onLeave={onLeave}
+                {...(onLeave ? { onLeave } : {})}
                 onInvite={onInvite}
                 isFavorite={favorites.has(p.id)}
                 onToggleFavorite={toggleFavorite}
@@ -63,20 +63,14 @@ export default function ProjectList({ projects, viewMode, favorites, toggleFavor
       )}
       {projects.length > 0 && (
         <>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '40px 1fr 140px 120px 80px',
-            gap: 12,
-            padding: '0 8px 12px 8px',
-            fontSize: 12,
-            fontWeight: 600,
-            color: '#374151'
-          }}>
-            <div style={{ textAlign: 'center' }}><Star size={14} /></div>
-            <div>제목</div>
-            <div>파일수</div>
-            <div>최근 수정</div>
-            <div style={{ textAlign: 'center' }}>액션</div>
+          <div
+            className="grid grid-cols-[40px_1fr_140px_120px_80px] gap-3 px-2 pb-3"
+          >
+            <div className="flex items-center justify-center text-base font-semibold text-gray-700"><Star size={16} /></div>
+            <div className="text-base font-semibold text-gray-700">제목</div>
+            <div className="text-base font-semibold text-gray-700">파일수</div>
+            <div className="text-base font-semibold text-gray-700">최근 수정</div>
+            <div className="flex items-center justify-center text-base font-semibold text-gray-700">관리</div>
           </div>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {projects.map(p => (

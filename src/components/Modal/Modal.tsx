@@ -5,9 +5,10 @@ interface ModalProps {
   isOpen: boolean
   onClose: () => void
   children: React.ReactNode
+  variant?: 'default' | 'card'
 }
 
-export default function Modal({ isOpen, onClose, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, children, variant = 'default' }: ModalProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -24,10 +25,13 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
 
   if (!isOpen) return null
 
+  const contentClass = variant === 'card' ? styles.cardVariant : styles.content
+  const closeClass = variant === 'card' ? styles.closeBtnCard : styles.closeBtn
+
   return (
     <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true">
-      <div className={styles.content} onClick={(e) => e.stopPropagation()}>
-        <button aria-label="닫기" className={styles.closeBtn} onClick={onClose}>
+      <div className={contentClass} onClick={(e) => e.stopPropagation()}>
+        <button aria-label="닫기" className={closeClass} onClick={onClose}>
           ×
         </button>
         <div className={styles.inner}>{children}</div>

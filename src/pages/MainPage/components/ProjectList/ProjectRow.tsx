@@ -1,5 +1,5 @@
 import React from 'react'
-import { Star } from 'lucide-react'
+import { Star, UserPlus, Trash } from 'lucide-react'
 import { Project } from '../../types'
 
 interface ProjectRowProps {
@@ -13,18 +13,10 @@ interface ProjectRowProps {
 
 export function ProjectRow({ project, fileCount, isFavorite, onToggleFavorite, onInvite, onDelete }: ProjectRowProps) {
   return (
-    <li style={{
-      display: 'grid',
-      gridTemplateColumns: '40px 1fr 140px 120px 80px',
-      gap: 12,
-      alignItems: 'center',
-      padding: '10px 12px',
-      border: '1px solid rgba(0,0,0,0.06)',
-      borderRadius: 10,
-      marginBottom: 8,
-      background: '#fff',
-      position: 'relative'
-    }}>
+    <li
+      className="grid grid-cols-[40px_1fr_140px_120px_80px] gap-3 items-center py-4 px-3 mb-2 bg-white rounded-lg border border-black/5 hover:bg-gray-50 transition-colors"
+      style={{ position: 'relative' }}
+    >
       <button
         type="button"
         onClick={() => onToggleFavorite(project.id)}
@@ -44,35 +36,26 @@ export function ProjectRow({ project, fileCount, isFavorite, onToggleFavorite, o
       >
         <Star size={16} fill={isFavorite ? '#fbbf24' : 'none'} />
       </button>
-      <div style={{ fontSize: 14, fontWeight: 500 }}>{project.title}</div>
-      <div style={{ fontSize: 12, color: '#6b7280' }}>{fileCount}개</div>
-      <div style={{ fontSize: 12, color: '#6b7280' }}>{project.lastModified}</div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+      <div className="text-[15px] font-medium text-gray-900">{project.title}</div>
+      <div className="text-sm text-gray-500">{fileCount}개</div>
+      <div className="text-sm text-gray-500">{project.lastModified}</div>
+      <div className="flex items-center justify-center gap-2">
         <button
           type="button"
           onClick={() => onInvite(project.id)}
-          style={{
-            padding: '4px 8px',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 6,
-            background: '#fff',
-            fontSize: 11,
-            cursor: 'pointer'
-          }}
-        >초대</button>
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-50 hover:bg-blue-100 transition-colors group"
+          aria-label="프로젝트 초대"
+        >
+          <UserPlus size={18} className="text-blue-500 group-hover:text-blue-600 transition-colors" />
+        </button>
         <button
           type="button"
           onClick={() => onDelete(project.id)}
-          style={{
-            padding: '4px 8px',
-            border: '1px solid #dc2626',
-            borderRadius: 6,
-            background: '#dc2626',
-            color: '#fff',
-            fontSize: 11,
-            cursor: 'pointer'
-          }}
-        >삭제</button>
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 transition-colors group"
+          aria-label="프로젝트 삭제"
+        >
+          <Trash size={18} className="text-red-500 group-hover:text-red-600 transition-colors" />
+        </button>
       </div>
     </li>
   )

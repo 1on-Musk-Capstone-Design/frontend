@@ -40,9 +40,11 @@ export default function MainPage(): JSX.Element {
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState<'recent' | 'alphabetical'>('recent')
+  // 정렬 상태 제거
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
+  // 탭 상태: all | mine | shared
+  const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'shared'>('all')
 
   const toggleFavorite = (id: string) => {
     setFavorites(prev => {
@@ -253,15 +255,15 @@ export default function MainPage(): JSX.Element {
   }
 
   // 로그아웃 핸들러
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('userName')
-    localStorage.removeItem('userEmail')
-    setIsLoggedIn(false)
-    setProjects([])
-    setLoadError(null)
-  }
+  // const handleLogout = () => {
+  //   localStorage.removeItem('accessToken')
+  //   localStorage.removeItem('refreshToken')
+  //   localStorage.removeItem('userName')
+  //   localStorage.removeItem('userEmail')
+  //   setIsLoggedIn(false)
+  //   setProjects([])
+  //   setLoadError(null)
+  // }
 
   // 워크스페이스 생성
   async function handleCreate() {
@@ -599,23 +601,22 @@ export default function MainPage(): JSX.Element {
   }
 
 
-  // 검색 필터 적용
+  // 탭 + 검색 필터 적용
   const filteredProjects = useMemo(() => {
+    let arr = projects
+    if (activeTab === 'mine') {
+      arr = arr.filter(p => p.isOwner)
+    } else if (activeTab === 'shared') {
+      arr = arr.filter(p => !p.isOwner)
+    }
     const q = query.trim().toLowerCase()
-    if (!q) return projects
-    return projects.filter(p => p.title.toLowerCase().includes(q))
-  }, [projects, query])
+    if (q) arr = arr.filter(p => p.title.toLowerCase().includes(q))
+    return arr
+  }, [projects, query, activeTab])
 
   // 정렬 적용
-  const sortedProjects = useMemo(() => {
-    const arr = [...filteredProjects]
-    if (sortBy === 'alphabetical') {
-      arr.sort((a, b) => a.title.localeCompare(b.title, 'ko'))
-    } else {
-      // recent: dummy 기준 최근 우선 그대로 (실제 API라면 lastModified timestamp 기준 정렬)
-    }
-    return arr
-  }, [filteredProjects, sortBy])
+  // 정렬 기능 제거: 필터링만 적용
+  const sortedProjects = filteredProjects
 
   return (
     <div className={styles.pageRoot}>
@@ -645,7 +646,7 @@ export default function MainPage(): JSX.Element {
                 />
               </div>
 
-              {/* View toggle */}
+              {/* View & Sort toggle */}
               <div className="flex border border-black/10 rounded-xl overflow-hidden">
                 <button
                   type="button"
@@ -688,6 +689,31 @@ export default function MainPage(): JSX.Element {
             </div>
           </header>
 
+          {/* 프로젝트 필터 탭 */}
+          <nav className="flex gap-6 border-b border-gray-200 mb-2 mt-2" aria-label="프로젝트 필터 탭">
+            <button
+              type="button"
+              className={`pb-2 px-1 text-base font-medium transition-colors border-b-2 ${activeTab === 'all' ? 'text-gray-900 border-green-500' : 'text-gray-500 border-transparent hover:text-gray-900'}`}
+              onClick={() => setActiveTab('all')}
+            >
+              전체
+            </button>
+            <button
+              type="button"
+              className={`pb-2 px-1 text-base font-medium transition-colors border-b-2 ${activeTab === 'mine' ? 'text-gray-900 border-green-500' : 'text-gray-500 border-transparent hover:text-gray-900'}`}
+              onClick={() => setActiveTab('mine')}
+            >
+              내 프로젝트
+            </button>
+            <button
+              type="button"
+              className={`pb-2 px-1 text-base font-medium transition-colors border-b-2 ${activeTab === 'shared' ? 'text-gray-900 border-green-500' : 'text-gray-500 border-transparent hover:text-gray-900'}`}
+              onClick={() => setActiveTab('shared')}
+            >
+              공유 문서함
+            </button>
+          </nav>
+
           <ProjectList
             projects={sortedProjects}
             viewMode={viewMode}
@@ -700,41 +726,62 @@ export default function MainPage(): JSX.Element {
             loadError={loadError}
           />
 
-          {/* Modal: 새 프로젝트 생성 */}
-          <Modal isOpen={isModalOpen} onClose={closeModal}>
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="project-name">프로젝트 이름 <span className={styles.required}>*</span></label>
-              <input
-                id="project-name"
-                className={styles.input}
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="project-desc">간단한 설명</label>
-              <textarea
-                id="project-desc"
-                className={styles.textarea}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={4}
-              />
-            </div>
-
-            {createError && (
-              <div style={{ color: '#dc2626', marginBottom: '16px', fontSize: '14px' }}>
-                {createError}
+          {/* Modal: 새 프로젝트 생성 (Card Variant) */}
+          <Modal isOpen={isModalOpen} onClose={closeModal} variant="card">
+            <div className="space-y-6">
+              <div className="flex items-start justify-between">
+                <h2 className="text-2xl font-bold tracking-tight text-gray-900">새 프로젝트 생성</h2>
               </div>
-            )}
-            <div className={styles.formActions}>
-              <button className={styles.ghostBtn} type="button" onClick={closeModal} disabled={creating}>취소</button>
-              <button className={styles.primaryBtn} type="button" onClick={handleCreate} disabled={!form.name.trim() || creating}>
-                {creating ? '생성 중...' : '생성하기'}
-              </button>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="project-name" className="block mb-2 text-sm font-medium text-gray-700">
+                    프로젝트 이름 <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    id="project-name"
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                    placeholder="프로젝트 이름을 입력하세요 (예: 2024 마케팅 기획)"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="project-desc" className="block mb-2 text-sm font-medium text-gray-700">
+                    간단한 설명 <span className="text-gray-400 text-xs font-medium">(선택)</span>
+                  </label>
+                  <textarea
+                    id="project-desc"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={4}
+                    placeholder="프로젝트에 대한 설명을 자유롭게 적어주세요."
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm leading-relaxed resize-y text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                  />
+                </div>
+                {createError && (
+                  <p className="text-sm text-red-600">{createError}</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={creating}
+                  className="text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-40 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={!form.name.trim() || creating}
+                  className="h-10 px-6 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center shadow-none"
+                >
+                  {creating ? '생성 중...' : '생성하기'}
+                </button>
+              </div>
             </div>
           </Modal>
 

@@ -31,3 +31,45 @@
 .inner {
   margin-top: 8px;
 }
+
+/* Card variant for redesigned create project modal */
+.cardVariant {
+  width: 560px;
+  max-width: calc(100% - 40px);
+  background: #ffffff;
+  border-radius: 28px; /* rounded-3xl feel */
+  padding: 40px 42px 36px 42px;
+  box-shadow: 0 24px 72px -8px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.08);
+  position: relative;
+  transform: translateY(14px) scale(.98);
+  animation: modalFadeUp .38s cubic-bezier(.16,.84,.44,1) forwards;
+}
+
+.closeBtnCard {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  color: #374151;
+  transition: background-color .18s ease, color .18s ease;
+}
+.closeBtnCard:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+@keyframes modalFadeUp {
+  0% { opacity: 0; transform: translateY(18px) scale(.96); }
+  60% { opacity: 1; transform: translateY(4px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}

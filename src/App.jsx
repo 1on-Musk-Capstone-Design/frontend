@@ -5,6 +5,7 @@ import MainPage from './pages/MainPage/MainPage';
 import AuthPage from './pages/auth/authpage';
 import CallbackPage from './pages/auth/components/CallbackPage';
 import InviteAcceptPage from './pages/invite/InviteAcceptPage';
+import SettingsPage from './pages/SettingsPage/SettingsPage';
 import './index.css';
 import Login from './pages/login/Login';
 
@@ -24,6 +25,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/canvas/:projectId" element={<InfiniteCanvasPage />} />
         <Route path="/canvas" element={<InfiniteCanvasPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/" element={<MainPage />} />
         {/* catch-all은 맨 마지막에 */}
         <Route path="*" element={<Navigate to="/" replace />} />
