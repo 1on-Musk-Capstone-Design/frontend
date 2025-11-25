@@ -19,7 +19,7 @@ interface ProjectListProps {
 export default function ProjectList({ projects, viewMode, favorites, toggleFavorite, onDelete, onInvite, onLeave, loading, loadError }: ProjectListProps) {
   if (viewMode === 'grid') {
     return (
-      <section aria-label="프로젝트 그리드" style={{ marginTop: 24 }}>
+      <section aria-label="프로젝트 그리드" style={{ marginTop: 24, backgroundColor: '#ffffff' }}>
         {loading && projects.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>로딩 중...</div>
         ) : loadError && projects.length === 0 ? (
@@ -51,7 +51,7 @@ export default function ProjectList({ projects, viewMode, favorites, toggleFavor
 
   // list mode
   return (
-    <section aria-label="프로젝트 리스트" style={{ marginTop: 32 }}>
+    <section aria-label="프로젝트 리스트" style={{ marginTop: 32, backgroundColor: '#ffffff' }}>
       {projects.length === 0 && !loading && !loadError && (
         <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280' }}>표시할 프로젝트가 없습니다.</div>
       )}

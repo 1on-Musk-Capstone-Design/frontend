@@ -6,8 +6,7 @@
   font-family: inherit;
 }
 
-.container { /* 유지: 구조 래퍼 (sidebar는 fixed로 분리) */ }
-
+                                                                                                                                                                                          
 .main {
   margin-left: 250px; /* fixed sidebar width */
   padding: 32px 40px 48px 40px;
@@ -15,6 +14,7 @@
   flex-direction: column;
   min-height: 100vh;
   box-sizing: border-box;
+  background-color: #ffffff; /* 명시적 배경색 설정 */
 }
 
 /* 대시보드 헤더 */
@@ -136,6 +136,10 @@
       linear-gradient(-45deg, #374151 25%, transparent 25%),
       linear-gradient(45deg, transparent 75%, #374151 75%),
       linear-gradient(-45deg, transparent 75%, #374151 75%);
+  }
+  
+  .main {
+    background-color: #ffffff; /* 다크 모드에서도 메인 영역은 밝게 유지 */
   }
 }
 
