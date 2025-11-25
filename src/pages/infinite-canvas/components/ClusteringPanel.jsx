@@ -133,7 +133,7 @@ const ClusteringPanel = ({
         body: JSON.stringify({
           texts: textContents,
           n_clusters: nClusters,
-          return_visualization: false
+          return_visualization: true  // 시각화 데이터 받기
         })
       });
 

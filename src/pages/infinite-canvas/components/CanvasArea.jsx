@@ -215,7 +215,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
       
       {/* 클러스터 도형들 렌더링 (div로 테두리 그리기) */}
       {clusterShapes && clusterShapes.length > 0 && clusterShapes.map((shape, index) => {
-        const { bounds, borderColor, representativeText } = shape;
+        const { bounds, borderColor, backgroundColor, representativeText, centroid } = shape;
         const cornerRadius = 10; // 둥근 모서리 반경
         const isDragging = draggingCluster && draggingCluster.clusterId === shape.clusterId;
         
@@ -223,8 +223,60 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
         const displayX = isDragging ? draggingCluster.bounds.minX : bounds.minX;
         const displayY = isDragging ? draggingCluster.bounds.minY : bounds.minY;
         
+        // centroid 위치 계산 (드래그 중이면 draggingCluster의 centroid 사용)
+        const centroidX = isDragging && draggingCluster.centroid 
+          ? draggingCluster.centroid.x 
+          : (centroid ? centroid.x : null);
+        const centroidY = isDragging && draggingCluster.centroid 
+          ? draggingCluster.centroid.y 
+          : (centroid ? centroid.y : null);
+        
         return (
           <React.Fragment key={`cluster-${shape.clusterId}-${index}`}>
+            {/* 클러스터 배경 (반투명 배경색) */}
+            {backgroundColor && (
+              <div
+                data-cluster-shape={shape.clusterId}
+                style={{
+                  position: 'absolute',
+                  left: displayX,
+                  top: displayY,
+                  width: bounds.width,
+                  height: bounds.height,
+                  backgroundColor: backgroundColor,
+                  borderRadius: `${cornerRadius}px`,
+                  pointerEvents: 'none',
+                  zIndex: 99,
+                  boxSizing: 'border-box',
+                  transition: isDragging 
+                    ? 'none' 
+                    : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+              />
+            )}
+            
+            {/* 클러스터 중심점 표시 */}
+            {centroidX !== null && centroidY !== null && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: centroidX - 8,
+                  top: centroidY - 8,
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  backgroundColor: borderColor,
+                  border: '2px solid white',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                  pointerEvents: 'none',
+                  zIndex: 101,
+                  transition: isDragging 
+                    ? 'none' 
+                    : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+              />
+            )}
+            
             {/* 대표 텍스트 표시 (도형 위에) */}
             {representativeText && (
               <div
@@ -266,7 +318,8 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                 {representativeText}
               </div>
             )}
-            {/* 클러스터 도형 (시각적 표시만, 클릭 불가) */}
+            
+            {/* 클러스터 도형 테두리 (시각적 표시만, 클릭 불가) */}
             <div
               data-cluster-shape={shape.clusterId}
               style={{

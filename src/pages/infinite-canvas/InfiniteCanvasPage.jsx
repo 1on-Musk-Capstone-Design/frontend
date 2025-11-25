@@ -8,6 +8,7 @@ import TopToolbar from './components/TopToolbar';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
+import Toast from './components/Toast';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
@@ -53,6 +54,7 @@ const InfiniteCanvasPage = () => {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); // 초대 모달 상태
   const [workspaceName, setWorkspaceName] = useState('프로젝트'); // 워크스페이스 이름
   const [workspaceParticipants, setWorkspaceParticipants] = useState([]); // 워크스페이스 참가자 목록
+  const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -311,23 +313,45 @@ const InfiniteCanvasPage = () => {
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
     onParticipantJoined: (data) => {
       console.log('참가자 참가:', data);
-      // 참가자 목록 업데이트
-      setWorkspaceParticipants(prev => {
-        const userId = String(data.userId || data.id || data.user_id);
-        const userName = data.userName || data.name || data.user_name || workspaceUsers.get(userId) || '알 수 없음';
+      const userId = String(data.userId || data.id || data.user_id);
+      const userName = data.userName || data.name || data.user_name || workspaceUsers.get(userId) || '알 수 없음';
+      
+      // 현재 사용자가 아닌 경우에만 알림 표시
+      if (userId !== String(currentUserId)) {
+        // 참가자 목록 업데이트
+        setWorkspaceParticipants(prev => {
+          // 이미 존재하는 참가자인지 확인
+          const exists = prev.some(p => p.id === userId);
+          if (exists) {
+            return prev;
+          }
+          
+          // 새 참가자 추가
+          return [...prev, {
+            id: userId,
+            name: userName
+          }];
+        });
         
-        // 이미 존재하는 참가자인지 확인
-        const exists = prev.some(p => p.id === userId);
-        if (exists) {
-          return prev;
-        }
-        
-        // 새 참가자 추가
-        return [...prev, {
-          id: userId,
-          name: userName
-        }];
-      });
+        // Toast 알림 표시
+        setToast({
+          message: `${userName}님이 참여했습니다`,
+          type: 'success',
+          isVisible: true
+        });
+      } else {
+        // 현재 사용자인 경우 목록만 업데이트 (알림 없음)
+        setWorkspaceParticipants(prev => {
+          const exists = prev.some(p => p.id === userId);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, {
+            id: userId,
+            name: userName
+          }];
+        });
+      }
       
       // workspaceUsers에도 추가 (없는 경우)
       if (data.userId || data.id || data.user_id) {
@@ -344,11 +368,28 @@ const InfiniteCanvasPage = () => {
     },
     onParticipantLeft: (data) => {
       console.log('참가자 나가기:', data);
-      // 참가자 목록에서 제거
-      setWorkspaceParticipants(prev => {
-        const userId = String(data.userId || data.id || data.user_id);
-        return prev.filter(p => p.id !== userId);
-      });
+      const userId = String(data.userId || data.id || data.user_id);
+      const userName = data.userName || data.name || data.user_name || workspaceUsers.get(userId) || '알 수 없음';
+      
+      // 현재 사용자가 아닌 경우에만 알림 표시
+      if (userId !== String(currentUserId)) {
+        // 참가자 목록에서 제거
+        setWorkspaceParticipants(prev => {
+          return prev.filter(p => p.id !== userId);
+        });
+        
+        // Toast 알림 표시
+        setToast({
+          message: `${userName}님이 나갔습니다`,
+          type: 'info',
+          isVisible: true
+        });
+      } else {
+        // 현재 사용자인 경우 목록만 업데이트 (알림 없음)
+        setWorkspaceParticipants(prev => {
+          return prev.filter(p => p.id !== userId);
+        });
+      }
     },
     onIdeaUpdated: (data) => {
       console.log('아이디어 업데이트:', data);
@@ -1362,12 +1403,64 @@ const InfiniteCanvasPage = () => {
       });
     }
     
+    // 시각화 데이터 확인 (PCA 좌표)
+    const visualization = clusteringResult.visualization;
+    const useVisualization = visualization && visualization.points && visualization.points.length > 0;
+    
     // 초기 캔버스 중심점 찾기
     const initialCanvas = canvas.canvasAreas.find(area => area.isInitial);
     if (!initialCanvas) return;
     
     const centerX = initialCanvas.x + initialCanvas.width / 2;
     const centerY = initialCanvas.y + initialCanvas.height / 2;
+    
+    // PCA 좌표를 캔버스 좌표로 변환하는 함수
+    const convertPCAToCanvas = (pcaPoints, centroids) => {
+      if (!pcaPoints || pcaPoints.length === 0) return null;
+      
+      // PCA 좌표 범위 계산
+      const allPoints = [...pcaPoints, ...(centroids || [])];
+      const xCoords = allPoints.map(p => p[0]);
+      const yCoords = allPoints.map(p => p[1]);
+      
+      const minX = Math.min(...xCoords);
+      const maxX = Math.max(...xCoords);
+      const minY = Math.min(...yCoords);
+      const maxY = Math.max(...yCoords);
+      
+      const rangeX = maxX - minX || 1;
+      const rangeY = maxY - minY || 1;
+      
+      // 캔버스 배치 영역 크기 (중심 기준으로 충분한 공간 확보)
+      const canvasWidth = 2000; // PCA 좌표를 배치할 영역 너비
+      const canvasHeight = 2000; // PCA 좌표를 배치할 영역 높이
+      
+      const scaleX = canvasWidth / rangeX;
+      const scaleY = canvasHeight / rangeY;
+      const scale = Math.min(scaleX, scaleY) * 0.8; // 80% 스케일로 여백 확보
+      
+      // 변환 함수
+      const convert = (pcaPoint) => {
+        const normalizedX = (pcaPoint[0] - minX) / rangeX;
+        const normalizedY = (pcaPoint[1] - minY) / rangeY;
+        
+        return {
+          x: centerX + (normalizedX - 0.5) * canvasWidth * 0.8,
+          y: centerY + (normalizedY - 0.5) * canvasHeight * 0.8
+        };
+      };
+      
+      return {
+        convert,
+        scale,
+        minX, maxX, minY, maxY,
+        canvasWidth, canvasHeight
+      };
+    };
+    
+    const coordConverter = useVisualization 
+      ? convertPCAToCanvas(visualization.points, visualization.centroids)
+      : null;
     
     // 텍스트 박스 크기 가져오기 함수
     const getTextSize = (text) => {
@@ -1410,55 +1503,112 @@ const InfiniteCanvasPage = () => {
     const clusterShapes = []; // 클러스터 도형 정보 저장
     let clusterIndex = 0;
     
-    // 1단계: 클러스터들을 먼저 배치 (충분한 간격으로)
+    // PCA 좌표를 사용한 배치인지 확인
+    const usePCALayout = coordConverter !== null;
+    
+    // 1단계: 클러스터들을 먼저 배치
     Object.keys(clusterGroups).forEach(clusterId => {
       const group = clusterGroups[clusterId];
-      
-      // 가로/세로 위치 계산 (5개씩 배치)
-      const col = clusterIndex % clustersPerRow;
-      const row = Math.floor(clusterIndex / clustersPerRow);
-      
-      // 클러스터 중심 위치 계산
-      const clusterCenterX = centerX - (clustersPerRow * horizontalSpacing) / 2 + col * horizontalSpacing;
-      const clusterCenterY = centerY + row * verticalSpacing;
+      const clusterIdNum = parseInt(clusterId);
       
       // 클러스터 테두리 색상 선택
       const borderColor = borderColors[clusterIndex % borderColors.length];
       
-      // 텍스트 박스 크기 계산
-      let maxWidth = 0;
-      let maxHeight = 0;
-      group.forEach(item => {
-        const size = getTextSize(item.text);
-        maxWidth = Math.max(maxWidth, size.width);
-        maxHeight = Math.max(maxHeight, size.height);
-      });
+      // 배경색 (테두리 색상 기반, 반투명)
+      const backgroundColor = borderColor.replace('rgb', 'rgba').replace(')', ', 0.08)');
       
-      // 텍스트들을 세로로 배치 (1열, 중심 기준)
-      const groupTexts = [];
-      let currentY = clusterCenterY - (group.length * (maxHeight + textMargin)) / 2;
+      // PCA 좌표를 사용한 배치
+      let groupTexts = [];
+      let clusterCenterX, clusterCenterY;
+      let centroidCanvasPos = null;
       
-      group.forEach((item, itemIndex) => {
-        const size = getTextSize(item.text);
-        const newX = clusterCenterX - maxWidth / 2;
-        const newY = currentY;
-        
-        groupTexts.push({
-          id: item.text.id,
-          x: newX,
-          y: newY,
-          width: size.width,
-          height: size.height
+      if (usePCALayout) {
+        // PCA 좌표를 사용하여 텍스트 배치
+        group.forEach((item, itemIndex) => {
+          const originalIndex = item.index; // 원본 텍스트 인덱스
+          const pcaPoint = visualization.points[originalIndex];
+          
+          if (pcaPoint) {
+            const canvasPos = coordConverter.convert(pcaPoint);
+            const size = getTextSize(item.text);
+            
+            // 텍스트를 PCA 좌표 위치에 배치 (중앙 정렬)
+            const newX = canvasPos.x - size.width / 2;
+            const newY = canvasPos.y - size.height / 2;
+            
+            groupTexts.push({
+              id: item.text.id,
+              x: newX,
+              y: newY,
+              width: size.width,
+              height: size.height,
+              pcaX: pcaPoint[0],
+              pcaY: pcaPoint[1]
+            });
+            
+            textUpdates.push({
+              id: item.text.id,
+              x: newX,
+              y: newY
+            });
+          }
         });
         
-        textUpdates.push({
-          id: item.text.id,
-          x: newX,
-          y: newY
+        // 클러스터 중심점 계산 (PCA centroid 사용)
+        if (visualization.centroids && visualization.centroids[clusterIdNum]) {
+          const centroidPCA = visualization.centroids[clusterIdNum];
+          centroidCanvasPos = coordConverter.convert(centroidPCA);
+          clusterCenterX = centroidCanvasPos.x;
+          clusterCenterY = centroidCanvasPos.y;
+        } else {
+          // centroid가 없으면 텍스트들의 평균 위치 사용
+          const avgX = groupTexts.reduce((sum, t) => sum + t.x + t.width / 2, 0) / groupTexts.length;
+          const avgY = groupTexts.reduce((sum, t) => sum + t.y + t.height / 2, 0) / groupTexts.length;
+          clusterCenterX = avgX;
+          clusterCenterY = avgY;
+        }
+      } else {
+        // 기존 그리드 방식 배치 (PCA 좌표가 없는 경우)
+        const col = clusterIndex % clustersPerRow;
+        const row = Math.floor(clusterIndex / clustersPerRow);
+        
+        clusterCenterX = centerX - (clustersPerRow * horizontalSpacing) / 2 + col * horizontalSpacing;
+        clusterCenterY = centerY + row * verticalSpacing;
+        
+        // 텍스트 박스 크기 계산
+        let maxWidth = 0;
+        let maxHeight = 0;
+        group.forEach(item => {
+          const size = getTextSize(item.text);
+          maxWidth = Math.max(maxWidth, size.width);
+          maxHeight = Math.max(maxHeight, size.height);
         });
         
-        currentY += size.height + textMargin;
-      });
+        // 텍스트들을 세로로 배치 (1열, 중심 기준)
+        let currentY = clusterCenterY - (group.length * (maxHeight + textMargin)) / 2;
+        
+        group.forEach((item, itemIndex) => {
+          const size = getTextSize(item.text);
+          const newX = clusterCenterX - maxWidth / 2;
+          const newY = currentY;
+          
+          groupTexts.push({
+            id: item.text.id,
+            x: newX,
+            y: newY,
+            width: size.width,
+            height: size.height
+          });
+          
+          textUpdates.push({
+            id: item.text.id,
+            x: newX,
+            y: newY
+          });
+          
+          currentY += size.height + textMargin;
+        });
+      }
       
       // 효율적인 도형 경계 계산 (텍스트들의 실제 배치를 고려하여 여백 최소화)
       // 각 텍스트의 실제 경계를 계산
@@ -1500,9 +1650,14 @@ const InfiniteCanvasPage = () => {
         clusterId: `cluster-${clusterId}`,
         clusterIndex: clusterIndex,
         borderColor: borderColor,
+        backgroundColor: backgroundColor,
         bounds: shapeBounds,
         textIds: groupTexts.map(t => t.id),
-        representativeText: representativeText // 대표 텍스트 저장
+        representativeText: representativeText, // 대표 텍스트 저장
+        centroid: centroidCanvasPos ? {
+          x: centroidCanvasPos.x,
+          y: centroidCanvasPos.y
+        } : null // 클러스터 중심점
       });
       
       clusterIndex++;
@@ -1665,6 +1820,7 @@ const InfiniteCanvasPage = () => {
     setDraggingCluster({
       ...shape,
       initialBounds: { ...shape.bounds },
+      initialCentroid: shape.centroid ? { ...shape.centroid } : null, // centroid 초기 위치 저장
       initialTextPositions: initialTextPositions,
       dragOffsetX: clickX - shape.bounds.minX,
       dragOffsetY: clickY - shape.bounds.minY
@@ -1720,9 +1876,16 @@ const InfiniteCanvasPage = () => {
       height: draggingCluster.initialBounds.height
     };
     
+    // centroid도 함께 이동
+    const newCentroid = draggingCluster.initialCentroid ? {
+      x: draggingCluster.initialCentroid.x + deltaX,
+      y: draggingCluster.initialCentroid.y + deltaY
+    } : null;
+    
     setDraggingCluster({
       ...draggingCluster,
-      bounds: newBounds
+      bounds: newBounds,
+      centroid: newCentroid
     });
     
     // 모든 텍스트 위치 업데이트
@@ -1745,10 +1908,14 @@ const InfiniteCanvasPage = () => {
   const handleClusterDragEnd = () => {
     if (!draggingCluster) return;
     
-    // 클러스터 도형 정보 업데이트
+    // 클러스터 도형 정보 업데이트 (centroid 포함)
     setClusterShapes(prev => prev.map(shape => 
       shape.clusterId === draggingCluster.clusterId
-        ? { ...shape, bounds: draggingCluster.bounds }
+        ? { 
+            ...shape, 
+            bounds: draggingCluster.bounds,
+            centroid: draggingCluster.centroid || shape.centroid
+          }
         : shape
     ));
     
@@ -1758,6 +1925,15 @@ const InfiniteCanvasPage = () => {
 
   return (
     <div className="infinite-canvas-page">
+      {/* Toast 알림 */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        duration={3000}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+      />
+      
       {/* 상단 툴바 */}
       <TopToolbar
         projectName={workspaceName}
