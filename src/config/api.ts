@@ -54,6 +54,25 @@ export const getSocketServerUrl = (): string => {
 export const SOCKET_SERVER_URL = getSocketServerUrl();
 
 /**
+ * OAuth 리다이렉트 URI 생성
+ * 환경에 따라 로컬 또는 프로덕션 URL 반환
+ */
+export const getOAuthRedirectUri = (): string => {
+  // 현재 호스트 확인
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  const port = window.location.port;
+  
+  // 로컬 개발 환경 (localhost:3000)
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//${hostname}:${port || '3000'}/auth/callback`;
+  }
+  
+  // 프로덕션 환경: 현재 origin 사용
+  return `${window.location.origin}/auth/callback`;
+};
+
+/**
  * API 엔드포인트 헬퍼 함수
  */
 export const getApiUrl = (endpoint: string): string => {
