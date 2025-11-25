@@ -233,7 +233,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
         
         return (
           <React.Fragment key={`cluster-${shape.clusterId}-${index}`}>
-            {/* 클러스터 배경 (반투명 배경색) */}
+            {/* 클러스터 배경 (반투명 배경색) - 텍스트 아래에 배치 */}
             {backgroundColor && (
               <div
                 data-cluster-shape={shape.clusterId}
@@ -246,7 +246,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                   backgroundColor: backgroundColor,
                   borderRadius: `${cornerRadius}px`,
                   pointerEvents: 'none',
-                  zIndex: 99,
+                  zIndex: 1, // 텍스트 아래에 배치
                   boxSizing: 'border-box',
                   transition: isDragging 
                     ? 'none' 
@@ -255,7 +255,29 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
               />
             )}
             
-            {/* 클러스터 중심점 표시 */}
+            {/* 클러스터 도형 테두리 (시각적 표시만, 클릭 불가) - 텍스트 아래에 배치 */}
+            <div
+              data-cluster-shape={shape.clusterId}
+              style={{
+                position: 'absolute',
+                left: displayX,
+                top: displayY,
+                width: bounds.width,
+                height: bounds.height,
+                border: `3px solid ${borderColor}`,
+                borderRadius: `${cornerRadius}px`,
+                pointerEvents: 'none', // 도형은 클릭 불가, 대표 텍스트만 드래그 가능
+                zIndex: 2, // 텍스트 아래에 배치
+                boxSizing: 'border-box',
+                backgroundColor: 'transparent',
+                // 클러스터 도형도 애니메이션 적용
+                transition: isDragging 
+                  ? 'none' 
+                  : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+            />
+            
+            {/* 클러스터 중심점 표시 - 텍스트 위에 배치 */}
             {centroidX !== null && centroidY !== null && (
               <div
                 style={{
@@ -269,7 +291,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                   border: '2px solid white',
                   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
                   pointerEvents: 'none',
-                  zIndex: 101,
+                  zIndex: 100, // 텍스트 위에 배치
                   transition: isDragging 
                     ? 'none' 
                     : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -277,7 +299,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
               />
             )}
             
-            {/* 대표 텍스트 표시 (도형 위에) */}
+            {/* 대표 텍스트 표시 (도형 위에) - 텍스트 위에 배치 */}
             {representativeText && (
               <div
                 data-cluster-shape={shape.clusterId}
@@ -294,7 +316,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                   fontWeight: 600,
                   color: '#1a1a1a',
                   pointerEvents: mode === 'move' ? 'auto' : 'none',
-                  zIndex: 102,
+                  zIndex: 101, // 텍스트 위에 배치
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -318,28 +340,6 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                 {representativeText}
               </div>
             )}
-            
-            {/* 클러스터 도형 테두리 (시각적 표시만, 클릭 불가) */}
-            <div
-              data-cluster-shape={shape.clusterId}
-              style={{
-                position: 'absolute',
-                left: displayX,
-                top: displayY,
-                width: bounds.width,
-                height: bounds.height,
-                border: `3px solid ${borderColor}`,
-                borderRadius: `${cornerRadius}px`,
-                pointerEvents: 'none', // 도형은 클릭 불가, 대표 텍스트만 드래그 가능
-                zIndex: 100,
-                boxSizing: 'border-box',
-                backgroundColor: 'transparent',
-                // 클러스터 도형도 애니메이션 적용
-                transition: isDragging 
-                  ? 'none' 
-                  : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-            />
           </React.Fragment>
         );
       })}

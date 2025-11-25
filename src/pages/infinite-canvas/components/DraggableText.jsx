@@ -439,6 +439,7 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
         borderRadius: 'var(--memo-border-radius)',
         boxShadow: 'var(--memo-shadow)',
         transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+        zIndex: 10, // 클러스터 도형(zIndex: 1-2) 위에 표시
         // 드래그나 리사이즈, 클러스터 드래그 중이 아닐 때만 위치 애니메이션 적용
         transition: (isDragging || isResizing || isClusterDragging) 
           ? 'none' 
