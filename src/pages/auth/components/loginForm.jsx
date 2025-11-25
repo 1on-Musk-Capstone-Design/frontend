@@ -11,40 +11,18 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      // 현재 도메인 기반 리다이렉트 URI 생성
-      const redirectUri = `${window.location.origin}/auth/callback`;
-      
       const res = await axios.get(
         `${API_BASE_URL}/v1/auth-google/login-uri`,
-        {
-          params: {
-            redirect_uri: redirectUri
-          },
-          timeout: 10000
-        }
+        { timeout: 10000 }
       );
 
-      let loginUrl = res.data;
+      const loginUrl = res.data;
 
       if (!loginUrl) throw new Error("로그인 URL을 받아오지 못했습니다.");
 
       // 백엔드가 placeholder 클라이언트 ID를 사용하는지 확인
       if (loginUrl.includes('your-google-client-id') || loginUrl.includes('YOUR_CLIENT_ID')) {
         throw new Error("백엔드 설정 오류: Google OAuth 클라이언트 ID가 설정되지 않았습니다.\n\n백엔드에서 GOOGLE_CLIENT_ID 환경 변수를 확인해주세요.");
-      }
-
-      // 백엔드가 redirect_uri 파라미터를 무시하는 경우를 대비하여
-      // URL을 파싱해서 redirect_uri만 교체
-      try {
-        const url = new URL(loginUrl);
-        url.searchParams.set('redirect_uri', redirectUri);
-        loginUrl = url.toString();
-        console.log('[구글 로그인] redirect_uri 교체 완료:', redirectUri);
-      } catch (e) {
-        // URL 파싱 실패 시 정규식으로 대체
-        const currentRedirectUri = encodeURIComponent(redirectUri);
-        loginUrl = loginUrl.replace(/redirect_uri=[^&]+/, `redirect_uri=${currentRedirectUri}`);
-        console.log('[구글 로그인] redirect_uri 교체 (정규식):', redirectUri);
       }
 
       window.location.href = loginUrl;
@@ -84,37 +62,39 @@ export default function LoginForm() {
   };
 
   const titleStyle = {
-    fontSize: 24,
-    fontWeight: 700,
-    color: "#111827",
+    fontSize: 28,
+    fontWeight: 800,
+    color: "#2c3e50",
     textAlign: "center",
     margin: 0,
+    marginBottom: 4,
   };
 
   const subtitleStyle = {
-    fontSize: 14,
-    color: "#6b7280",
+    fontSize: 15,
+    color: "#7f8c8d",
     textAlign: "center",
     margin: 0,
+    fontWeight: 500,
   };
 
-  const buttonStyle = {
-    width: "100%",
-    height: 50,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    fontSize: 16,
-    fontWeight: 600,
-    borderRadius: 12,
-    border: "none",
-    cursor: isLoading ? "not-allowed" : "pointer",
-    background: isLoading ? "#1e7b0b" : "#01cd15",
-    color: "white",
-    transition: "background 0.2s ease",
-    opacity: isLoading ? 0.8 : 1,
-  };
+const buttonStyle = {
+  width: "100%",
+  height: 52,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 12,
+  fontSize: 16,
+  fontWeight: 600,
+  borderRadius: 8,
+  border: "2px solid #34495e",
+  cursor: isLoading ? "not-allowed" : "pointer",
+  background: "#ffffff",
+  color: "#2c3e50",
+  transition: "all 0.3s ease",
+  boxShadow: "0 3px 8px rgba(0,0,0,0.12)",
+};
 
   const spinnerStyle = {
     width: 20,
@@ -141,8 +121,22 @@ export default function LoginForm() {
         onClick={onGoogleLogin}
         disabled={isLoading}
         style={buttonStyle}
-        onMouseEnter={(e) => !isLoading && (e.currentTarget.style.background = "#1e7b0b")}
-        onMouseLeave={(e) => !isLoading && (e.currentTarget.style.background = "#01cd15")}
+         onMouseEnter={(e) => {
+          if (!isLoading) {
+            e.currentTarget.style.background = "#34495e"; 
+            e.currentTarget.style.color = "#ffffff";
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)"; 
+          }
+        }}
+         onMouseLeave={(e) => {
+          if (!isLoading) {
+            e.currentTarget.style.background = "#ffffff"; 
+            e.currentTarget.style.color = "#2c3e50";
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.12)"; 
+          }
+        }}
       >
         {isLoading ? (
           <>
