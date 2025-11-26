@@ -460,16 +460,18 @@ const InfiniteCanvasPage = () => {
   // 캔버스 웹소켓 연결 (실시간 협업용)
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
     onCursorMove: (cursorPosition) => {
-      // 다른 사용자의 커서 위치 업데이트
-      setRemoteCursors(prev => {
-        const newMap = new Map(prev);
-        newMap.set(String(cursorPosition.userId), {
-          x: cursorPosition.x,
-          y: cursorPosition.y,
-          userName: cursorPosition.userName || workspaceUsers.get(String(cursorPosition.userId)) || '알 수 없음',
-          timestamp: cursorPosition.timestamp || Date.now()
+      // 다른 사용자의 커서 위치 업데이트 (부드러운 전환을 위해 requestAnimationFrame 사용)
+      requestAnimationFrame(() => {
+        setRemoteCursors(prev => {
+          const newMap = new Map(prev);
+          newMap.set(String(cursorPosition.userId), {
+            x: cursorPosition.x,
+            y: cursorPosition.y,
+            userName: cursorPosition.userName || workspaceUsers.get(String(cursorPosition.userId)) || '알 수 없음',
+            timestamp: cursorPosition.timestamp || Date.now()
+          });
+          return newMap;
         });
-        return newMap;
       });
     },
     onParticipantJoined: async (data) => {
@@ -1079,7 +1081,7 @@ const InfiniteCanvasPage = () => {
       cursorThrottleTimerRef.current = setTimeout(() => {
         const userName = workspaceUsers.get(String(currentUserId)) || localStorage.getItem('userName') || '사용자';
         canvasWebSocket.sendCursorPosition(e.clientX, e.clientY, userName);
-      }, 80); // 80ms throttle
+      }, 100); // 100ms throttle (더 부드러운 전송)
     }
   };
 
@@ -2791,7 +2793,9 @@ const InfiniteCanvasPage = () => {
               top: `${cursor.y}px`,
               pointerEvents: 'none',
               zIndex: 10000,
-              transform: 'translate(-50%, -50%)'
+              transform: 'translate(-50%, -50%)',
+              transition: 'left 0.15s cubic-bezier(0.4, 0, 0.2, 1), top 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+              willChange: 'transform'
             }}
           >
             <div
@@ -2802,7 +2806,8 @@ const InfiniteCanvasPage = () => {
                 border: '2px solid white',
                 borderRadius: '50%',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-                position: 'relative'
+                position: 'relative',
+                transition: 'transform 0.15s ease-out'
               }}
             />
             <div
@@ -2815,7 +2820,8 @@ const InfiniteCanvasPage = () => {
                 fontSize: '0.75rem',
                 fontWeight: 600,
                 whiteSpace: 'nowrap',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                transition: 'opacity 0.15s ease-out'
               }}
             >
               {cursor.userName}
