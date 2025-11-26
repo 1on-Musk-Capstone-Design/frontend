@@ -10,10 +10,20 @@ import {
   Settings,
   LogOut
 } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
+import { API_BASE_URL } from '../../../../config/api'
 
 interface SidebarProps {
   activeMenu?: string
   unreadNotifications?: boolean
+}
+
+interface UserInfo {
+  id: number
+  email: string
+  name: string
+  profileImage: string | null
 }
 
 // 사용자 이름에서 이니셜 추출 함수
@@ -31,14 +41,80 @@ function getInitials(name: string): string {
   return 'U'
 }
 
-import { useNavigate, Link } from 'react-router-dom';
-
 export default function Sidebar({ activeMenu = 'home', unreadNotifications = false }: SidebarProps) {
-  // TODO: 사용자 정보 fetch 및 프로필 구현은 기존과 동일하게 유지 (생략)
-  // 임시 프로필
-  const userName = '사용자'
-  const userInitials = 'U'
-  const profileImage = null
+  const [userName, setUserName] = useState<string>('사용자')
+  const [userInitials, setUserInitials] = useState<string>('U')
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const accessToken = localStorage.getItem('accessToken')
+        
+        if (!accessToken) {
+          // 토큰이 없으면 localStorage에서 기본 정보 사용
+          const storedName = localStorage.getItem('userName')
+          if (storedName) {
+            setUserName(storedName)
+            setUserInitials(getInitials(storedName))
+          }
+          return
+        }
+
+        const res = await axios.get<UserInfo>(
+          `${API_BASE_URL}/v1/users/me`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        )
+
+        // 사용자 정보 설정
+        if (res.data.name) {
+          setUserName(res.data.name)
+          setUserInitials(getInitials(res.data.name))
+        }
+        
+        if (res.data.profileImage) {
+          setProfileImage(res.data.profileImage)
+        }
+
+        // localStorage에도 저장 (다른 곳에서 사용할 수 있도록)
+        if (res.data.name) {
+          localStorage.setItem('userName', res.data.name)
+        }
+        if (res.data.email) {
+          localStorage.setItem('userEmail', res.data.email)
+        }
+      } catch (err: any) {
+        console.error('사용자 정보 불러오기 실패', err)
+        
+        // axios 오류인지 확인
+        const isAxiosError = err?.isAxiosError || err?.response !== undefined || err?.request !== undefined
+        const status = err?.response?.status
+        
+        // 401 또는 403 오류인 경우 토큰 제거
+        if (isAxiosError && (status === 401 || status === 403)) {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('userName')
+          localStorage.removeItem('userEmail')
+          // 페이지 새로고침하여 MainPage의 모달이 표시되도록 함
+          window.location.reload()
+        } else {
+          // 실패 시 localStorage에서 기본 정보 사용
+          const storedName = localStorage.getItem('userName')
+          if (storedName) {
+            setUserName(storedName)
+            setUserInitials(getInitials(storedName))
+          }
+        }
+      }
+    }
+
+    fetchUserInfo()
+  }, [])
 
   // 메뉴 정의 (상단 통합)
   const topMenus = [
