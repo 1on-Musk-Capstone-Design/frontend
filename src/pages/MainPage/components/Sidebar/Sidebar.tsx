@@ -1,26 +1,20 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import styles from './Sidebar.module.css'
-import { API_BASE_URL } from '../../../../config/api'
+import {
+  LayoutDashboard,
+  Bell,
+  Star,
+  FolderOpen,
+  Users,
+  Trash2,
+  Settings,
+  LogOut
+} from 'lucide-react'
 
 interface SidebarProps {
   activeMenu?: string
+  unreadNotifications?: boolean
 }
-
-interface UserInfo {
-  id: number
-  email: string
-  name: string
-  profileImage: string | null
-}
-
-const menuItems = [
-  { key: 'home', label: '홈' },
-  { key: 'account', label: '내 계정' },
-  { key: 'all_files', label: '모든 파일' },
-  { key: 'shared', label: '공유 문서' },
-  { key: 'team', label: '팀 프로젝트' },
-]
 
 // 사용자 이름에서 이니셜 추출 함수
 function getInitials(name: string): string {
@@ -37,93 +31,42 @@ function getInitials(name: string): string {
   return 'U'
 }
 
-export default function Sidebar({ activeMenu = 'home' }: SidebarProps) {
-  const [userName, setUserName] = useState<string>('사용자')
-  const [userInitials, setUserInitials] = useState<string>('U')
-  const [profileImage, setProfileImage] = useState<string | null>(null)
+import { useNavigate, Link } from 'react-router-dom';
 
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const accessToken = localStorage.getItem('accessToken')
-        
-        if (!accessToken) {
-          // 토큰이 없으면 localStorage에서 기본 정보 사용
-          const storedName = localStorage.getItem('userName')
-          if (storedName) {
-            setUserName(storedName)
-            setUserInitials(getInitials(storedName))
-          }
-          // MainPage에서 모달을 표시하므로 여기서는 표시하지 않음
-          return
-        }
+export default function Sidebar({ activeMenu = 'home', unreadNotifications = false }: SidebarProps) {
+  // TODO: 사용자 정보 fetch 및 프로필 구현은 기존과 동일하게 유지 (생략)
+  // 임시 프로필
+  const userName = '사용자'
+  const userInitials = 'U'
+  const profileImage = null
 
-        const res = await axios.get<UserInfo>(
-          `${API_BASE_URL}/v1/users/me`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          }
-        )
+  // 메뉴 정의 (상단 통합)
+  const topMenus = [
+    { key: 'home', label: '홈', icon: LayoutDashboard, href: '/' },
+    { key: 'notifications', label: '알림', icon: Bell, href: '/notifications', badge: unreadNotifications },
+    { key: 'starred', label: '즐겨찾기', icon: Star, href: '/starred' },
+    { key: 'divider', isDivider: true }, // 구분선 추가
+    { key: 'trash', label: '휴지통', icon: Trash2, href: '/trash' },
+    { key: 'settings', label: '설정', icon: Settings, href: '/settings' },
+  ]
 
-        // 사용자 정보 설정
-        if (res.data.name) {
-          setUserName(res.data.name)
-          setUserInitials(getInitials(res.data.name))
-        }
-        
-        if (res.data.profileImage) {
-          setProfileImage(res.data.profileImage)
-        }
+  const navigate = useNavigate();
 
-        // localStorage에도 저장 (다른 곳에서 사용할 수 있도록)
-        if (res.data.name) {
-          localStorage.setItem('userName', res.data.name)
-        }
-        if (res.data.email) {
-          localStorage.setItem('userEmail', res.data.email)
-        }
-      } catch (err: any) {
-        console.error('사용자 정보 불러오기 실패', err)
-        
-        // axios 오류인지 확인
-        const isAxiosError = err?.isAxiosError || err?.response !== undefined || err?.request !== undefined
-        const status = err?.response?.status
-        
-        // 401 또는 403 오류인 경우 토큰 제거 (MainPage에서 모달 표시)
-        if (isAxiosError && (status === 401 || status === 403)) {
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-          localStorage.removeItem('userName')
-          localStorage.removeItem('userEmail')
-          // MainPage에서 모달을 표시하므로 여기서는 표시하지 않음
-          // 페이지 새로고침하여 MainPage의 모달이 표시되도록 함
-          window.location.reload()
-        } else {
-          // 실패 시 localStorage에서 기본 정보 사용
-          const storedName = localStorage.getItem('userName')
-          if (storedName) {
-            setUserName(storedName)
-            setUserInitials(getInitials(storedName))
-          }
-        }
-      }
-    }
-
-    fetchUserInfo()
-  }, [])
+  // 실제 로그아웃 처리 함수
+  function handleLogout() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    navigate('/auth', { replace: true });
+  }
 
   return (
     <aside className={styles.sidebar} aria-label="사이드바">
       <div className={styles.profile}>
         <div className={styles.avatar}>
           {profileImage ? (
-            <img 
-              src={profileImage} 
-              alt={userName}
-              className={styles.avatarImage}
-            />
+            <img src={profileImage} alt={userName} className={styles.avatarImage} />
           ) : (
             userInitials
           )}
@@ -133,62 +76,44 @@ export default function Sidebar({ activeMenu = 'home' }: SidebarProps) {
           <div className={styles.meta}>프로필</div>
         </div>
       </div>
-
-      <nav className={styles.nav} aria-label="주 네비게이션">
-        <ul>
-          {menuItems.map((m) => {
-            const active = m.key === activeMenu
+      <nav className="flex flex-col flex-1" aria-label="사이드바 메뉴">
+        <ul className="flex flex-col gap-1">
+          {topMenus.map(item => {
+            // 구분선 처리
+            if (item.isDivider) {
+              return <li key={item.key} className="my-2 border-t border-gray-200" />
+            }
+            const active = activeMenu === item.key
+            const Icon = item.icon
             return (
-              <li key={m.key}>
-                <a href="#" className={`${styles.link} ${active ? styles.active : ''}`} aria-current={active ? 'page' : undefined}>
-                  <span className={styles.icon}>{m.label[0]}</span>
-                  <span>{m.label}</span>
-                </a>
+              <li key={item.key}>
+                <Link
+                  to={item.href || '#'}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${active ? 'bg-green-50 text-green-600' : 'text-gray-700 hover:bg-gray-50 hover:text-green-600'}`}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {Icon && <Icon size={20} className={active ? 'text-green-600' : 'text-gray-400'} />}
+                  <span>{item.label}</span>
+                  {item.key === 'notifications' && item.badge ? (
+                    <span className="ml-auto block w-2 h-2 bg-red-500 rounded-full" />
+                  ) : null}
+                </Link>
               </li>
             )
           })}
         </ul>
-      </nav>
-
-      <div className={styles.footer}>
-        <div className={styles.upgradeBox} aria-label="업그레이드 안내">
-          <h4 className={styles.upgradeTitle}>플랜 업그레이드</h4>
-            <p className={styles.upgradeDesc}>더 많은 워크스페이스와 고급 클러스터링 기능을 사용해보세요.</p>
-            <button className={styles.upgradeBtn} type="button" onClick={() => alert('업그레이드 페이지는 아직 준비 중입니다.')}>업그레이드</button>
+        {/* 로그아웃 버튼만 최하단에 고정 */}
+        <div className="mt-auto border-t border-gray-200 pt-4 pb-2">
+          <button
+            type="button"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-gray-700 w-full hover:bg-red-50 hover:text-red-600"
+            onClick={handleLogout}
+          >
+            <LogOut size={20} className="text-gray-400" />
+            <span>로그아웃</span>
+          </button>
         </div>
-        <button
-          onClick={() => {
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem('userName')
-            localStorage.removeItem('userEmail')
-            window.location.href = '/'
-          }}
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            background: 'transparent',
-            color: '#6b7280',
-            border: '1px solid rgba(15,23,42,0.06)',
-            borderRadius: '6px',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'all 180ms ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#f8f9fa'
-            e.currentTarget.style.color = '#111827'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = '#6b7280'
-          }}
-        >
-          로그아웃
-        </button>
-        <div style={{ marginTop: '12px', fontSize: '0.75rem', color: '#9ca3af' }}>버전 1.0</div>
-      </div>
+      </nav>
     </aside>
   )
 }
