@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './LandingPage.module.css';
-import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader, Map, Link2, Briefcase, Trophy, MousePointer2 } from 'lucide-react';
 
 const LandingPage = () => {
   const [currentSection, setCurrentSection] = useState(0);
@@ -246,8 +246,19 @@ const LandingPage = () => {
               <h3 className={styles.featureTitle}>실시간 협업</h3>
               <p className={styles.featureDescription}>
                 여러 사용자가 동시에 작업할 수 있습니다. 
-                실시간으로 변경사항이 반영되고, 채팅으로 팀원들과 즉시 소통하세요.
+                실시간으로 변경사항이 반영되고, 참가자의 커서 위치를 실시간으로 확인하며, 
+                채팅으로 팀원들과 즉시 소통하세요.
               </p>
+              <div className={styles.featureVisual}>
+                <div className={styles.cursorPreview}>
+                  <MousePointer2 size={16} className={styles.cursorIcon1} />
+                  <span className={styles.cursorName1}>김민수</span>
+                </div>
+                <div className={styles.cursorPreview}>
+                  <MousePointer2 size={16} className={styles.cursorIcon2} />
+                  <span className={styles.cursorName2}>이지은</span>
+                </div>
+              </div>
             </div>
 
             <div className={styles.featureCard}>
@@ -269,6 +280,28 @@ const LandingPage = () => {
               <p className={styles.featureDescription}>
                 캔버스에서 바로 대화할 수 있습니다. 
                 아이디어를 공유하고 피드백을 주고받으세요.
+              </p>
+            </div>
+
+            <div className={styles.featureCard}>
+              <div className={styles.featureIcon}>
+                <Map size={32} />
+              </div>
+              <h3 className={styles.featureTitle}>미니맵과 중앙 표시</h3>
+              <p className={styles.featureDescription}>
+                미니맵으로 전체 캔버스를 한눈에 파악하고, 
+                중앙 표시 공으로 원하는 위치로 빠르게 이동하세요.
+              </p>
+            </div>
+
+            <div className={styles.featureCard}>
+              <div className={styles.featureIcon}>
+                <Link2 size={32} />
+              </div>
+              <h3 className={styles.featureTitle}>간편한 초대</h3>
+              <p className={styles.featureDescription}>
+                초대 링크를 한 번의 클릭으로 생성하고 공유하세요. 
+                팀원들을 빠르고 편리하게 초대할 수 있습니다.
               </p>
             </div>
           </div>
@@ -441,6 +474,10 @@ const LandingPage = () => {
                 </li>
                 <li>
                   <Check size={20} />
+                  <span>참가자 커서 위치 실시간 보기</span>
+                </li>
+                <li>
+                  <Check size={20} />
                   <span>참가자 알림</span>
                 </li>
               </ul>
@@ -484,28 +521,57 @@ const LandingPage = () => {
                     <div className={styles.mockTextCard} style={{ top: '40%', right: '20%' }}>
                       아이디어 2
                     </div>
+                    
+                    {/* 커서 위치 공유 시각화 */}
+                    <div className={styles.mockCursor} style={{ top: '25%', left: '20%' }}>
+                      <div className={styles.cursorDot}></div>
+                      <div className={styles.cursorLabel}>김민수</div>
+                    </div>
+                    <div className={styles.mockCursor} style={{ top: '45%', right: '25%' }}>
+                      <div className={styles.cursorDot}></div>
+                      <div className={styles.cursorLabel}>이지은</div>
+                    </div>
+                    
                     <div className={styles.mockChatPanel}>
                       <div className={styles.chatHeader}>
-                        <MessageSquare size={16} />
-                        <span>채팅</span>
-                        <div className={styles.chatBadge}>3</div>
+                        <span className={styles.chatHeaderText}>채팅</span>
+                        <button className={styles.chatCloseButton}>×</button>
                       </div>
-                      <div className={styles.chatMessages}>
-                        <div className={styles.chatMessage}>
-                          <div className={styles.chatUserName}>김민수</div>
-                          <div className={styles.chatText}>안녕하세요! 좋은 아이디어네요</div>
+                      <div className={styles.chatContent}>
+                        <div className={styles.chatMessages}>
+                          <div className={styles.chatMessage}>
+                            <div className={styles.chatMessageName}>김민수</div>
+                            <div className={`${styles.chatMessageBubble} ${styles.chatMessageOther}`}>
+                              <p>안녕하세요! 좋은 아이디어네요</p>
+                              <p className={styles.chatMessageTime}>10:30</p>
+                            </div>
+                          </div>
+                          <div className={styles.chatMessage}>
+                            <div className={styles.chatMessageName}>이지은</div>
+                            <div className={`${styles.chatMessageBubble} ${styles.chatMessageOther}`}>
+                              <p>이 부분 더 자세히 설명해주세요</p>
+                              <p className={styles.chatMessageTime}>10:31</p>
+                            </div>
+                          </div>
+                          <div className={styles.chatMessage}>
+                            <div className={`${styles.chatMessageBubble} ${styles.chatMessageUser}`}>
+                              <p>실시간으로 잘 보이네요 👍</p>
+                              <p className={styles.chatMessageTime}>10:32</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className={styles.chatMessage}>
-                          <div className={styles.chatUserName}>이지은</div>
-                          <div className={styles.chatText}>이 부분 더 자세히 설명해주세요</div>
+                        <div className={styles.chatInputArea}>
+                          <form className={styles.chatInputForm}>
+                            <input 
+                              type="text" 
+                              placeholder="메시지를 입력하세요..." 
+                              className={styles.chatInput}
+                            />
+                            <button type="submit" className={styles.chatSendButton}>
+                              전송
+                            </button>
+                          </form>
                         </div>
-                        <div className={styles.chatMessage}>
-                          <div className={styles.chatUserName}>박준호</div>
-                          <div className={styles.chatText}>실시간으로 잘 보이네요 👍</div>
-                        </div>
-                      </div>
-                      <div className={styles.chatInput}>
-                        <input type="text" placeholder="메시지 입력..." />
                       </div>
                     </div>
                   </div>
@@ -513,7 +579,7 @@ const LandingPage = () => {
               </div>
               <div className={styles.arrowIndicator} style={{ top: '50%', right: '-40px' }}>
                 <ArrowRight size={24} />
-                <span>실시간 채팅</span>
+                <span>실시간 채팅 &amp; 커서 공유</span>
               </div>
             </div>
           </div>
@@ -573,6 +639,26 @@ const LandingPage = () => {
               <p className={styles.useCaseDescription}>
                 학생들과 함께 아이디어를 공유하고 
                 그룹 프로젝트를 효율적으로 진행하세요.
+              </p>
+            </div>
+            <div className={styles.useCaseCard}>
+              <div className={styles.useCaseIcon}>
+                <Briefcase size={40} />
+              </div>
+              <h3 className={styles.useCaseTitle}>프로젝트 팀</h3>
+              <p className={styles.useCaseDescription}>
+                프로젝트 기획부터 실행까지 모든 단계를 
+                한 곳에서 관리하고 팀원들과 협업하세요.
+              </p>
+            </div>
+            <div className={styles.useCaseCard}>
+              <div className={styles.useCaseIcon}>
+                <Trophy size={40} />
+              </div>
+              <h3 className={styles.useCaseTitle}>해커톤</h3>
+              <p className={styles.useCaseDescription}>
+                제한된 시간 안에 아이디어를 빠르게 정리하고 
+                팀원들과 실시간으로 협업하여 최고의 결과를 만들어보세요.
               </p>
             </div>
           </div>
