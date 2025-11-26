@@ -17,6 +17,7 @@ import { useChatWebSocket } from './hooks/useChatWebSocket';
 import { useCanvasWebSocket } from './hooks/useCanvasWebSocket';
 import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants';
 import { API_BASE_URL } from '../../config/api';
+import { packClusterTextsSimple } from './utils/simplePacking';
 import axios from 'axios';
 import './styles/canvas.css';
 
@@ -1117,6 +1118,90 @@ const InfiniteCanvasPage = () => {
     });
   };
 
+  // 클러스터 박스 크기 동적 업데이트 함수
+  const updateClusterBounds = useCallback((textId) => {
+    // 최신 상태를 사용하기 위해 함수형 업데이트 사용
+    setClusterShapes(prev => {
+      // 해당 텍스트가 속한 클러스터 찾기
+      const clusterShape = prev.find(shape => shape.textIds.includes(textId));
+      if (!clusterShape) return prev;
+    
+      // 클러스터 내부의 모든 텍스트 위치 가져오기
+      const clusterTexts = clusterShape.textIds
+        .map(textId => textFields.texts.find(t => t.id === textId))
+        .filter(text => text !== undefined);
+      
+      if (clusterTexts.length === 0) return prev;
+      
+      // 텍스트 크기 가져오기 함수
+      const getTextSize = (text) => {
+        const defaultWidth = CLUSTERING_LAYOUT_CONSTANTS.DEFAULT_TEXT_WIDTH;
+        const defaultHeight = CLUSTERING_LAYOUT_CONSTANTS.DEFAULT_TEXT_HEIGHT;
+        const cssWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-width')) || defaultWidth;
+        const cssHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memo-height')) || defaultHeight;
+        
+        return {
+          width: text.width !== null && text.width !== undefined ? text.width : cssWidth,
+          height: text.height !== null && text.height !== undefined ? text.height : cssHeight
+        };
+      };
+      
+      // 각 텍스트의 실제 경계 계산
+      const textBounds = clusterTexts.map(text => {
+        const size = getTextSize(text);
+        return {
+          left: text.x,
+          right: text.x + size.width,
+          top: text.y,
+          bottom: text.y + size.height
+        };
+      });
+      
+      // 새로운 경계 계산
+      const shapePadding = CLUSTERING_LAYOUT_CONSTANTS.CLUSTER_SHAPE_PADDING;
+      const allLefts = textBounds.map(b => b.left);
+      const allRights = textBounds.map(b => b.right);
+      const allTops = textBounds.map(b => b.top);
+      const allBottoms = textBounds.map(b => b.bottom);
+      
+      const minX = Math.min(...allLefts) - shapePadding;
+      const maxX = Math.max(...allRights) + shapePadding;
+      const minY = Math.min(...allTops) - shapePadding;
+      const maxY = Math.max(...allBottoms) + shapePadding;
+      
+      // 클러스터 중심 재계산
+      const avgX = clusterTexts.reduce((sum, t) => {
+        const size = getTextSize(t);
+        return sum + t.x + size.width / 2;
+      }, 0) / clusterTexts.length;
+      const avgY = clusterTexts.reduce((sum, t) => {
+        const size = getTextSize(t);
+        return sum + t.y + size.height / 2;
+      }, 0) / clusterTexts.length;
+      
+      // 클러스터 도형 정보 업데이트
+      return prev.map(shape => 
+        shape.clusterId === clusterShape.clusterId
+          ? {
+              ...shape,
+              bounds: {
+                minX, maxX, minY, maxY,
+                width: maxX - minX,
+                height: maxY - minY,
+                centerX: (minX + maxX) / 2,
+                centerY: (minY + maxY) / 2,
+                textBounds: textBounds
+              },
+              centroid: {
+                x: avgX,
+                y: avgY
+              }
+            }
+          : shape
+      );
+    });
+  }, [textFields.texts]);
+
   const handleTextUpdate = (id, updates) => {
     // 현재 텍스트 데이터 가져오기 (상태 업데이트 전)
     const currentTextData = textFields.texts.find(t => t.id === id);
@@ -1130,6 +1215,11 @@ const InfiniteCanvasPage = () => {
       if (id === newlyCreatedTextId) {
         setNewlyCreatedTextId(null);
       }
+      // 클러스터에서도 제거
+      setClusterShapes(prev => prev.map(shape => ({
+        ...shape,
+        textIds: shape.textIds.filter(textId => textId !== id)
+      })).filter(shape => shape.textIds.length > 0));
       return;
     }
     
@@ -1140,6 +1230,14 @@ const InfiniteCanvasPage = () => {
     
     // 텍스트 필드 업데이트 (즉시 로컬 반영)
     textFields.updateText(id, updates);
+    
+    // 위치가 변경된 경우 클러스터 박스 크기 업데이트
+    if (updates.x !== undefined || updates.y !== undefined) {
+      // 업데이트가 완료된 후 클러스터 경계 업데이트 (약간의 지연을 두어 상태 업데이트 완료 보장)
+      setTimeout(() => {
+        updateClusterBounds(id);
+      }, 0);
+    }
     
     // 텍스트 수정인지 확인 (text 필드가 있고, x, y가 변경되지 않았으면 텍스트만 수정된 것으로 간주)
     // x, y가 undefined이거나 기존 값과 동일하면 텍스트만 수정된 것으로 간주
@@ -1217,6 +1315,11 @@ const InfiniteCanvasPage = () => {
       }
       return prev;
     });
+    
+    // 드래그 종료 후 클러스터 박스 크기 업데이트
+    setTimeout(() => {
+      updateClusterBounds(id);
+    }, 0);
   }, [workspaceId, textFields.texts]);
   
   // 리사이즈 시작 핸들러
@@ -1246,7 +1349,12 @@ const InfiniteCanvasPage = () => {
       }
       return prev;
     });
-  }, [workspaceId, textFields.texts]);
+    
+    // 리사이즈 종료 후 클러스터 박스 크기 업데이트 (크기 변경 반영)
+    setTimeout(() => {
+      updateClusterBounds(id);
+    }, 0);
+  }, [workspaceId, textFields.texts, updateClusterBounds]);
 
   // 캔버스 확장 체크 함수 (공통 로직)
   const checkAndExpandCanvas = useCallback((x, y) => {
@@ -1344,68 +1452,90 @@ const InfiniteCanvasPage = () => {
     console.log('Clustering params changed:', params);
     
     // 클러스터링 결과가 없으면 리턴
-    if (!params.result || !params.result.labels) {
+    if (!params.result) {
       return;
     }
     
     const clusteringResult = params.result;
-    const labels = clusteringResult.labels;
     const textIds = clusteringResult.textIds; // ClusteringPanel에서 전달된 텍스트 ID 순서
     
-    if (!textIds || textIds.length !== labels.length) {
-      console.warn('텍스트 ID 매핑이 올바르지 않습니다.', {
-        textIdsCount: textIds ? textIds.length : 0,
-        labelsCount: labels.length
-      });
+    // 새로운 응답 형식: clusters 배열 사용
+    if (!clusteringResult.clusters || !Array.isArray(clusteringResult.clusters)) {
+      console.warn('클러스터 정보가 없습니다.');
       return;
     }
     
-    // 텍스트 ID로 매핑 생성
-    const textMap = new Map();
+    // 텍스트 내용으로 텍스트 ID 매핑 생성
+    const textMapByContent = new Map();
     textFields.texts.forEach(text => {
-      textMap.set(text.id, text);
-    });
-    
-    // 클러스터링 결과 순서대로 텍스트 매칭
-    const matchedTexts = [];
-    textIds.forEach(id => {
-      const text = textMap.get(id);
-      if (text) {
-        matchedTexts.push(text);
-      } else {
-        console.warn(`텍스트 ID ${id}를 찾을 수 없습니다.`);
+      const content = text.text ? text.text.trim() : '';
+      if (content) {
+        // 같은 내용이 여러 개일 수 있으므로 배열로 저장
+        if (!textMapByContent.has(content)) {
+          textMapByContent.set(content, []);
+        }
+        textMapByContent.get(content).push(text);
       }
     });
     
-    if (matchedTexts.length !== labels.length) {
-      console.warn('텍스트 매칭 실패', {
-        matchedCount: matchedTexts.length,
-        labelsCount: labels.length
-      });
-      return;
-    }
-    
-    // 클러스터별로 텍스트 그룹화
+    // 클러스터별로 텍스트 그룹화 (새로운 응답 형식 사용)
     const clusterGroups = {};
-    matchedTexts.forEach((text, index) => {
-      const clusterId = labels[index];
+    const clusterRepresentatives = {};
+    
+    clusteringResult.clusters.forEach((cluster) => {
+      const clusterId = cluster.cluster_idx;
+      clusterRepresentatives[clusterId] = cluster.representative_text;
+      
       if (!clusterGroups[clusterId]) {
         clusterGroups[clusterId] = [];
       }
-      clusterGroups[clusterId].push({ text, index });
+      
+      // 클러스터의 texts 배열에서 텍스트 매칭
+      if (cluster.texts && Array.isArray(cluster.texts)) {
+        cluster.texts.forEach((textContent, textIndex) => {
+          const content = textContent.trim();
+          const matchedTexts = textMapByContent.get(content);
+          
+          if (matchedTexts && matchedTexts.length > 0) {
+            // 첫 번째 매칭된 텍스트 사용 (같은 내용이 여러 개면 첫 번째 것)
+            const matchedText = matchedTexts[0];
+            // 사용한 텍스트는 제거하여 중복 매칭 방지
+            matchedTexts.shift();
+            
+            clusterGroups[clusterId].push({ 
+              text: matchedText, 
+              index: textIndex,
+              content: content
+            });
+          } else {
+            console.warn(`텍스트 "${content}"를 찾을 수 없습니다.`);
+          }
+        });
+      }
     });
     
-    // 클러스터링 결과에서 대표 텍스트 정보 가져오기
-    const clusterRepresentatives = {};
-    if (clusteringResult.clusters) {
-      clusteringResult.clusters.forEach((cluster, idx) => {
-        clusterRepresentatives[cluster.cluster_idx] = cluster.representative_text;
+    // labels 배열이 있으면 추가로 매핑 (하위 호환성)
+    if (clusteringResult.labels && textIds && textIds.length === clusteringResult.labels.length) {
+      const labels = clusteringResult.labels;
+      const textMapById = new Map();
+      textFields.texts.forEach(text => {
+        textMapById.set(text.id, text);
+      });
+      
+      // labels를 사용하여 누락된 텍스트 추가
+      textIds.forEach((id, index) => {
+        const clusterId = labels[index];
+        const text = textMapById.get(id);
+        
+        if (text && clusterGroups[clusterId]) {
+          // 이미 추가되었는지 확인
+          const alreadyAdded = clusterGroups[clusterId].some(item => item.text.id === id);
+          if (!alreadyAdded) {
+            clusterGroups[clusterId].push({ text, index });
+          }
+        }
       });
     }
-    
-    // 시각화 데이터 확인 (PCA 좌표)
-    const visualization = clusteringResult.visualization;
-    const useVisualization = visualization && visualization.points && visualization.points.length > 0;
     
     // 초기 캔버스 중심점 찾기
     const initialCanvas = canvas.canvasAreas.find(area => area.isInitial);
@@ -1413,54 +1543,6 @@ const InfiniteCanvasPage = () => {
     
     const centerX = initialCanvas.x + initialCanvas.width / 2;
     const centerY = initialCanvas.y + initialCanvas.height / 2;
-    
-    // PCA 좌표를 캔버스 좌표로 변환하는 함수
-    const convertPCAToCanvas = (pcaPoints, centroids) => {
-      if (!pcaPoints || pcaPoints.length === 0) return null;
-      
-      // PCA 좌표 범위 계산
-      const allPoints = [...pcaPoints, ...(centroids || [])];
-      const xCoords = allPoints.map(p => p[0]);
-      const yCoords = allPoints.map(p => p[1]);
-      
-      const minX = Math.min(...xCoords);
-      const maxX = Math.max(...xCoords);
-      const minY = Math.min(...yCoords);
-      const maxY = Math.max(...yCoords);
-      
-      const rangeX = maxX - minX || 1;
-      const rangeY = maxY - minY || 1;
-      
-      // 캔버스 배치 영역 크기 (중심 기준으로 충분한 공간 확보)
-      const canvasWidth = 2000; // PCA 좌표를 배치할 영역 너비
-      const canvasHeight = 2000; // PCA 좌표를 배치할 영역 높이
-      
-      const scaleX = canvasWidth / rangeX;
-      const scaleY = canvasHeight / rangeY;
-      const scale = Math.min(scaleX, scaleY) * 0.8; // 80% 스케일로 여백 확보
-      
-      // 변환 함수
-      const convert = (pcaPoint) => {
-        const normalizedX = (pcaPoint[0] - minX) / rangeX;
-        const normalizedY = (pcaPoint[1] - minY) / rangeY;
-        
-        return {
-          x: centerX + (normalizedX - 0.5) * canvasWidth * 0.8,
-          y: centerY + (normalizedY - 0.5) * canvasHeight * 0.8
-        };
-      };
-      
-      return {
-        convert,
-        scale,
-        minX, maxX, minY, maxY,
-        canvasWidth, canvasHeight
-      };
-    };
-    
-    const coordConverter = useVisualization 
-      ? convertPCAToCanvas(visualization.points, visualization.centroids)
-      : null;
     
     // 텍스트 박스 크기 가져오기 함수
     const getTextSize = (text) => {
@@ -1503,9 +1585,6 @@ const InfiniteCanvasPage = () => {
     const clusterShapes = []; // 클러스터 도형 정보 저장
     let clusterIndex = 0;
     
-    // PCA 좌표를 사용한 배치인지 확인
-    const usePCALayout = coordConverter !== null;
-    
     // 1단계: 클러스터들을 먼저 배치
     Object.keys(clusterGroups).forEach(clusterId => {
       const group = clusterGroups[clusterId];
@@ -1517,97 +1596,52 @@ const InfiniteCanvasPage = () => {
       // 배경색 (테두리 색상 기반, 반투명)
       const backgroundColor = borderColor.replace('rgb', 'rgba').replace(')', ', 0.08)');
       
-      // PCA 좌표를 사용한 배치
+      // 패킹 알고리즘만 사용하여 최적 배치 (PCA 좌표 무시)
       let groupTexts = [];
       let clusterCenterX, clusterCenterY;
-      let centroidCanvasPos = null;
       
-      if (usePCALayout) {
-        // PCA 좌표를 사용하여 텍스트 배치
-        group.forEach((item, itemIndex) => {
-          const originalIndex = item.index; // 원본 텍스트 인덱스
-          const pcaPoint = visualization.points[originalIndex];
-          
-          if (pcaPoint) {
-            const canvasPos = coordConverter.convert(pcaPoint);
-            const size = getTextSize(item.text);
-            
-            // 텍스트를 PCA 좌표 위치에 배치 (중앙 정렬)
-            const newX = canvasPos.x - size.width / 2;
-            const newY = canvasPos.y - size.height / 2;
-            
-            groupTexts.push({
-              id: item.text.id,
-              x: newX,
-              y: newY,
-              width: size.width,
-              height: size.height,
-              pcaX: pcaPoint[0],
-              pcaY: pcaPoint[1]
-            });
-            
-            textUpdates.push({
-              id: item.text.id,
-              x: newX,
-              y: newY
-            });
-          }
+      // 그리드 방식으로 클러스터 중심점 계산
+      const col = clusterIndex % clustersPerRow;
+      const row = Math.floor(clusterIndex / clustersPerRow);
+      
+      clusterCenterX = centerX - (clustersPerRow * horizontalSpacing) / 2 + col * horizontalSpacing;
+      clusterCenterY = centerY + row * verticalSpacing;
+      
+      // Skyline/Guillotine 패킹 알고리즘으로 클러스터 내 텍스트 배치
+      const packingItems = group.map(item => ({
+        text: item.text,
+        size: getTextSize(item.text)
+      }));
+      
+      // 컨테이너 너비를 메모 크기에 맞게 동적으로 계산
+      const avgMemoWidth = packingItems.reduce((sum, item) => sum + item.size.width, 0) / packingItems.length;
+      const dynamicContainerWidth = Math.max(800, Math.min(1500, avgMemoWidth * 2.5)); // 평균 너비의 2.5배, 최소 800, 최대 1500
+      
+      const packedTexts = packClusterTextsSimple(packingItems, clusterCenterX, clusterCenterY, textMargin);
+      
+      // 패킹 결과를 groupTexts와 textUpdates에 추가
+      packedTexts.forEach(packed => {
+        groupTexts.push({
+          id: packed.id,
+          x: packed.x,
+          y: packed.y,
+          width: packed.width,
+          height: packed.height
         });
         
-        // 클러스터 중심점 계산 (PCA centroid 사용)
-        if (visualization.centroids && visualization.centroids[clusterIdNum]) {
-          const centroidPCA = visualization.centroids[clusterIdNum];
-          centroidCanvasPos = coordConverter.convert(centroidPCA);
-          clusterCenterX = centroidCanvasPos.x;
-          clusterCenterY = centroidCanvasPos.y;
-        } else {
-          // centroid가 없으면 텍스트들의 평균 위치 사용
-          const avgX = groupTexts.reduce((sum, t) => sum + t.x + t.width / 2, 0) / groupTexts.length;
-          const avgY = groupTexts.reduce((sum, t) => sum + t.y + t.height / 2, 0) / groupTexts.length;
-          clusterCenterX = avgX;
-          clusterCenterY = avgY;
-        }
-      } else {
-        // 기존 그리드 방식 배치 (PCA 좌표가 없는 경우)
-        const col = clusterIndex % clustersPerRow;
-        const row = Math.floor(clusterIndex / clustersPerRow);
-        
-        clusterCenterX = centerX - (clustersPerRow * horizontalSpacing) / 2 + col * horizontalSpacing;
-        clusterCenterY = centerY + row * verticalSpacing;
-        
-        // 텍스트 박스 크기 계산
-        let maxWidth = 0;
-        let maxHeight = 0;
-        group.forEach(item => {
-          const size = getTextSize(item.text);
-          maxWidth = Math.max(maxWidth, size.width);
-          maxHeight = Math.max(maxHeight, size.height);
+        textUpdates.push({
+          id: packed.id,
+          x: packed.x,
+          y: packed.y
         });
-        
-        // 텍스트들을 세로로 배치 (1열, 중심 기준)
-        let currentY = clusterCenterY - (group.length * (maxHeight + textMargin)) / 2;
-        
-        group.forEach((item, itemIndex) => {
-          const size = getTextSize(item.text);
-          const newX = clusterCenterX - maxWidth / 2;
-          const newY = currentY;
-          
-          groupTexts.push({
-            id: item.text.id,
-            x: newX,
-            y: newY,
-            width: size.width,
-            height: size.height
-          });
-          
-          textUpdates.push({
-            id: item.text.id,
-            x: newX,
-            y: newY
-          });
-          
-          currentY += size.height + textMargin;
-        });
+      });
+      
+      // 클러스터 중심 재계산 (실제 배치된 텍스트들의 중심)
+      if (groupTexts.length > 0) {
+        const avgX = groupTexts.reduce((sum, t) => sum + t.x + t.width / 2, 0) / groupTexts.length;
+        const avgY = groupTexts.reduce((sum, t) => sum + t.y + t.height / 2, 0) / groupTexts.length;
+        clusterCenterX = avgX;
+        clusterCenterY = avgY;
       }
       
       // 효율적인 도형 경계 계산 (텍스트들의 실제 배치를 고려하여 여백 최소화)
@@ -1654,22 +1688,94 @@ const InfiniteCanvasPage = () => {
         bounds: shapeBounds,
         textIds: groupTexts.map(t => t.id),
         representativeText: representativeText, // 대표 텍스트 저장
-        centroid: centroidCanvasPos ? {
-          x: centroidCanvasPos.x,
-          y: centroidCanvasPos.y
-        } : null // 클러스터 중심점
+        centroid: {
+          x: clusterCenterX,
+          y: clusterCenterY
+        } // 클러스터 중심점
       });
       
       clusterIndex++;
     });
     
-    // 2단계: 도형들끼리 겹치는지 확인하고 조정
+    // 2단계: 자동으로 그리드 형태로 정렬하고 겹치지 않게 조정
+    // 먼저 클러스터들을 크기 순으로 정렬 (큰 것부터)
+    const sortedShapes = [...clusterShapes].sort((a, b) => {
+      const areaA = a.bounds.width * a.bounds.height;
+      const areaB = b.bounds.width * b.bounds.height;
+      return areaB - areaA;
+    });
+    
+    // 모든 클러스터의 평균 중심 위치 계산
+    const avgCenterX = sortedShapes.reduce((sum, s) => sum + s.bounds.centerX, 0) / sortedShapes.length;
+    const avgCenterY = sortedShapes.reduce((sum, s) => sum + s.bounds.centerY, 0) / sortedShapes.length;
+    
+    // 그리드 형태로 자동 배치
+    const colsPerRow = Math.ceil(Math.sqrt(sortedShapes.length));
+    const spacing = 400; // 클러스터 간 기본 간격 (여백 포함)
+    
+    // 그리드 배치된 클러스터들
+    const gridShapes = sortedShapes.map((shape, index) => {
+      const row = Math.floor(index / colsPerRow);
+      const col = index % colsPerRow;
+      
+      // 그리드 위치 계산
+      const totalWidth = (colsPerRow - 1) * spacing;
+      const totalHeight = (Math.ceil(sortedShapes.length / colsPerRow) - 1) * spacing;
+      const startX = avgCenterX - totalWidth / 2;
+      const startY = avgCenterY - totalHeight / 2;
+      
+      const newCenterX = startX + col * spacing;
+      const newCenterY = startY + row * spacing;
+      
+      // 이동 거리 계산
+      const dx = newCenterX - shape.bounds.centerX;
+      const dy = newCenterY - shape.bounds.centerY;
+      
+      // 새로운 경계 계산
+      return {
+        ...shape,
+        bounds: {
+          ...shape.bounds,
+          minX: shape.bounds.minX + dx,
+          maxX: shape.bounds.maxX + dx,
+          minY: shape.bounds.minY + dy,
+          maxY: shape.bounds.maxY + dy,
+          centerX: newCenterX,
+          centerY: newCenterY
+        },
+        centroid: shape.centroid ? {
+          x: shape.centroid.x + dx,
+          y: shape.centroid.y + dy
+        } : null
+      };
+    });
+    
+    // 텍스트 위치도 그리드 배치에 맞춰 업데이트
+    gridShapes.forEach(shape => {
+      const originalShape = clusterShapes.find(s => s.clusterId === shape.clusterId);
+      if (originalShape) {
+        const dx = shape.bounds.centerX - originalShape.bounds.centerX;
+        const dy = shape.bounds.centerY - originalShape.bounds.centerY;
+        
+        shape.textIds.forEach(textId => {
+          const updateIndex = textUpdates.findIndex(u => u.id === textId);
+          if (updateIndex !== -1) {
+            textUpdates[updateIndex].x += dx;
+            textUpdates[updateIndex].y += dy;
+          }
+        });
+      }
+    });
+    
+    // 3단계: 그리드 배치 후 겹치는 부분이 있으면 추가 조정 (최소 거리 유지)
     const adjustedShapes = [];
-    clusterShapes.forEach((shape, index) => {
+    const minClusterDistance = shapePadding * 2; // 클러스터 간 최소 거리
+    
+    gridShapes.forEach((shape, index) => {
       let adjustedBounds = { ...shape.bounds };
       let hasCollision = true;
       let attempts = 0;
-      const maxAttempts = 50;
+      const maxAttempts = 300; // 최대 시도 횟수 증가
       
       while (hasCollision && attempts < maxAttempts) {
         hasCollision = false;
@@ -1677,33 +1783,93 @@ const InfiniteCanvasPage = () => {
         // 이미 조정된 도형들과 겹치는지 확인
         for (let i = 0; i < adjustedShapes.length; i++) {
           const otherShape = adjustedShapes[i];
-          if (isShapesOverlapping(adjustedBounds, otherShape.bounds)) {
+          
+          // 정확한 겹침 확인 (여백 포함)
+          const bounds1 = adjustedBounds;
+          const bounds2 = otherShape.bounds;
+          
+          // 실제 겹침 영역 계산
+          const overlapLeft = Math.max(bounds1.minX, bounds2.minX);
+          const overlapRight = Math.min(bounds1.maxX, bounds2.maxX);
+          const overlapTop = Math.max(bounds1.minY, bounds2.minY);
+          const overlapBottom = Math.min(bounds1.maxY, bounds2.maxY);
+          
+          const overlapX = overlapRight - overlapLeft;
+          const overlapY = overlapBottom - overlapTop;
+          
+          // 겹침이 있는지 확인 (여백 포함)
+          const isOverlapping = overlapX > -minClusterDistance && overlapY > -minClusterDistance;
+          
+          if (isOverlapping) {
             hasCollision = true;
-            // 겹치면 방향에 따라 이동
-            const dx = adjustedBounds.centerX - otherShape.bounds.centerX;
-            const dy = adjustedBounds.centerY - otherShape.bounds.centerY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const minDistance = (adjustedBounds.width + otherShape.bounds.width) / 2 + shapePadding * 2;
             
-            if (distance < minDistance && distance > 0) {
-              const moveX = (dx / distance) * (minDistance - distance + shapePadding);
-              const moveY = (dy / distance) * (minDistance - distance + shapePadding);
+            // 중심점 간 거리와 방향 계산
+            const dx = bounds1.centerX - bounds2.centerX;
+            const dy = bounds1.centerY - bounds2.centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // 최소 거리 계산 (양쪽 도형의 반지름 + 여백)
+            const halfWidth1 = bounds1.width / 2;
+            const halfHeight1 = bounds1.height / 2;
+            const halfWidth2 = bounds2.width / 2;
+            const halfHeight2 = bounds2.height / 2;
+            
+            const minDistanceX = halfWidth1 + halfWidth2 + minClusterDistance;
+            const minDistanceY = halfHeight1 + halfHeight2 + minClusterDistance;
+            const minDistance = Math.max(minDistanceX, minDistanceY);
+            
+            if (distance > 0.1 && distance < minDistance) {
+              // 정규화된 방향 벡터
+              const normalizedDx = dx / distance;
+              const normalizedDy = dy / distance;
+              
+              // 필요한 이동 거리 (최소 거리 보장)
+              const moveDistance = minDistance - distance + minClusterDistance * 0.5;
+              const moveX = normalizedDx * moveDistance;
+              const moveY = normalizedDy * moveDistance;
+              
               adjustedBounds.minX += moveX;
               adjustedBounds.maxX += moveX;
               adjustedBounds.minY += moveY;
               adjustedBounds.maxY += moveY;
               adjustedBounds.centerX += moveX;
               adjustedBounds.centerY += moveY;
-            } else {
-              // 거리가 0이거나 계산 불가능한 경우 랜덤 방향으로 이동
+            } else if (distance <= 0.1 || isNaN(distance)) {
+              // 거리가 거의 0이거나 계산 불가능한 경우
+              // 겹치는 영역이 큰 쪽으로 이동
+              const moveX = overlapX > overlapY ? (overlapX + minClusterDistance) : 0;
+              const moveY = overlapY > overlapX ? (overlapY + minClusterDistance) : 0;
+              
+              // 랜덤 방향 추가 (같은 위치에 여러 개가 있을 때 분산)
               const angle = (attempts * 0.5) % (2 * Math.PI);
-              const offset = shapePadding * (attempts + 1);
-              adjustedBounds.minX += Math.cos(angle) * offset;
-              adjustedBounds.maxX += Math.cos(angle) * offset;
-              adjustedBounds.minY += Math.sin(angle) * offset;
-              adjustedBounds.maxY += Math.sin(angle) * offset;
-              adjustedBounds.centerX += Math.cos(angle) * offset;
-              adjustedBounds.centerY += Math.sin(angle) * offset;
+              const randomOffset = minClusterDistance * (attempts + 1) * 0.5;
+              
+              adjustedBounds.minX += moveX + Math.cos(angle) * randomOffset;
+              adjustedBounds.maxX += moveX + Math.cos(angle) * randomOffset;
+              adjustedBounds.minY += moveY + Math.sin(angle) * randomOffset;
+              adjustedBounds.maxY += moveY + Math.sin(angle) * randomOffset;
+              adjustedBounds.centerX += moveX + Math.cos(angle) * randomOffset;
+              adjustedBounds.centerY += moveY + Math.sin(angle) * randomOffset;
+            } else {
+              // 이미 충분히 떨어져 있지만 여전히 겹치는 경우 (대각선 겹침)
+              // 겹치는 영역만큼 이동
+              const moveX = overlapX > 0 ? (overlapX + minClusterDistance) : 0;
+              const moveY = overlapY > 0 ? (overlapY + minClusterDistance) : 0;
+              
+              // 방향 결정 (더 큰 겹침 방향으로)
+              if (moveX > 0 || moveY > 0) {
+                const angle = Math.atan2(dy, dx);
+                const moveDistance = Math.max(moveX, moveY);
+                const finalMoveX = Math.cos(angle) * moveDistance;
+                const finalMoveY = Math.sin(angle) * moveDistance;
+                
+                adjustedBounds.minX += finalMoveX;
+                adjustedBounds.maxX += finalMoveX;
+                adjustedBounds.minY += finalMoveY;
+                adjustedBounds.maxY += finalMoveY;
+                adjustedBounds.centerX += finalMoveX;
+                adjustedBounds.centerY += finalMoveY;
+              }
             }
             break;
           }
@@ -1713,6 +1879,46 @@ const InfiniteCanvasPage = () => {
           break;
         }
         attempts++;
+      }
+      
+      // 최종 겹침 확인 (모든 조정된 도형과 다시 확인)
+      let finalCheck = true;
+      let finalAttempts = 0;
+      while (finalCheck && finalAttempts < 50) {
+        finalCheck = false;
+        for (let i = 0; i < adjustedShapes.length; i++) {
+          const otherShape = adjustedShapes[i];
+          const bounds1 = adjustedBounds;
+          const bounds2 = otherShape.bounds;
+          
+          const overlapLeft = Math.max(bounds1.minX, bounds2.minX);
+          const overlapRight = Math.min(bounds1.maxX, bounds2.maxX);
+          const overlapTop = Math.max(bounds1.minY, bounds2.minY);
+          const overlapBottom = Math.min(bounds1.maxY, bounds2.maxY);
+          
+          const overlapX = overlapRight - overlapLeft;
+          const overlapY = overlapBottom - overlapTop;
+          
+          if (overlapX > -minClusterDistance && overlapY > -minClusterDistance) {
+            finalCheck = true;
+            const dx = bounds1.centerX - bounds2.centerX;
+            const dy = bounds1.centerY - bounds2.centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+            
+            const moveDistance = Math.max(overlapX, overlapY) + minClusterDistance;
+            const moveX = (dx / distance) * moveDistance;
+            const moveY = (dy / distance) * moveDistance;
+            
+            adjustedBounds.minX += moveX;
+            adjustedBounds.maxX += moveX;
+            adjustedBounds.minY += moveY;
+            adjustedBounds.maxY += moveY;
+            adjustedBounds.centerX += moveX;
+            adjustedBounds.centerY += moveY;
+            break;
+          }
+        }
+        finalAttempts++;
       }
       
       adjustedShapes.push({
@@ -1921,6 +2127,130 @@ const InfiniteCanvasPage = () => {
     
     setDraggingCluster(null);
     setClusterDragStart({ x: 0, y: 0 });
+  };
+
+  // 클러스터 정렬 함수
+  const handleSortClusters = (sortType) => {
+    if (!clusterShapes || clusterShapes.length === 0) {
+      return;
+    }
+
+    const sortedShapes = [...clusterShapes];
+    const textUpdates = [];
+    const shapePadding = CLUSTERING_LAYOUT_CONSTANTS.CLUSTER_SHAPE_PADDING;
+    const minClusterDistance = shapePadding * 2;
+    
+    // 정렬 타입에 따라 정렬
+    switch (sortType) {
+      case 'horizontal': // 가로 정렬 (X축 기준)
+        sortedShapes.sort((a, b) => a.bounds.centerX - b.bounds.centerX);
+        break;
+      case 'vertical': // 세로 정렬 (Y축 기준)
+        sortedShapes.sort((a, b) => a.bounds.centerY - b.bounds.centerY);
+        break;
+      case 'grid': // 그리드 정렬
+        // 먼저 Y축으로 정렬한 후, 같은 Y축 내에서 X축으로 정렬
+        sortedShapes.sort((a, b) => {
+          const yDiff = a.bounds.centerY - b.bounds.centerY;
+          if (Math.abs(yDiff) < 50) { // 같은 행으로 간주
+            return a.bounds.centerX - b.bounds.centerX;
+          }
+          return yDiff;
+        });
+        break;
+      default:
+        return;
+    }
+
+    // 모든 클러스터의 중심 위치 계산
+    const avgCenterX = sortedShapes.reduce((sum, s) => sum + s.bounds.centerX, 0) / sortedShapes.length;
+    const avgCenterY = sortedShapes.reduce((sum, s) => sum + s.bounds.centerY, 0) / sortedShapes.length;
+    
+    // 정렬된 위치 계산
+    const adjustedShapes = [];
+    const spacing = 350; // 클러스터 간 기본 간격 (여백 포함)
+
+    sortedShapes.forEach((shape, index) => {
+      let newCenterX, newCenterY;
+
+      if (sortType === 'horizontal') {
+        // 가로 정렬: 평균 중심 X를 기준으로 가로로 배치
+        const totalWidth = (sortedShapes.length - 1) * spacing;
+        const startX = avgCenterX - totalWidth / 2;
+        newCenterX = startX + spacing * index;
+        newCenterY = avgCenterY; // Y는 평균 중심 유지
+      } else if (sortType === 'vertical') {
+        // 세로 정렬: 평균 중심 Y를 기준으로 세로로 배치
+        const totalHeight = (sortedShapes.length - 1) * spacing;
+        const startY = avgCenterY - totalHeight / 2;
+        newCenterX = avgCenterX; // X는 평균 중심 유지
+        newCenterY = startY + spacing * index;
+      } else if (sortType === 'grid') {
+        // 그리드 정렬: 행과 열 계산
+        const colsPerRow = Math.ceil(Math.sqrt(sortedShapes.length));
+        const row = Math.floor(index / colsPerRow);
+        const col = index % colsPerRow;
+        const totalWidth = (colsPerRow - 1) * spacing;
+        const totalHeight = (Math.ceil(sortedShapes.length / colsPerRow) - 1) * spacing;
+        const startX = avgCenterX - totalWidth / 2;
+        const startY = avgCenterY - totalHeight / 2;
+        newCenterX = startX + col * spacing;
+        newCenterY = startY + row * spacing;
+      } else {
+        newCenterX = shape.bounds.centerX;
+        newCenterY = shape.bounds.centerY;
+      }
+
+      // 이동 거리 계산
+      const dx = newCenterX - shape.bounds.centerX;
+      const dy = newCenterY - shape.bounds.centerY;
+
+      // 새로운 경계 계산
+      const newBounds = {
+        ...shape.bounds,
+        minX: shape.bounds.minX + dx,
+        maxX: shape.bounds.maxX + dx,
+        minY: shape.bounds.minY + dy,
+        maxY: shape.bounds.maxY + dy,
+        centerX: newCenterX,
+        centerY: newCenterY
+      };
+
+      adjustedShapes.push({
+        ...shape,
+        bounds: newBounds,
+        centroid: shape.centroid ? {
+          x: shape.centroid.x + dx,
+          y: shape.centroid.y + dy
+        } : null
+      });
+
+      // 텍스트 위치 업데이트
+      shape.textIds.forEach(textId => {
+        const text = textFields.texts.find(t => t.id === textId);
+        if (text) {
+          textUpdates.push({
+            id: textId,
+            x: text.x + dx,
+            y: text.y + dy
+          });
+        }
+      });
+    });
+
+    // 상태 업데이트
+    setClusterShapes(adjustedShapes);
+    
+    // 텍스트 위치 업데이트
+    textUpdates.forEach(update => {
+      textFields.updateText(update.id, { x: update.x, y: update.y });
+      checkAndExpandCanvas(update.x, update.y);
+    });
+
+    console.log(`클러스터 ${sortType} 정렬 완료`, {
+      clusterCount: adjustedShapes.length,
+      sortType
+    });
   };
 
   return (

@@ -277,27 +277,7 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
               }}
             />
             
-            {/* 클러스터 중심점 표시 - 텍스트 위에 배치 */}
-            {centroidX !== null && centroidY !== null && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: centroidX - 8,
-                  top: centroidY - 8,
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  backgroundColor: borderColor,
-                  border: '2px solid white',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-                  pointerEvents: 'none',
-                  zIndex: 100, // 텍스트 위에 배치
-                  transition: isDragging 
-                    ? 'none' 
-                    : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}
-              />
-            )}
+            {/* 클러스터 중심점 표시 제거 (사용자 요청) */}
             
             {/* 대표 텍스트 표시 (도형 위에) - 텍스트 위에 배치 */}
             {representativeText && (
