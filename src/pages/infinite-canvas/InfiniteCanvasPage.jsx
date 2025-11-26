@@ -59,7 +59,6 @@ const InfiniteCanvasPage = () => {
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
   const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName})
-  const cursorThrottleTimerRef = useRef(null); // 커서 위치 전송 throttle 타이머
   const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
   
   // 커스텀 훅들 사용
@@ -94,21 +93,10 @@ const InfiniteCanvasPage = () => {
         e.clientY <= window.innerHeight;
       
       isMouseInViewportRef.current = isInViewport;
-      
-      // 뷰포트를 벗어나면 커서 전송 중지
-      if (!isInViewport && cursorThrottleTimerRef.current) {
-        clearTimeout(cursorThrottleTimerRef.current);
-        cursorThrottleTimerRef.current = null;
-      }
     };
 
     const handleMouseLeave = () => {
       isMouseInViewportRef.current = false;
-      // 마우스가 뷰포트를 벗어나면 커서 전송 중지
-      if (cursorThrottleTimerRef.current) {
-        clearTimeout(cursorThrottleTimerRef.current);
-        cursorThrottleTimerRef.current = null;
-      }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -117,9 +105,6 @@ const InfiniteCanvasPage = () => {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
-      if (cursorThrottleTimerRef.current) {
-        clearTimeout(cursorThrottleTimerRef.current);
-      }
     };
   }, []);
 
@@ -1073,15 +1058,9 @@ const InfiniteCanvasPage = () => {
 
     // 커서 위치 공유 (뷰포트 내에 마우스가 있을 때만)
     if (isMouseInViewportRef.current && canvasWebSocket.isConnected && currentUserId) {
-      // Throttle: 50-100ms 간격으로 제한
-      if (cursorThrottleTimerRef.current) {
-        clearTimeout(cursorThrottleTimerRef.current);
-      }
-
-      cursorThrottleTimerRef.current = setTimeout(() => {
-        const userName = workspaceUsers.get(String(currentUserId)) || localStorage.getItem('userName') || '사용자';
-        canvasWebSocket.sendCursorPosition(e.clientX, e.clientY, userName);
-      }, 100); // 100ms throttle (더 부드러운 전송)
+      // Throttle 제거: 마우스 이동 시마다 즉시 전송
+      const userName = workspaceUsers.get(String(currentUserId)) || localStorage.getItem('userName') || '사용자';
+      canvasWebSocket.sendCursorPosition(e.clientX, e.clientY, userName);
     }
   };
 
