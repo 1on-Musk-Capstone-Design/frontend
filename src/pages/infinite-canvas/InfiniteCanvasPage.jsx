@@ -59,6 +59,9 @@ const InfiniteCanvasPage = () => {
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
   const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName})
+  const [displayCursors, setDisplayCursors] = useState(new Map()); // 화면에 표시되는 커서 위치 (보간된 위치)
+  const targetCursorsRef = useRef(new Map()); // 목표 커서 위치 (서버에서 받은 위치)
+  const animationFrameRef = useRef(null); // 애니메이션 프레임 참조
   const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
   
   // 커스텀 훅들 사용
@@ -108,17 +111,83 @@ const InfiniteCanvasPage = () => {
     };
   }, []);
 
+  // 커서 위치 보간 애니메이션 (부드러운 이동)
+  useEffect(() => {
+    const lerp = (start, end, factor) => {
+      return start + (end - start) * factor;
+    };
+
+    const animate = () => {
+      setDisplayCursors(prev => {
+        const newMap = new Map();
+        const lerpFactor = 0.15; // 보간 계수 (0.15 = 빠른 이동, 0.05 = 느린 이동)
+        
+        targetCursorsRef.current.forEach((targetCursor, userId) => {
+          const currentCursor = prev.get(userId);
+          
+          if (currentCursor) {
+            // 이전 위치에서 목표 위치로 부드럽게 보간
+            newMap.set(userId, {
+              x: lerp(currentCursor.x, targetCursor.x, lerpFactor),
+              y: lerp(currentCursor.y, targetCursor.y, lerpFactor),
+              userName: targetCursor.userName,
+              timestamp: targetCursor.timestamp
+            });
+          } else {
+            // 처음 나타나는 커서는 즉시 목표 위치로
+            newMap.set(userId, {
+              x: targetCursor.x,
+              y: targetCursor.y,
+              userName: targetCursor.userName,
+              timestamp: targetCursor.timestamp
+            });
+          }
+        });
+        
+        return newMap;
+      });
+      
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
   // 오래된 커서 위치 정리 (5초 이상 업데이트되지 않은 커서 제거)
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const now = Date.now();
       setRemoteCursors(prev => {
         const newMap = new Map();
+        const toRemove = [];
+        
         prev.forEach((cursor, userId) => {
           if (now - cursor.timestamp < 5000) {
             newMap.set(userId, cursor);
+          } else {
+            // 오래된 커서는 목표 위치에서 제거
+            targetCursorsRef.current.delete(userId);
+            toRemove.push(userId);
           }
         });
+        
+        // 표시 위치에서도 제거
+        if (toRemove.length > 0) {
+          setDisplayCursors(prevDisplay => {
+            const newDisplayMap = new Map(prevDisplay);
+            toRemove.forEach(userId => {
+              newDisplayMap.delete(userId);
+            });
+            return newDisplayMap;
+          });
+        }
+        
         return newMap;
       });
     }, 1000);
@@ -445,18 +514,25 @@ const InfiniteCanvasPage = () => {
   // 캔버스 웹소켓 연결 (실시간 협업용)
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
     onCursorMove: (cursorPosition) => {
-      // 다른 사용자의 커서 위치 업데이트 (부드러운 전환을 위해 requestAnimationFrame 사용)
-      requestAnimationFrame(() => {
-        setRemoteCursors(prev => {
-          const newMap = new Map(prev);
-          newMap.set(String(cursorPosition.userId), {
-            x: cursorPosition.x,
-            y: cursorPosition.y,
-            userName: cursorPosition.userName || workspaceUsers.get(String(cursorPosition.userId)) || '알 수 없음',
-            timestamp: cursorPosition.timestamp || Date.now()
-          });
-          return newMap;
+      // 목표 위치 업데이트 (서버에서 받은 위치)
+      const userId = String(cursorPosition.userId);
+      targetCursorsRef.current.set(userId, {
+        x: cursorPosition.x,
+        y: cursorPosition.y,
+        userName: cursorPosition.userName || workspaceUsers.get(userId) || '알 수 없음',
+        timestamp: cursorPosition.timestamp || Date.now()
+      });
+      
+      // remoteCursors도 업데이트 (타임스탬프 추적용)
+      setRemoteCursors(prev => {
+        const newMap = new Map(prev);
+        newMap.set(userId, {
+          x: cursorPosition.x,
+          y: cursorPosition.y,
+          userName: cursorPosition.userName || workspaceUsers.get(userId) || '알 수 없음',
+          timestamp: cursorPosition.timestamp || Date.now()
         });
+        return newMap;
       });
     },
     onParticipantJoined: async (data) => {
@@ -2761,8 +2837,8 @@ const InfiniteCanvasPage = () => {
           backgroundPosition: `${canvas.canvasTransform.x}px ${canvas.canvasTransform.y}px`
         }}
       >
-        {/* 다른 사용자의 커서 표시 */}
-        {Array.from(remoteCursors.entries()).map(([userId, cursor]) => (
+        {/* 다른 사용자의 커서 표시 (보간된 위치 사용) */}
+        {Array.from(displayCursors.entries()).map(([userId, cursor]) => (
           <div
             key={userId}
             className="remote-cursor"
@@ -2773,7 +2849,6 @@ const InfiniteCanvasPage = () => {
               pointerEvents: 'none',
               zIndex: 10000,
               transform: 'translate(-50%, -50%)',
-              transition: 'left 0.15s cubic-bezier(0.4, 0, 0.2, 1), top 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
               willChange: 'transform'
             }}
           >
