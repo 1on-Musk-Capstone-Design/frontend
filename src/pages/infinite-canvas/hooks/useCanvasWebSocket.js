@@ -128,18 +128,96 @@ export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) =
           console.log('[캔버스 웹소켓] 참가자 이벤트:', message.body);
           
           try {
-            const data = JSON.parse(message.body);
-            if (data.type === 'joined' || data.action === 'join') {
+            let data;
+            
+            // JSON 파싱 시도
+            try {
+              data = JSON.parse(message.body);
+            } catch (parseError) {
+              // JSON이 아닌 경우 일반 텍스트로 처리
+              console.log('[캔버스 웹소켓] JSON이 아닌 텍스트 메시지:', message.body);
+              
+              // 텍스트 메시지에서 정보 추출 시도
+              // 예: "사용자 김수빈가 워크스페이스에 참여했습니다"
+              const bodyText = message.body || '';
+              
+              // 참여 메시지 패턴 확인
+              if (bodyText.includes('참여') || bodyText.includes('join') || bodyText.includes('joined')) {
+                // 사용자 이름 추출 시도
+                const nameMatch = bodyText.match(/(?:사용자\s+)?([가-힣\w\s]+?)(?:가|님이|이)/);
+                const userName = nameMatch ? nameMatch[1].trim() : '알 수 없음';
+                
+                data = {
+                  type: 'joined',
+                  action: 'join',
+                  userName: userName,
+                  message: bodyText
+                };
+              } 
+              // 나가기 메시지 패턴 확인
+              else if (bodyText.includes('나갔') || bodyText.includes('leave') || bodyText.includes('left')) {
+                const nameMatch = bodyText.match(/(?:사용자\s+)?([가-힣\w\s]+?)(?:가|님이|이)/);
+                const userName = nameMatch ? nameMatch[1].trim() : '알 수 없음';
+                
+                data = {
+                  type: 'left',
+                  action: 'leave',
+                  userName: userName,
+                  message: bodyText
+                };
+              } else {
+                // 알 수 없는 형식의 메시지
+                console.warn('[캔버스 웹소켓] 알 수 없는 참가자 메시지 형식:', bodyText);
+                return;
+              }
+            }
+            
+            // 이벤트 타입에 따라 콜백 호출
+            // 백엔드가 보내는 형식: {"message":"...","type":"user_joined"} 또는 {"message":"...","type":"user_left"}
+            const isJoinEvent = data.type === 'joined' || 
+                               data.type === 'user_joined' || 
+                               data.action === 'join';
+            const isLeaveEvent = data.type === 'left' || 
+                                data.type === 'user_left' || 
+                                data.action === 'leave';
+            
+            if (isJoinEvent) {
+              // JSON 형식에서 사용자 이름이 없으면 메시지에서 추출 시도
+              if (!data.userName && data.message) {
+                const nameMatch = data.message.match(/(?:사용자\s+)?([가-힣\w\s]+?)(?:가|님이|이)/);
+                if (nameMatch) {
+                  data.userName = nameMatch[1].trim();
+                } else {
+                  // 이름을 추출할 수 없으면 기본 메시지 사용
+                  data.userName = '새 참가자';
+                }
+              }
+              
+              console.log('[캔버스 웹소켓] 참가자 참여 이벤트:', data);
               if (callbacksRef.current.onParticipantJoined) {
                 callbacksRef.current.onParticipantJoined(data);
               }
-            } else if (data.type === 'left' || data.action === 'leave') {
+            } else if (isLeaveEvent) {
+              // JSON 형식에서 사용자 이름이 없으면 메시지에서 추출 시도
+              if (!data.userName && data.message) {
+                const nameMatch = data.message.match(/(?:사용자\s+)?([가-힣\w\s]+?)(?:가|님이|이)/);
+                if (nameMatch) {
+                  data.userName = nameMatch[1].trim();
+                } else {
+                  data.userName = '참가자';
+                }
+              }
+              
+              console.log('[캔버스 웹소켓] 참가자 나가기 이벤트:', data);
               if (callbacksRef.current.onParticipantLeft) {
                 callbacksRef.current.onParticipantLeft(data);
               }
+            } else {
+              console.log('[캔버스 웹소켓] 알 수 없는 참가자 이벤트 타입:', data);
             }
           } catch (e) {
-            console.error('[캔버스 웹소켓] 참가자 이벤트 파싱 오류:', e);
+            console.error('[캔버스 웹소켓] 참가자 이벤트 처리 오류:', e);
+            console.error('[캔버스 웹소켓] 원본 메시지:', message.body);
           }
         });
       },

@@ -312,59 +312,115 @@ const InfiniteCanvasPage = () => {
 
   // 캔버스 웹소켓 연결 (실시간 협업용)
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
-    onParticipantJoined: (data) => {
+    onParticipantJoined: async (data) => {
       console.log('참가자 참가:', data);
-      const userId = String(data.userId || data.id || data.user_id);
-      const userName = data.userName || data.name || data.user_name || workspaceUsers.get(userId) || '알 수 없음';
       
-      // 현재 사용자가 아닌 경우에만 알림 표시
-      if (userId !== String(currentUserId)) {
+      // userId 추출 (없을 수도 있음)
+      const userId = data.userId || data.id || data.user_id;
+      const userIdStr = userId ? String(userId) : null;
+      
+      // userName 추출 (텍스트 메시지에서 추출한 경우도 포함)
+      let userName = data.userName || data.name || data.user_name;
+      
+      // userName이 없으면 메시지에서 추출 시도
+      if (!userName && data.message) {
+        const nameMatch = data.message.match(/(?:사용자\s+)?([가-힣\w\s]+?)(?:가|님이|이)/);
+        if (nameMatch) {
+          userName = nameMatch[1].trim();
+        }
+      }
+      
+      // userId가 없으면 임시 ID 생성 (메시지 기반)
+      const finalUserId = userIdStr || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // 참가자 목록과 toast 업데이트 함수
+      const updateParticipantAndToast = (name) => {
         // 참가자 목록 업데이트
         setWorkspaceParticipants(prev => {
           // 이미 존재하는 참가자인지 확인
-          const exists = prev.some(p => p.id === userId);
-          if (exists) {
+          const existsById = userIdStr && prev.some(p => p.id === userIdStr);
+          const existsByName = prev.some(p => p.name === name && (!userIdStr || p.id === userIdStr));
+          
+          if (existsById) {
+            // 이미 존재하지만 이름이 업데이트되었을 수 있으므로 업데이트
+            return prev.map(p => p.id === userIdStr ? { ...p, name } : p);
+          }
+          
+          if (existsByName) {
             return prev;
           }
           
           // 새 참가자 추가
           return [...prev, {
-            id: userId,
-            name: userName
+            id: finalUserId,
+            name: name
           }];
         });
         
-        // Toast 알림 표시
-        setToast({
-          message: `${userName}님이 참여했습니다`,
-          type: 'success',
-          isVisible: true
-        });
-      } else {
-        // 현재 사용자인 경우 목록만 업데이트 (알림 없음)
-        setWorkspaceParticipants(prev => {
-          const exists = prev.some(p => p.id === userId);
-          if (exists) {
-            return prev;
-          }
-          return [...prev, {
-            id: userId,
-            name: userName
-          }];
-        });
-      }
-      
-      // workspaceUsers에도 추가 (없는 경우)
-      if (data.userId || data.id || data.user_id) {
-        const userId = String(data.userId || data.id || data.user_id);
-        const userName = data.userName || data.name || data.user_name;
-        if (userName && !workspaceUsers.has(userId)) {
-          setWorkspaceUsers(prev => {
-            const newMap = new Map(prev);
-            newMap.set(userId, userName);
-            return newMap;
+        // 현재 사용자가 아닌 경우에만 Toast 알림 표시
+        if (!userIdStr || userIdStr !== String(currentUserId)) {
+          setToast({
+            message: `${name}님이 참여했습니다`,
+            type: 'success',
+            isVisible: true
           });
         }
+      };
+      
+      // userId가 있지만 userName이 없으면 API로 조회
+      if (userIdStr && !userName) {
+        // 먼저 workspaceUsers에서 확인
+        userName = workspaceUsers.get(userIdStr);
+        
+        // 여전히 없으면 API로 조회
+        if (!userName) {
+          try {
+            const accessToken = localStorage.getItem('accessToken');
+            if (accessToken && workspaceId) {
+              const usersRes = await axios.get(
+                `${API_BASE_URL}/v1/workspaces/${workspaceId}/users`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                  }
+                }
+              );
+              
+              // 해당 userId의 사용자 찾기
+              const user = usersRes.data.find(u => String(u.id) === userIdStr);
+              if (user) {
+                userName = user.name || user.email || '알 수 없음';
+                
+                // workspaceUsers에 추가
+                setWorkspaceUsers(prev => {
+                  const newMap = new Map(prev);
+                  newMap.set(userIdStr, userName);
+                  return newMap;
+                });
+              }
+            }
+          } catch (err) {
+            console.error('참가자 정보 조회 실패:', err);
+          }
+        }
+      }
+      
+      // 여전히 없으면 기본값 사용
+      userName = userName || '새 참가자';
+      
+      // 참가자 목록과 toast 업데이트
+      updateParticipantAndToast(userName);
+      
+      // workspaceUsers에도 추가 (userId가 있는 경우)
+      if (userIdStr && userName && userName !== '새 참가자') {
+        setWorkspaceUsers(prev => {
+          if (!prev.has(userIdStr)) {
+            const newMap = new Map(prev);
+            newMap.set(userIdStr, userName);
+            return newMap;
+          }
+          return prev;
+        });
       }
     },
     onParticipantLeft: (data) => {
@@ -879,14 +935,23 @@ const InfiniteCanvasPage = () => {
       
       const size = getTextSize(textData);
       
+      // 백엔드가 기대하는 데이터 형식으로 변환
       const ideaData = {
-        workspaceId,
-        content: textData.text || '',
-        positionX: textData.x || 0,
-        positionY: textData.y || 0,
-        patchSizeX: size.width || 0,
-        patchSizeY: size.height || 0,
+        workspaceId: Number(workspaceId), // 정수형으로 명시적 변환
+        content: String(textData.text || ''), // 문자열로 명시적 변환
+        positionX: Number(textData.x || 0), // 숫자로 명시적 변환
+        positionY: Number(textData.y || 0), // 숫자로 명시적 변환
+        patchSizeX: Number(size.width || 0), // 숫자로 명시적 변환
+        patchSizeY: Number(size.height || 0), // 숫자로 명시적 변환
       };
+
+      // 디버깅: 전송할 데이터 로깅
+      console.log('메모 저장 시도:', {
+        ideaId,
+        textId,
+        ideaData,
+        url: ideaId ? `${API_BASE_URL}/v1/ideas/${ideaId}` : `${API_BASE_URL}/v1/ideas`
+      });
 
       if (ideaId) {
         // 기존 아이디어 업데이트
@@ -943,6 +1008,31 @@ const InfiniteCanvasPage = () => {
       }
     } catch (err) {
       console.error('메모 저장 실패', err);
+      
+      // 백엔드가 반환하는 상세한 에러 정보 확인
+      if (err.response) {
+        console.error('=== 에러 상세 정보 ===');
+        console.error('상태 코드:', err.response.status);
+        console.error('에러 응답 데이터:', err.response.data);
+        console.error('요청 URL:', err.config?.url);
+        console.error('요청 데이터:', err.config?.data);
+        console.error('요청 헤더:', err.config?.headers);
+        
+        // 백엔드가 반환한 에러 메시지가 있으면 표시
+        if (err.response.data) {
+          if (typeof err.response.data === 'string') {
+            console.error('에러 메시지:', err.response.data);
+          } else if (err.response.data.message) {
+            console.error('에러 메시지:', err.response.data.message);
+          } else if (err.response.data.error) {
+            console.error('에러:', err.response.data.error);
+          }
+        }
+      } else if (err.request) {
+        console.error('요청은 보냈지만 응답을 받지 못함:', err.request);
+      } else {
+        console.error('요청 설정 중 에러 발생:', err.message);
+      }
     }
   };
 
