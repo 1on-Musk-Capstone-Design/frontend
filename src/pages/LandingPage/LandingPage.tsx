@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './LandingPage.module.css';
-import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader, Map, Link2, Briefcase, Trophy, MousePointer2 } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader, Map, Link2, Briefcase, Trophy } from 'lucide-react';
 
 const LandingPage = () => {
   const [currentSection, setCurrentSection] = useState(0);
@@ -249,16 +249,6 @@ const LandingPage = () => {
                 실시간으로 변경사항이 반영되고, 참가자의 커서 위치를 실시간으로 확인하며, 
                 채팅으로 팀원들과 즉시 소통하세요.
               </p>
-              <div className={styles.featureVisual}>
-                <div className={styles.cursorPreview}>
-                  <MousePointer2 size={16} className={styles.cursorIcon1} />
-                  <span className={styles.cursorName1}>김민수</span>
-                </div>
-                <div className={styles.cursorPreview}>
-                  <MousePointer2 size={16} className={styles.cursorIcon2} />
-                  <span className={styles.cursorName2}>이지은</span>
-                </div>
-              </div>
             </div>
 
             <div className={styles.featureCard}>
