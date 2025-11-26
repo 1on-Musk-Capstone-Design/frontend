@@ -918,17 +918,22 @@
 
 .cicdContainer {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 40px;
   margin-top: 60px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .cicdCard {
   background: #f9fafb;
   border: 2px solid #f3f4f6;
   border-radius: 20px;
-  padding: 40px;
+  padding: 32px;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .cicdCard:hover {
@@ -940,25 +945,27 @@
 .cicdHeader {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 32px;
-  padding-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
   border-bottom: 2px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .cicdIcon {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   background: linear-gradient(135deg, #01CD15 0%, #1e7b0b 100%);
-  border-radius: 16px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
+  flex-shrink: 0;
 }
 
 .cicdTitle {
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   font-weight: 700;
   margin: 0 0 4px 0;
   color: #111827;
@@ -973,18 +980,22 @@
 .pipelineSteps {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 500px;
 }
 
 .pipelineStep {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 12px 16px;
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 2px solid #f3f4f6;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .pipelineStep:hover {
@@ -993,10 +1004,10 @@
 }
 
 .stepIcon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, rgba(1, 205, 21, 0.1) 0%, rgba(1, 205, 21, 0.05) 100%);
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1004,34 +1015,49 @@
   flex-shrink: 0;
 }
 
+.stepIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .stepContent {
   flex: 1;
 }
 
 .stepTitle {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #111827;
-  margin: 0 0 4px 0;
+  margin: 0 0 2px 0;
+  line-height: 1.3;
 }
 
 .stepDescription {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: #6b7280;
   margin: 0;
+  line-height: 1.4;
 }
 
 .stepCheck {
   color: #01CD15;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .pipelineArrow {
   display: flex;
   justify-content: center;
   color: #01CD15;
-  margin: -8px 0;
-  padding: 0 20px;
+  margin: -6px 0;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.pipelineArrow svg {
+  width: 16px;
+  height: 16px;
 }
 
 .cicdBenefits {
@@ -1408,6 +1434,15 @@
     gap: 40px;
   }
 
+  .cicdContainer {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .pipelineSteps {
+    max-height: none;
+  }
+
   .showcaseItem {
     grid-template-columns: 1fr;
     gap: 60px;
@@ -1534,6 +1569,15 @@
 
   .cicdContainer {
     grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .cicdCard {
+    padding: 24px;
+  }
+
+  .pipelineSteps {
+    max-height: none;
   }
 
   .cicdBenefits {
