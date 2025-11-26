@@ -92,6 +92,37 @@ const InfiniteCanvasPage = () => {
           return;
         }
 
+        // 현재 사용자 정보 불러오기 (메인페이지와 동일하게)
+        try {
+          const userRes = await axios.get(
+            `${API_BASE_URL}/v1/users/me`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
+            }
+          );
+
+          // localStorage에 사용자 정보 저장
+          if (userRes.data.name) {
+            localStorage.setItem('userName', userRes.data.name);
+          }
+          if (userRes.data.email) {
+            localStorage.setItem('userEmail', userRes.data.email);
+          }
+        } catch (err) {
+          console.error('사용자 정보 불러오기 실패', err);
+          // 인증 오류 감지
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            setAuthExpiredModalOpen(true);
+            return;
+          }
+        }
+
         // 현재 사용자 ID 추출
         const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
         const userId = String(tokenPayload.user_id || tokenPayload.sub);
