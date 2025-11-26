@@ -83,55 +83,112 @@ const LandingPage = () => {
         className={styles.heroSection}
       >
         <div className={styles.heroContent}>
-          <div className={styles.heroBadge}>
-            <Sparkles size={16} />
-            <span>무한 캔버스 협업 플랫폼</span>
+          <div className={styles.heroLeft}>
+            <div className={styles.heroBadge}>
+              <Sparkles size={16} />
+              <span>무한 캔버스 협업 플랫폼</span>
+            </div>
+            <h1 className={styles.heroTitle}>
+              아이디어를 자유롭게
+              <br />
+              <span className={styles.heroTitleAccent}>함께 그려보세요</span>
+            </h1>
+            <p className={styles.heroDescription}>
+              실시간 협업이 가능한 무한 캔버스에서 팀원들과 함께 아이디어를 공유하고,
+              <br />
+              클러스터링과 채팅 기능으로 더욱 효율적으로 작업하세요.
+            </p>
+            <div className={styles.heroButtons}>
+              <a 
+                href="https://on-it.kro.kr/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={styles.primaryButton}
+              >
+                체험해보기
+                <ArrowRight size={20} />
+              </a>
+              <button 
+                onClick={() => scrollToSection(1)}
+                className={styles.secondaryButton}
+              >
+                더 알아보기
+              </button>
+            </div>
+            <div className={styles.heroStats}>
+              <div className={styles.statItem}>
+                <div className={styles.statNumber}>∞</div>
+                <div className={styles.statLabel}>무한 캔버스</div>
+              </div>
+              <div className={styles.statItem}>
+                <div className={styles.statNumber}>실시간</div>
+                <div className={styles.statLabel}>협업 지원</div>
+              </div>
+              <div className={styles.statItem}>
+                <div className={styles.statNumber}>AI</div>
+                <div className={styles.statLabel}>클러스터링</div>
+              </div>
+            </div>
           </div>
-          <h1 className={styles.heroTitle}>
-            아이디어를 자유롭게
-            <br />
-            <span className={styles.heroTitleAccent}>함께 그려보세요</span>
-          </h1>
-          <p className={styles.heroDescription}>
-            실시간 협업이 가능한 무한 캔버스에서 팀원들과 함께 아이디어를 공유하고,
-            <br />
-            클러스터링과 채팅 기능으로 더욱 효율적으로 작업하세요.
-          </p>
-          <div className={styles.heroButtons}>
-            <a 
-              href="https://on-it.kro.kr/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className={styles.primaryButton}
-            >
-              체험해보기
-              <ArrowRight size={20} />
-            </a>
-            <button 
-              onClick={() => scrollToSection(1)}
-              className={styles.secondaryButton}
-            >
-              더 알아보기
-            </button>
-          </div>
-        </div>
-        <div className={styles.heroVisual}>
-          <div className={styles.heroImagePlaceholder}>
+          <div className={styles.heroVisual}>
             <div className={styles.canvasPreview}>
-              <div className={styles.canvasGrid}></div>
-              <div className={styles.floatingCard} style={{ top: '20%', left: '15%' }}>
-                <div className={styles.cardContent}>💡 아이디어</div>
+              <div className={styles.canvasHeader}>
+                <div className={styles.canvasHeaderLeft}>
+                  <div className={styles.canvasLogo}>ON-IT</div>
+                  <div className={styles.canvasProjectName}>새 프로젝트</div>
+                </div>
+                <div className={styles.canvasHeaderRight}>
+                  <div className={styles.canvasAvatar}>U</div>
+                  <div className={styles.canvasAvatar}>T</div>
+                  <div className={styles.canvasAvatar}>+2</div>
+                </div>
               </div>
-              <div className={styles.floatingCard} style={{ top: '40%', right: '20%' }}>
-                <div className={styles.cardContent}>📝 메모</div>
+              <div className={styles.canvasArea}>
+                <div className={styles.canvasGrid}></div>
+                <div className={styles.floatingCard} style={{ top: '15%', left: '10%' }}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardDot}></div>
+                    <span className={styles.cardTitle}>프로젝트 아이디어</span>
+                  </div>
+                  <div className={styles.cardText}>무한 캔버스로 자유롭게 아이디어를 표현하세요</div>
+                </div>
+                <div className={styles.floatingCard} style={{ top: '35%', right: '15%' }}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardDot}></div>
+                    <span className={styles.cardTitle}>팀 협업</span>
+                  </div>
+                  <div className={styles.cardText}>실시간으로 함께 작업하고 소통하세요</div>
+                </div>
+                <div className={styles.floatingCard} style={{ bottom: '20%', left: '25%' }}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardDot}></div>
+                    <span className={styles.cardTitle}>AI 클러스터링</span>
+                  </div>
+                  <div className={styles.cardText}>관련 아이디어를 자동으로 그룹화합니다</div>
+                </div>
+                <div className={styles.floatingCard} style={{ top: '55%', left: '50%' }}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardDot}></div>
+                    <span className={styles.cardTitle}>채팅 기능</span>
+                  </div>
+                  <div className={styles.cardText}>캔버스에서 바로 대화하세요</div>
+                </div>
+                <div className={styles.canvasConnection}></div>
               </div>
-              <div className={styles.floatingCard} style={{ bottom: '25%', left: '30%' }}>
-                <div className={styles.cardContent}>🎯 목표</div>
+              <div className={styles.canvasSidebar}>
+                <div className={styles.sidebarItem}>
+                  <MessageSquare size={18} />
+                  <span>채팅</span>
+                </div>
+                <div className={styles.sidebarItem}>
+                  <Layers size={18} />
+                  <span>클러스터</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div className={styles.scrollIndicator}>
+        <div className={styles.scrollIndicator} onClick={() => scrollToSection(1)}>
           <ChevronDown size={24} />
         </div>
       </section>
