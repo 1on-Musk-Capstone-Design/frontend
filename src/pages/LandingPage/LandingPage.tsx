@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styles from './LandingPage.module.css';
 import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Infinity, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader } from 'lucide-react';
 
 const LandingPage = () => {
   const [currentSection, setCurrentSection] = useState(0);
   const sectionsRef = useRef<(HTMLElement | null)[]>([]);
+  const [frontendActiveStep, setFrontendActiveStep] = useState(0);
+  const [backendActiveStep, setBackendActiveStep] = useState(0);
 
   // 랜딩 페이지에서 스크롤 활성화
   useEffect(() => {
@@ -69,6 +71,25 @@ const LandingPage = () => {
     handleScroll(); // 초기 실행
 
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // CI/CD 애니메이션
+  useEffect(() => {
+    const frontendSteps = 6; // 프론트엔드 스텝 수
+    const backendSteps = 7; // 백엔드 스텝 수
+    
+    const frontendInterval = setInterval(() => {
+      setFrontendActiveStep((prev) => (prev + 1) % frontendSteps);
+    }, 2000);
+
+    const backendInterval = setInterval(() => {
+      setBackendActiveStep((prev) => (prev + 1) % backendSteps);
+    }, 2000);
+
+    return () => {
+      clearInterval(frontendInterval);
+      clearInterval(backendInterval);
+    };
   }, []);
 
   const scrollToSection = (index: number) => {
@@ -607,91 +628,34 @@ const LandingPage = () => {
               </div>
               
               <div className={styles.pipelineSteps}>
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <GitBranch size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>코드 커밋 & 푸시</div>
-                    <div className={styles.stepDescription}>main 브랜치에 코드 푸시</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <GitBranch size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>코드 체크아웃</div>
-                    <div className={styles.stepDescription}>GitHub Actions에서 소스 코드 가져오기</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Loader size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>Node.js 환경 설정</div>
-                    <div className={styles.stepDescription}>Node.js 18 및 npm 캐시 설정</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Zap size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>의존성 설치</div>
-                    <div className={styles.stepDescription}>npm ci로 빠르고 안정적인 설치</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Rocket size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>프로젝트 빌드</div>
-                    <div className={styles.stepDescription}>Vite로 최적화된 프로덕션 빌드</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Globe size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>서버 배포</div>
-                    <div className={styles.stepDescription}>rsync로 AWS 서버에 자동 배포</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
+                {[
+                  { icon: GitBranch, title: '코드 커밋 & 푸시', desc: 'main 브랜치에 코드 푸시' },
+                  { icon: GitBranch, title: '코드 체크아웃', desc: 'GitHub Actions에서 소스 코드 가져오기' },
+                  { icon: Loader, title: 'Node.js 환경 설정', desc: 'Node.js 18 및 npm 캐시 설정' },
+                  { icon: Zap, title: '의존성 설치', desc: 'npm ci로 빠르고 안정적인 설치' },
+                  { icon: Rocket, title: '프로젝트 빌드', desc: 'Vite로 최적화된 프로덕션 빌드' },
+                  { icon: Globe, title: '서버 배포', desc: 'rsync로 AWS 서버에 자동 배포' },
+                ].map((step, index) => (
+                  <React.Fragment key={index}>
+                    <div 
+                      className={`${styles.pipelineStep} ${frontendActiveStep === index ? styles.activeStep : ''}`}
+                    >
+                      <div className={styles.stepIcon}>
+                        <step.icon size={20} />
+                      </div>
+                      <div className={styles.stepContent}>
+                        <div className={styles.stepTitle}>{step.title}</div>
+                        <div className={styles.stepDescription}>{step.desc}</div>
+                      </div>
+                      <CheckCircle2 size={20} className={styles.stepCheck} />
+                    </div>
+                    {index < 5 && (
+                      <div className={`${styles.pipelineArrow} ${frontendActiveStep === index ? styles.activeArrow : ''}`}>
+                        <ArrowRight size={20} />
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
             </div>
 
@@ -708,106 +672,35 @@ const LandingPage = () => {
               </div>
               
               <div className={styles.pipelineSteps}>
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <GitBranch size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>코드 커밋 & 푸시</div>
-                    <div className={styles.stepDescription}>main/develop 브랜치에 코드 푸시</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <GitBranch size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>코드 체크아웃</div>
-                    <div className={styles.stepDescription}>GitHub Actions에서 소스 코드 가져오기</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Code size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>JDK 21 설정</div>
-                    <div className={styles.stepDescription}>Java 개발 환경 구성</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Zap size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>Gradle 빌드</div>
-                    <div className={styles.stepDescription}>의존성 캐시 및 JAR 파일 생성</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <CheckCircle2 size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>테스트 실행</div>
-                    <div className={styles.stepDescription}>자동화된 단위 테스트 수행</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Shield size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>SSH 배포</div>
-                    <div className={styles.stepDescription}>JAR 파일 및 환경 변수 업로드</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
-                
-                <div className={styles.pipelineArrow}>
-                  <ArrowRight size={20} />
-                </div>
-                
-                <div className={styles.pipelineStep}>
-                  <div className={styles.stepIcon}>
-                    <Rocket size={20} />
-                  </div>
-                  <div className={styles.stepContent}>
-                    <div className={styles.stepTitle}>애플리케이션 재시작</div>
-                    <div className={styles.stepDescription}>헬스 체크 및 자동 재시작</div>
-                  </div>
-                  <CheckCircle2 size={20} className={styles.stepCheck} />
-                </div>
+                {[
+                  { icon: GitBranch, title: '코드 커밋 & 푸시', desc: 'main/develop 브랜치에 코드 푸시' },
+                  { icon: GitBranch, title: '코드 체크아웃', desc: 'GitHub Actions에서 소스 코드 가져오기' },
+                  { icon: Code, title: 'JDK 21 설정', desc: 'Java 개발 환경 구성' },
+                  { icon: Zap, title: 'Gradle 빌드', desc: '의존성 캐시 및 JAR 파일 생성' },
+                  { icon: CheckCircle2, title: '테스트 실행', desc: '자동화된 단위 테스트 수행' },
+                  { icon: Shield, title: 'SSH 배포', desc: 'JAR 파일 및 환경 변수 업로드' },
+                  { icon: Rocket, title: '애플리케이션 재시작', desc: '헬스 체크 및 자동 재시작' },
+                ].map((step, index) => (
+                  <React.Fragment key={index}>
+                    <div 
+                      className={`${styles.pipelineStep} ${backendActiveStep === index ? styles.activeStep : ''}`}
+                    >
+                      <div className={styles.stepIcon}>
+                        <step.icon size={20} />
+                      </div>
+                      <div className={styles.stepContent}>
+                        <div className={styles.stepTitle}>{step.title}</div>
+                        <div className={styles.stepDescription}>{step.desc}</div>
+                      </div>
+                      <CheckCircle2 size={20} className={styles.stepCheck} />
+                    </div>
+                    {index < 6 && (
+                      <div className={`${styles.pipelineArrow} ${backendActiveStep === index ? styles.activeArrow : ''}`}>
+                        <ArrowRight size={20} />
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
             </div>
           </div>
