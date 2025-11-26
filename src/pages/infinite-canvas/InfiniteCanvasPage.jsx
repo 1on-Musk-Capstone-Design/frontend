@@ -9,6 +9,7 @@ import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
 import Toast from './components/Toast';
+import Modal from '../../components/Modal/Modal';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
@@ -56,6 +57,7 @@ const InfiniteCanvasPage = () => {
   const [workspaceName, setWorkspaceName] = useState('프로젝트'); // 워크스페이스 이름
   const [workspaceParticipants, setWorkspaceParticipants] = useState([]); // 워크스페이스 참가자 목록
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
+  const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -85,7 +87,10 @@ const InfiniteCanvasPage = () => {
 
       try {
         const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken) return;
+        if (!accessToken) {
+          setAuthExpiredModalOpen(true);
+          return;
+        }
 
         // 현재 사용자 ID 추출
         const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
@@ -107,6 +112,15 @@ const InfiniteCanvasPage = () => {
           }
         } catch (err) {
           console.error('워크스페이스 정보 불러오기 실패', err);
+          // 인증 오류 감지
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            setAuthExpiredModalOpen(true);
+            return;
+          }
         }
 
         // 워크스페이스 사용자 목록 불러오기
@@ -138,17 +152,42 @@ const InfiniteCanvasPage = () => {
           setWorkspaceParticipants(participantsList);
         } catch (err) {
           console.error('워크스페이스 사용자 목록 불러오기 실패', err);
+          // 인증 오류 감지
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            setAuthExpiredModalOpen(true);
+            return;
+          }
         }
 
         // 기존 메모(아이디어) 불러오기
-        const ideasRes = await axios.get(
-          `${API_BASE_URL}/v1/ideas/workspaces/${workspaceId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
+        let ideasRes;
+        try {
+          ideasRes = await axios.get(
+            `${API_BASE_URL}/v1/ideas/workspaces/${workspaceId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
             }
+          );
+        } catch (err) {
+          console.error('메모 목록 불러오기 실패', err);
+          // 인증 오류 감지
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            setAuthExpiredModalOpen(true);
+            return;
           }
-        );
+          // 인증 오류가 아니면 빈 배열로 처리
+          ideasRes = { data: [] };
+        }
 
         console.log('불러온 메모 목록:', ideasRes.data);
 
@@ -246,14 +285,30 @@ const InfiniteCanvasPage = () => {
         }
 
         // 기존 채팅 메시지 불러오기
-        const messagesRes = await axios.get(
-          `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
+        let messagesRes;
+        try {
+          messagesRes = await axios.get(
+            `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
             }
+          );
+        } catch (err) {
+          console.error('채팅 메시지 불러오기 실패', err);
+          // 인증 오류 감지
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            setAuthExpiredModalOpen(true);
+            return;
           }
-        );
+          // 인증 오류가 아니면 빈 배열로 처리
+          messagesRes = { data: [] };
+        }
 
         console.log('불러온 채팅 메시지:', messagesRes.data);
 
@@ -401,6 +456,15 @@ const InfiniteCanvasPage = () => {
             }
           } catch (err) {
             console.error('참가자 정보 조회 실패:', err);
+            // 인증 오류 감지
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('userName');
+              localStorage.removeItem('userEmail');
+              setAuthExpiredModalOpen(true);
+              return;
+            }
           }
         }
       }
@@ -423,16 +487,81 @@ const InfiniteCanvasPage = () => {
         });
       }
     },
-    onParticipantLeft: (data) => {
+    onParticipantLeft: async (data) => {
       console.log('참가자 나가기:', data);
-      const userId = String(data.userId || data.id || data.user_id);
-      const userName = data.userName || data.name || data.user_name || workspaceUsers.get(userId) || '알 수 없음';
+      
+      // userId 추출
+      const userId = data.userId || data.id || data.user_id;
+      const userIdStr = userId ? String(userId) : null;
+      
+      // userName 추출 (텍스트 메시지에서 추출한 경우도 포함)
+      let userName = data.userName || data.name || data.user_name;
+      
+      // userName이 없으면 메시지에서 추출 시도
+      if (!userName && data.message) {
+        const nameMatch = data.message.match(/(?:사용자\s+)?([가-힣\w\s]+?)(?:가|님이|이)/);
+        if (nameMatch) {
+          userName = nameMatch[1].trim();
+        }
+      }
+      
+      // userId가 있지만 userName이 없으면 API로 조회
+      if (userIdStr && !userName) {
+        // 먼저 workspaceUsers에서 확인
+        userName = workspaceUsers.get(userIdStr);
+        
+        // 여전히 없으면 API로 조회
+        if (!userName) {
+          try {
+            const accessToken = localStorage.getItem('accessToken');
+            if (accessToken && workspaceId) {
+              const usersRes = await axios.get(
+                `${API_BASE_URL}/v1/workspaces/${workspaceId}/users`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                  }
+                }
+              );
+              
+              // 해당 userId의 사용자 찾기
+              const user = usersRes.data.find(u => String(u.id) === userIdStr);
+              if (user) {
+                userName = user.name || user.email || '알 수 없음';
+                
+                // workspaceUsers에 추가 (나중을 위해)
+                setWorkspaceUsers(prev => {
+                  const newMap = new Map(prev);
+                  newMap.set(userIdStr, userName);
+                  return newMap;
+                });
+              }
+            }
+          } catch (err) {
+            console.error('참가자 정보 조회 실패:', err);
+            // 인증 오류 감지
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('userName');
+              localStorage.removeItem('userEmail');
+              setAuthExpiredModalOpen(true);
+              return;
+            }
+          }
+        }
+      }
+      
+      // 여전히 없으면 workspaceUsers에서 찾거나 기본값 사용
+      userName = userName || 
+                 (userIdStr ? workspaceUsers.get(userIdStr) : null) || 
+                 '참가자';
       
       // 현재 사용자가 아닌 경우에만 알림 표시
-      if (userId !== String(currentUserId)) {
+      if (!userIdStr || userIdStr !== String(currentUserId)) {
         // 참가자 목록에서 제거
         setWorkspaceParticipants(prev => {
-          return prev.filter(p => p.id !== userId);
+          return prev.filter(p => p.id !== userIdStr);
         });
         
         // Toast 알림 표시
@@ -444,7 +573,7 @@ const InfiniteCanvasPage = () => {
       } else {
         // 현재 사용자인 경우 목록만 업데이트 (알림 없음)
         setWorkspaceParticipants(prev => {
-          return prev.filter(p => p.id !== userId);
+          return prev.filter(p => p.id !== userIdStr);
         });
       }
     },
@@ -860,6 +989,12 @@ const InfiniteCanvasPage = () => {
   };
 
   // 메모(아이디어) 저장 함수
+  // 인증 만료 모달 닫기 및 로그인 페이지로 이동
+  const handleAuthExpiredConfirm = () => {
+    setAuthExpiredModalOpen(false);
+    window.location.href = '/auth';
+  };
+
   const saveIdea = async (textId, textData) => {
     if (!workspaceId) return;
     
@@ -900,6 +1035,15 @@ const InfiniteCanvasPage = () => {
           }
         } catch (err) {
           console.error('빈 메모 삭제 실패', err);
+          // 인증 오류 감지
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            setAuthExpiredModalOpen(true);
+            return;
+          }
         }
       }
       return;
@@ -1009,6 +1153,16 @@ const InfiniteCanvasPage = () => {
     } catch (err) {
       console.error('메모 저장 실패', err);
       
+      // 인증 오류 감지
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        setAuthExpiredModalOpen(true);
+        return;
+      }
+      
       // 백엔드가 반환하는 상세한 에러 정보 확인
       if (err.response) {
         console.error('=== 에러 상세 정보 ===');
@@ -1075,6 +1229,16 @@ const InfiniteCanvasPage = () => {
       }
     } catch (err) {
       console.error('메모 삭제 실패', err);
+      
+      // 인증 오류 감지
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        setAuthExpiredModalOpen(true);
+        return;
+      }
     }
   };
 
@@ -2377,6 +2541,48 @@ const InfiniteCanvasPage = () => {
         duration={3000}
         onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
       />
+      
+      {/* Modal: 인증 만료 */}
+      <Modal isOpen={authExpiredModalOpen} onClose={() => {}}>
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 600, color: '#111827' }}>
+            로그인이 만료되었습니다
+          </h2>
+          <p style={{ margin: 0, color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
+            세션이 만료되어 다시 로그인이 필요합니다.
+          </p>
+          <p style={{ margin: '8px 0 0 0', color: '#f59e0b', fontSize: '0.875rem' }}>
+            ⚠️ 로그인 페이지로 이동합니다.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button 
+            type="button" 
+            onClick={handleAuthExpiredConfirm}
+            style={{ 
+              width: '100%',
+              background: '#01CD15',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#1e7b0b'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#01CD15'
+            }}
+          >
+            로그인하기
+          </button>
+        </div>
+      </Modal>
       
       {/* 상단 툴바 */}
       <TopToolbar
