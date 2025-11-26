@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './LandingPage.module.css';
-import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Infinity, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Users, MessageSquare, Layers, Zap, ChevronDown, Globe, Shield, Clock, TrendingUp, HelpCircle, Star, Code, Database, GitBranch, Rocket, CheckCircle2, Loader } from 'lucide-react';
 
 const LandingPage = () => {
   const [currentSection, setCurrentSection] = useState(0);
@@ -246,7 +246,7 @@ const LandingPage = () => {
               <h3 className={styles.featureTitle}>실시간 협업</h3>
               <p className={styles.featureDescription}>
                 여러 사용자가 동시에 작업할 수 있습니다. 
-                실시간으로 변경사항이 반영되어 팀원들과 즉시 소통하세요.
+                실시간으로 변경사항이 반영되고, 채팅으로 팀원들과 즉시 소통하세요.
               </p>
             </div>
 
@@ -304,6 +304,21 @@ const LandingPage = () => {
                   <span>미니맵으로 전체 보기</span>
                 </li>
               </ul>
+              <div className={styles.implementationDetails}>
+                <h4 className={styles.implementationTitle}>구현 방법</h4>
+                <div className={styles.implementationContent}>
+                  <p>
+                    <strong>격자 배경 및 좌표 변환:</strong> CSS의 linear-gradient로 무한 확장 가능한 격자 배경을 구현하고, 
+                    논리적 좌표계(무한 공간)와 실제 좌표계(픽셀) 간 변환을 위해 변환 행렬을 사용합니다. 
+                    줌 레벨(scale)과 오프셋(translate)을 기반으로 <code>실제 좌표 = (논리적 좌표 - offset) × scale</code> 공식을 적용합니다.
+                  </p>
+                  <p>
+                    <strong>성능 최적화:</strong> requestAnimationFrame으로 부드러운 애니메이션을 구현하고, 
+                    뷰포트 밖의 요소는 렌더링하지 않는 가시 영역(viewport culling) 기법을 적용하여 
+                    수천 개의 아이디어가 있어도 성능 저하 없이 동작합니다.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className={styles.showcaseVisual}>
               <div className={styles.screenMockup}>
@@ -384,6 +399,26 @@ const LandingPage = () => {
                   <span>레이아웃 자동 정렬</span>
                 </li>
               </ul>
+              <div className={styles.implementationDetails}>
+                <h4 className={styles.implementationTitle}>구현 방법</h4>
+                <div className={styles.implementationContent}>
+                  <p>
+                    <strong>텍스트 임베딩 및 벡터화:</strong> SentenceTransformer 모델(all-MiniLM-L6-v2)을 사용하여 
+                    각 텍스트를 384차원 벡터로 변환합니다. 이 모델은 문장의 의미를 벡터로 표현하여 
+                    유사한 의미를 가진 텍스트들이 벡터 공간에서 가까운 위치에 배치되도록 합니다.
+                  </p>
+                  <p>
+                    <strong>K-Means 클러스터링:</strong> 임베딩된 벡터들을 scikit-learn의 K-Means 알고리즘으로 클러스터링합니다. 
+                    유클리드 거리를 계산하여 각 텍스트 벡터와 클러스터 중심점 간의 거리를 측정하고, 
+                    거리가 가까운 벡터들을 같은 그룹으로 묶습니다. 각 클러스터의 대표 텍스트는 중심점과 가장 가까운 텍스트로 선택됩니다.
+                  </p>
+                  <p>
+                    <strong>FastAPI 마이크로서비스:</strong> 클러스터링 로직을 독립적인 FastAPI 서버로 분리하여 
+                    프론트엔드와 백엔드 간의 느슨한 결합을 구현했습니다. 모델은 서버 시작 시 한 번만 로드하여 
+                    메모리 효율성을 높였습니다.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -393,7 +428,7 @@ const LandingPage = () => {
               <h2 className={styles.showcaseTitle}>실시간 협업</h2>
               <p className={styles.showcaseDescription}>
                 여러 사용자가 동시에 작업할 수 있습니다. 
-                실시간으로 변경사항이 반영되어 팀원들과 즉시 소통하세요.
+                실시간으로 변경사항이 반영되고, 채팅으로 팀원들과 즉시 소통하세요.
               </p>
               <ul className={styles.featureList}>
                 <li>
@@ -402,13 +437,34 @@ const LandingPage = () => {
                 </li>
                 <li>
                   <Check size={20} />
-                  <span>참가자 커서 표시</span>
+                  <span>실시간 채팅</span>
                 </li>
                 <li>
                   <Check size={20} />
-                  <span>실시간 채팅</span>
+                  <span>참가자 알림</span>
                 </li>
               </ul>
+              <div className={styles.implementationDetails}>
+                <h4 className={styles.implementationTitle}>구현 방법</h4>
+                <div className={styles.implementationContent}>
+                  <p>
+                    <strong>WebSocket 및 STOMP 프로토콜:</strong> 실시간 양방향 통신을 위해 WebSocket을 사용하고, 
+                    메시징 프로토콜로 STOMP(Simple Text Oriented Messaging Protocol)를 채택했습니다. 
+                    SockJS를 통해 WebSocket 연결 실패 시 HTTP 폴링으로 자동 전환되는 폴백 메커니즘을 구현했습니다.
+                  </p>
+                  <p>
+                    <strong>토픽 기반 구독 및 이벤트 동기화:</strong> 각 워크스페이스별로 고유한 토픽을 생성하여 
+                    관련된 사용자들만 해당 토픽을 구독하도록 했습니다. 캔버스의 아이디어 생성, 수정, 삭제 및 채팅 메시지를 
+                    STOMP 메시지로 브로드캐스트하며, 각 클라이언트는 자신이 발생시킨 이벤트를 제외한 다른 사용자의 이벤트만 수신하여 
+                    중복 업데이트를 방지합니다.
+                  </p>
+                  <p>
+                    <strong>연결 관리:</strong> WebSocket 연결이 끊어졌을 때를 대비해 자동 재연결 메커니즘을 구현했습니다. 
+                    지수 백오프(exponential backoff) 전략을 사용하여 재연결 시도 간격을 점진적으로 늘려 서버 부하를 줄이고, 
+                    각 메시지에 고유한 ID와 타임스탬프를 부여하여 메시지 순서를 보장합니다.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className={styles.showcaseVisual}>
               <div className={styles.screenMockup}>
@@ -422,72 +478,52 @@ const LandingPage = () => {
                 <div className={styles.screenContent}>
                   <div className={styles.mockCanvas}>
                     <div className={styles.mockGrid}></div>
-                    <div className={styles.mockUserCursor} style={{ top: '30%', left: '40%' }}>
-                      <div className={styles.cursorDot}></div>
-                      <div className={styles.cursorLabel}>사용자 1</div>
+                    <div className={styles.mockTextCard} style={{ top: '20%', left: '15%' }}>
+                      아이디어 1
                     </div>
-                    <div className={styles.mockUserCursor} style={{ top: '50%', right: '30%' }}>
-                      <div className={styles.cursorDot}></div>
-                      <div className={styles.cursorLabel}>사용자 2</div>
+                    <div className={styles.mockTextCard} style={{ top: '40%', right: '20%' }}>
+                      아이디어 2
                     </div>
                     <div className={styles.mockChatPanel}>
-                      <div className={styles.chatMessage}>안녕하세요!</div>
-                      <div className={styles.chatMessage}>좋은 아이디어네요</div>
+                      <div className={styles.chatHeader}>
+                        <MessageSquare size={16} />
+                        <span>채팅</span>
+                        <div className={styles.chatBadge}>3</div>
+                      </div>
+                      <div className={styles.chatMessages}>
+                        <div className={styles.chatMessage}>
+                          <div className={styles.chatUserName}>김민수</div>
+                          <div className={styles.chatText}>안녕하세요! 좋은 아이디어네요</div>
+                        </div>
+                        <div className={styles.chatMessage}>
+                          <div className={styles.chatUserName}>이지은</div>
+                          <div className={styles.chatText}>이 부분 더 자세히 설명해주세요</div>
+                        </div>
+                        <div className={styles.chatMessage}>
+                          <div className={styles.chatUserName}>박준호</div>
+                          <div className={styles.chatText}>실시간으로 잘 보이네요 👍</div>
+                        </div>
+                      </div>
+                      <div className={styles.chatInput}>
+                        <input type="text" placeholder="메시지 입력..." />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
               <div className={styles.arrowIndicator} style={{ top: '50%', right: '-40px' }}>
                 <ArrowRight size={24} />
-                <span>실시간 동기화</span>
+                <span>실시간 채팅</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section 
-        ref={(el) => (sectionsRef.current[3] = el)}
-        className={styles.statsSection}
-      >
-        <div className={styles.container}>
-          <div className={styles.statsGrid}>
-            <div className={styles.statCard}>
-              <div className={styles.statIcon}>
-                <Infinity size={32} />
-              </div>
-              <div className={styles.statNumber}>무한</div>
-              <div className={styles.statLabel}>캔버스 공간</div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statIcon}>
-                <Users size={32} />
-              </div>
-              <div className={styles.statNumber}>실시간</div>
-              <div className={styles.statLabel}>동시 협업</div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statIcon}>
-                <Zap size={32} />
-              </div>
-              <div className={styles.statNumber}>자동</div>
-              <div className={styles.statLabel}>클러스터링</div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statIcon}>
-                <MessageSquare size={32} />
-              </div>
-              <div className={styles.statNumber}>실시간</div>
-              <div className={styles.statLabel}>채팅</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Use Cases Section */}
       <section 
-        ref={(el) => (sectionsRef.current[4] = el)}
+        ref={(el) => (sectionsRef.current[3] = el)}
         className={styles.useCasesSection}
       >
         <div className={styles.container}>
@@ -545,7 +581,7 @@ const LandingPage = () => {
 
       {/* Tech Stack Section */}
       <section 
-        ref={(el) => (sectionsRef.current[5] = el)}
+        ref={(el) => (sectionsRef.current[4] = el)}
         className={styles.techSection}
       >
         <div className={styles.container}>
@@ -603,7 +639,7 @@ const LandingPage = () => {
 
       {/* CI/CD Section */}
       <section 
-        ref={(el) => (sectionsRef.current[6] = el)}
+        ref={(el) => (sectionsRef.current[5] = el)}
         className={styles.cicdSection}
       >
         <div className={styles.container}>
@@ -728,7 +764,7 @@ const LandingPage = () => {
 
       {/* FAQ Section */}
       <section 
-        ref={(el) => (sectionsRef.current[7] = el)}
+        ref={(el) => (sectionsRef.current[6] = el)}
         className={styles.faqSection}
       >
         <div className={styles.container}>
@@ -782,7 +818,7 @@ const LandingPage = () => {
 
       {/* CTA Section */}
       <section 
-        ref={(el) => (sectionsRef.current[8] = el)}
+        ref={(el) => (sectionsRef.current[7] = el)}
         className={styles.ctaSection}
       >
         <div className={styles.container}>

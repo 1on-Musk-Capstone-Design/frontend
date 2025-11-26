@@ -220,6 +220,25 @@ export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) =
             console.error('[캔버스 웹소켓] 원본 메시지:', message.body);
           }
         });
+
+        // 커서 위치 구독 (백엔드: /topic/workspace/{workspaceId}/cursor)
+        const cursorSubscriptionPath = `/topic/workspace/${workspaceId}/cursor`;
+        console.log('[캔버스 웹소켓] 커서 위치 구독 경로:', cursorSubscriptionPath);
+        stompClient.subscribe(cursorSubscriptionPath, (message) => {
+          try {
+            const cursorPosition = JSON.parse(message.body);
+            // 자신의 커서는 무시
+            if (cursorPosition.userId && String(cursorPosition.userId) === String(currentUserId)) {
+              return;
+            }
+            console.log('[캔버스 웹소켓] 다른 사용자 커서 위치 수신:', cursorPosition);
+            if (callbacksRef.current.onCursorMove) {
+              callbacksRef.current.onCursorMove(cursorPosition);
+            }
+          } catch (e) {
+            console.error('[캔버스 웹소켓] 커서 위치 파싱 오류:', e);
+          }
+        });
       },
       onStompError: (frame) => {
         console.error('[캔버스 웹소켓] STOMP 오류:', frame);
@@ -344,10 +363,47 @@ export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) =
     }
   };
 
+  // 커서 위치 전송
+  const sendCursorPosition = (x, y, userName) => {
+    if (!clientRef.current || !clientRef.current.active || !clientRef.current.connected) {
+      return false;
+    }
+
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      return false;
+    }
+
+    try {
+      const cursorData = {
+        userId: currentUserId,
+        workspaceId: workspaceId,
+        x: x,
+        y: y,
+        userName: userName,
+        timestamp: Date.now()
+      };
+
+      clientRef.current.publish({
+        destination: '/app/cursor/move',
+        body: JSON.stringify(cursorData),
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('[캔버스 웹소켓] 커서 위치 전송 실패:', error);
+      return false;
+    }
+  };
+
   return {
     client: clientRef.current,
     isConnected: isConnected,
-    emitIdeaUpdate
+    emitIdeaUpdate,
+    sendCursorPosition
   };
 };
 

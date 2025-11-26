@@ -58,6 +58,9 @@ const InfiniteCanvasPage = () => {
   const [workspaceParticipants, setWorkspaceParticipants] = useState([]); // 워크스페이스 참가자 목록
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
+  const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName})
+  const cursorThrottleTimerRef = useRef(null); // 커서 위치 전송 throttle 타이머
+  const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -79,6 +82,64 @@ const InfiniteCanvasPage = () => {
   
   // 키보드 단축키 설정
   useKeyboard(setMode, textFields.isTextEditing);
+
+  // 뷰포트 내 마우스 감지
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      // 마우스가 뷰포트 내에 있는지 확인
+      const isInViewport = 
+        e.clientX >= 0 && 
+        e.clientX <= window.innerWidth && 
+        e.clientY >= 0 && 
+        e.clientY <= window.innerHeight;
+      
+      isMouseInViewportRef.current = isInViewport;
+      
+      // 뷰포트를 벗어나면 커서 전송 중지
+      if (!isInViewport && cursorThrottleTimerRef.current) {
+        clearTimeout(cursorThrottleTimerRef.current);
+        cursorThrottleTimerRef.current = null;
+      }
+    };
+
+    const handleMouseLeave = () => {
+      isMouseInViewportRef.current = false;
+      // 마우스가 뷰포트를 벗어나면 커서 전송 중지
+      if (cursorThrottleTimerRef.current) {
+        clearTimeout(cursorThrottleTimerRef.current);
+        cursorThrottleTimerRef.current = null;
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      if (cursorThrottleTimerRef.current) {
+        clearTimeout(cursorThrottleTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 오래된 커서 위치 정리 (5초 이상 업데이트되지 않은 커서 제거)
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      setRemoteCursors(prev => {
+        const newMap = new Map();
+        prev.forEach((cursor, userId) => {
+          if (now - cursor.timestamp < 5000) {
+            newMap.set(userId, cursor);
+          }
+        });
+        return newMap;
+      });
+    }, 1000);
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   // 페이지 로드 시 기존 메모와 채팅 불러오기
   useEffect(() => {
@@ -398,6 +459,19 @@ const InfiniteCanvasPage = () => {
 
   // 캔버스 웹소켓 연결 (실시간 협업용)
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
+    onCursorMove: (cursorPosition) => {
+      // 다른 사용자의 커서 위치 업데이트
+      setRemoteCursors(prev => {
+        const newMap = new Map(prev);
+        newMap.set(String(cursorPosition.userId), {
+          x: cursorPosition.x,
+          y: cursorPosition.y,
+          userName: cursorPosition.userName || workspaceUsers.get(String(cursorPosition.userId)) || '알 수 없음',
+          timestamp: cursorPosition.timestamp || Date.now()
+        });
+        return newMap;
+      });
+    },
     onParticipantJoined: async (data) => {
       console.log('참가자 참가:', data);
       
@@ -994,6 +1068,19 @@ const InfiniteCanvasPage = () => {
       canvas.updateAreaSelection(e);
     }
     // 클러스터 드래그는 CanvasArea에서 처리
+
+    // 커서 위치 공유 (뷰포트 내에 마우스가 있을 때만)
+    if (isMouseInViewportRef.current && canvasWebSocket.isConnected && currentUserId) {
+      // Throttle: 50-100ms 간격으로 제한
+      if (cursorThrottleTimerRef.current) {
+        clearTimeout(cursorThrottleTimerRef.current);
+      }
+
+      cursorThrottleTimerRef.current = setTimeout(() => {
+        const userName = workspaceUsers.get(String(currentUserId)) || localStorage.getItem('userName') || '사용자';
+        canvasWebSocket.sendCursorPosition(e.clientX, e.clientY, userName);
+      }, 80); // 80ms throttle
+    }
   };
 
   const handleCanvasMouseUp = (e) => {
@@ -2693,6 +2780,48 @@ const InfiniteCanvasPage = () => {
           backgroundPosition: `${canvas.canvasTransform.x}px ${canvas.canvasTransform.y}px`
         }}
       >
+        {/* 다른 사용자의 커서 표시 */}
+        {Array.from(remoteCursors.entries()).map(([userId, cursor]) => (
+          <div
+            key={userId}
+            className="remote-cursor"
+            style={{
+              position: 'fixed',
+              left: `${cursor.x}px`,
+              top: `${cursor.y}px`,
+              pointerEvents: 'none',
+              zIndex: 10000,
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <div
+              style={{
+                width: '20px',
+                height: '20px',
+                background: '#01CD15',
+                border: '2px solid white',
+                borderRadius: '50%',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                position: 'relative'
+              }}
+            />
+            <div
+              style={{
+                marginTop: '4px',
+                padding: '4px 8px',
+                background: '#01CD15',
+                color: 'white',
+                borderRadius: '4px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              {cursor.userName}
+            </div>
+          </div>
+        ))}
         <CanvasArea
           canvasAreas={canvas.canvasAreas}
           canvasTransform={canvas.canvasTransform}

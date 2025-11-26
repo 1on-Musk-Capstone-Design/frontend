@@ -574,6 +574,67 @@
   flex-shrink: 0;
 }
 
+.implementationDetails {
+  margin-top: 32px;
+  padding: 24px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.implementationTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.implementationTitle::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(135deg, #01CD15 0%, #1e7b0b 100%);
+  border-radius: 2px;
+}
+
+.implementationContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.implementationContent p {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #374151;
+  margin: 0;
+}
+
+.implementationContent strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.codeBlock {
+  margin: 12px 0;
+  padding: 16px;
+  background: #1f2937;
+  border-radius: 8px;
+  border-left: 4px solid #01CD15;
+  overflow-x: auto;
+}
+
+.codeBlock code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+  white-space: pre;
+}
+
 .showcaseVisual {
   position: relative;
 }
@@ -706,25 +767,101 @@
   position: absolute;
   bottom: 20px;
   right: 20px;
-  width: 200px;
+  width: 280px;
   background: white;
   border: 2px solid #01CD15;
   border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.chatHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #01CD15 0%, #1e7b0b 100%);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.chatHeader svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chatBadge {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chatMessages {
   padding: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fafafa;
 }
 
 .chatMessage {
-  padding: 8px 12px;
-  background: #f3f4f6;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: 0.875rem;
-  color: #111827;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  margin-bottom: 0;
 }
 
-.chatMessage:last-child {
-  margin-bottom: 0;
+.chatUserName {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #01CD15;
+  margin-bottom: 2px;
+}
+
+.chatText {
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: #111827;
+  line-height: 1.4;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chatInput {
+  padding: 12px 16px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+}
+
+.chatInput input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chatInput input:focus {
+  border-color: #01CD15;
+}
+
+.chatInput input::placeholder {
+  color: #9ca3af;
 }
 
 .arrowIndicator {
@@ -981,26 +1118,48 @@
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 16px;
   flex: 1;
   padding: 8px 0;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: center;
+}
+
+/* 프론트엔드: 3개 + 3개 두 줄 - 3번째 화살표(인덱스 2) 후 줄바꿈 */
+.cicdCard:first-child .pipelineArrow:nth-child(6) {
+  flex-basis: 100%;
+  width: 100%;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+/* 백엔드: 4개 + 3개 두 줄 - 4번째 화살표(인덱스 3) 후 줄바꿈 */
+.cicdCard:last-child .pipelineArrow:nth-child(8) {
+  flex-basis: 100%;
+  width: 100%;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  visibility: hidden;
 }
 
 .pipelineStep {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
+  gap: 10px;
+  padding: 20px 16px;
   background: white;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 2px solid #f3f4f6;
   transition: all 0.3s ease;
   flex-shrink: 0;
-  min-width: 140px;
-  max-width: 160px;
+  min-width: 160px;
+  max-width: 180px;
   text-align: center;
   position: relative;
 }
@@ -1042,10 +1201,10 @@
 }
 
 .stepIcon {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   background: linear-gradient(135deg, rgba(1, 205, 21, 0.1) 0%, rgba(1, 205, 21, 0.05) 100%);
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1054,8 +1213,8 @@
 }
 
 .stepIcon svg {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
 }
 
 .stepContent {
@@ -1067,15 +1226,15 @@
 }
 
 .stepTitle {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #111827;
-  margin: 0 0 4px 0;
+  margin: 0 0 6px 0;
   line-height: 1.3;
 }
 
 .stepDescription {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: #6b7280;
   margin: 0;
   line-height: 1.4;
@@ -1097,7 +1256,7 @@
   justify-content: center;
   color: #9ca3af;
   flex-shrink: 0;
-  margin: 0 4px;
+  margin: 0 8px;
   transition: all 0.3s ease;
 }
 
