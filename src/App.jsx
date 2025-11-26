@@ -6,6 +6,7 @@ import AuthPage from './pages/auth/authpage';
 import CallbackPage from './pages/auth/components/CallbackPage';
 import InviteAcceptPage from './pages/invite/InviteAcceptPage';
 import SettingsPage from './pages/SettingsPage/SettingsPage';
+import LandingPage from './pages/LandingPage/LandingPage';
 import './index.css';
 import Login from './pages/login/Login';
 
@@ -17,6 +18,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 랜딩 페이지 */}
+        <Route path="/landing" element={<LandingPage />} />
         {/* 초대 수락 페이지 - 경로 파라미터와 쿼리 파라미터 모두 지원 */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="/invite" element={<InviteAcceptPage />} />
