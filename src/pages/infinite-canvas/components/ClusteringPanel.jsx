@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_CONSTANTS } from '../constants';
+import Modal from '../../../components/Modal/Modal';
 
 const ClusteringPanel = ({ 
   onClusteringParamsChange, 
@@ -18,6 +19,7 @@ const ClusteringPanel = ({
   const [isLoading, setIsLoading] = useState(false);
   const [clusteringResult, setClusteringResult] = useState(null);
   const [error, setError] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -82,8 +84,33 @@ const ClusteringPanel = ({
     return descriptions[linkage] || '';
   };
 
+  // 클러스터링 실행 확인 모달 표시
+  const handleRunClusteringClick = () => {
+    // 텍스트 필드가 없으면 실행 불가
+    if (!texts || texts.length === 0) {
+      setError('클러스터링할 텍스트가 없습니다.');
+      return;
+    }
+
+    // 텍스트 추출 (빈 텍스트 제외) - ID와 함께 저장
+    const textData = texts
+      .map(text => ({ id: text.id, text: text.text }))
+      .filter(item => item.text && item.text.trim().length > 0);
+
+    if (textData.length === 0) {
+      setError('클러스터링할 텍스트가 없습니다.');
+      return;
+    }
+
+    // 확인 모달 표시
+    setShowConfirmModal(true);
+  };
+
   // 클러스터링 실행
   const handleRunClustering = async () => {
+    // 모달 닫기
+    setShowConfirmModal(false);
+
     // 텍스트 필드가 없으면 실행 불가
     if (!texts || texts.length === 0) {
       setError('클러스터링할 텍스트가 없습니다.');
@@ -377,7 +404,7 @@ const ClusteringPanel = ({
           <div className="clusteringActionArea">
             <button 
               className="clusteringRunButton" 
-              onClick={handleRunClustering}
+              onClick={handleRunClusteringClick}
               disabled={isLoading || !texts || texts.length === 0}
               style={{
                 opacity: (isLoading || !texts || texts.length === 0) ? 0.5 : 1,
@@ -461,6 +488,81 @@ const ClusteringPanel = ({
           </div>
         </div>
       </div>
+
+      {/* 클러스터링 실행 확인 모달 */}
+      <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)}>
+        <div style={{ padding: '24px', maxWidth: '500px' }}>
+          <h2 style={{ 
+            margin: '0 0 16px 0', 
+            fontSize: '20px', 
+            fontWeight: 600,
+            color: '#1a1a1a'
+          }}>
+            클러스터링 실행 확인
+          </h2>
+          <p style={{ 
+            margin: '0 0 24px 0', 
+            fontSize: '14px', 
+            lineHeight: '1.6',
+            color: '#666'
+          }}>
+            클러스터링을 실행하면 현재 작성 중인 모든 아이디어가 중앙에 모여 
+            유사한 내용끼리 그룹으로 묶입니다.
+          </p>
+          <p style={{ 
+            margin: '0 0 24px 0', 
+            fontSize: '14px', 
+            lineHeight: '1.6',
+            color: '#666',
+            fontWeight: 500
+          }}>
+            이 작업은 참여 중인 다른 사용자들과 공유되며, 모든 사용자의 화면에 동일하게 표시됩니다.
+            계속하시겠습니까?
+          </p>
+          <div style={{ 
+            display: 'flex', 
+            gap: '12px', 
+            justifyContent: 'flex-end' 
+          }}>
+            <button
+              onClick={() => setShowConfirmModal(false)}
+              style={{
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#666',
+                backgroundColor: '#f0f0f0',
+                border: '1px solid #d0d0d0',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#e0e0e0'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+            >
+              취소
+            </button>
+            <button
+              onClick={handleRunClustering}
+              style={{
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#fff',
+                backgroundColor: 'var(--theme-primary)',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--theme-primary-hover)'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--theme-primary)'}
+            >
+              실행
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

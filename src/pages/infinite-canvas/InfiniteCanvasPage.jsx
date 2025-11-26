@@ -1957,12 +1957,36 @@ const InfiniteCanvasPage = () => {
       textStates: originalTextStates
     });
     
-    // 텍스트 위치 업데이트
+    // 텍스트 위치 업데이트 및 웹소켓 브로드캐스트
     textUpdates.forEach(update => {
-      textFields.updateText(update.id, { x: update.x, y: update.y });
-      // 클러스터링으로 이동한 메모의 위치에 대해 캔버스 확장 체크
-      checkAndExpandCanvas(update.x, update.y);
+      const textData = textFields.texts.find(t => t.id === update.id);
+      if (textData) {
+        // 로컬 상태 업데이트
+        textFields.updateText(update.id, { x: update.x, y: update.y });
+        
+        // 웹소켓으로 브로드캐스트 (다른 사용자에게도 클러스터링 결과 전달)
+        if (workspaceId && canvasWebSocket.emitIdeaUpdate) {
+          const serverId = Array.from(savedIdeaIds.entries())
+            .find(([localId]) => localId === update.id)?.[1];
+          
+          if (serverId) {
+            canvasWebSocket.emitIdeaUpdate({
+              id: serverId,
+              positionX: update.x,
+              positionY: update.y,
+              action: 'updated'
+            });
+          }
+        }
+        
+        // 클러스터링으로 이동한 메모의 위치에 대해 캔버스 확장 체크
+        checkAndExpandCanvas(update.x, update.y);
+      }
     });
+    
+    // 클러스터 박스 정보도 웹소켓으로 브로드캐스트 (추후 구현 가능)
+    // 현재는 텍스트 위치 업데이트만 브로드캐스트되며, 
+    // 각 클라이언트에서 클러스터링 결과를 받아 동일하게 처리하도록 구현 가능
     
     console.log('클러스터링 결과로 텍스트 위치 조정 완료', {
       clusterCount,

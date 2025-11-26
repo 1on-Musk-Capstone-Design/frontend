@@ -248,9 +248,10 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                   pointerEvents: 'none',
                   zIndex: 1, // 텍스트 아래에 배치
                   boxSizing: 'border-box',
+                  // 크기 변경만 애니메이션, 위치는 즉시 업데이트 (왼쪽/위쪽 확장 시 반대편 이동 방지)
                   transition: isDragging 
                     ? 'none' 
-                    : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                    : 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
               />
             )}
@@ -270,10 +271,10 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                 zIndex: 2, // 텍스트 아래에 배치
                 boxSizing: 'border-box',
                 backgroundColor: 'transparent',
-                // 클러스터 도형도 애니메이션 적용
+                // 크기 변경만 애니메이션, 위치는 즉시 업데이트 (왼쪽/위쪽 확장 시 반대편 이동 방지)
                 transition: isDragging 
                   ? 'none' 
-                  : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                  : 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             />
             
@@ -303,10 +304,8 @@ const CanvasArea = ({ canvasAreas, canvasTransform, texts, updateText, deleteTex
                   boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)',
                   minWidth: '120px',
                   cursor: mode === 'move' ? 'move' : 'default',
-                  // 대표 텍스트도 애니메이션 적용
-                  transition: isDragging 
-                    ? 'none' 
-                    : 'left 0.6s cubic-bezier(0.4, 0, 0.2, 1), top 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                  // 대표 텍스트 위치는 즉시 업데이트 (박스 크기 변경에 따라 자연스럽게 이동)
+                  transition: isDragging ? 'none' : 'none'
                 }}
                 title={representativeText}
                 onMouseDown={(e) => {

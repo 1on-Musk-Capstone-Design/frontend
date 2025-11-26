@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 10003; /* 위치 표시 공(10002)보다 위에 표시 */
 }
 
 .content {
