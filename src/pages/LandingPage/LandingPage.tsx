@@ -892,9 +892,184 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Development Schedule Section */}
       <section 
         ref={(el) => (sectionsRef.current[7] = el)}
+        className={styles.scheduleSection}
+      >
+        <div className={styles.container}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>개발 일정</h2>
+            <p className={styles.sectionDescription}>
+              프로젝트 진행 상황을 확인하세요
+            </p>
+          </div>
+          <div className={styles.scheduleBox}>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>9월 1째주</div>
+              <div className={styles.scheduleContent}>프로젝트 기획 및 설계</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>9월 2째주</div>
+              <div className={styles.scheduleContent}>기본 UI/UX 설계</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>9월 3째주</div>
+              <div className={styles.scheduleContent}>프론트엔드 기본 구조 구축</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>9월 4째주</div>
+              <div className={styles.scheduleContent}>백엔드 API 설계</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>10월 1째주</div>
+              <div className={styles.scheduleContent}>무한 캔버스 기능 개발</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>10월 2째주</div>
+              <div className={styles.scheduleContent}>AI 클러스터링 모델 개발</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>10월 3째주</div>
+              <div className={styles.scheduleContent}>실시간 협업 기능 개발</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>10월 4째주</div>
+              <div className={styles.scheduleContent}>통합 테스트 및 버그 수정</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>11월 1째주</div>
+              <div className={styles.scheduleContent}>성능 최적화</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>11월 2째주</div>
+              <div className={styles.scheduleContent}>배포 준비 및 문서화</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>11월 3째주</div>
+              <div className={styles.scheduleContent}>서버 결제, api 배포. db구축</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>11월 4째주</div>
+              <div className={styles.scheduleContent}>api 프론트 연결, CI/CD 구축 준비</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.completed}`}>
+              <div className={styles.scheduleWeek}>11월 5째주</div>
+              <div className={styles.scheduleContent}>api 연결 완료. CI/CD 구축 완료</div>
+            </div>
+            <div className={`${styles.scheduleItem} ${styles.current}`}>
+              <div className={styles.scheduleWeek}>12월 1째주</div>
+              <div className={styles.scheduleContent}>내부 테스트 기간.</div>
+            </div>
+            <div className={styles.scheduleItem}>
+              <div className={styles.scheduleWeek}>12월 2째주</div>
+              <div className={styles.scheduleContent}>내부 테스트 후 오류 수정</div>
+            </div>
+            <div className={styles.scheduleItem}>
+              <div className={styles.scheduleWeek}>12월 3째주</div>
+              <div className={styles.scheduleContent}>최종 시연 영상 제작 및 발표 준비</div>
+            </div>
+            <div className={styles.scheduleItem}>
+              <div className={styles.scheduleWeek}>12월 4째주</div>
+              <div className={styles.scheduleContent}>최종 발표.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Team Roles Section */}
+      <section 
+        ref={(el) => (sectionsRef.current[8] = el)}
+        className={styles.teamRolesSection}
+      >
+        <div className={styles.container}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>팀 구성</h2>
+            <p className={styles.sectionDescription}>
+              프로젝트를 함께 만들어가는 팀원들입니다
+            </p>
+          </div>
+          <div className={styles.teamRolesBox}>
+            <div className={styles.teamRoleSection}>
+              <div className={styles.teamRoleTitle}>프론트엔드</div>
+              <div className={styles.teamMembersRow}>
+                <div className={styles.teamMemberCard}>
+                  <div className={styles.teamMemberName}>
+                    김민재
+                    <span className={styles.teamLeaderBadge}>(팀장)</span>
+                  </div>
+                  <div className={styles.teamMemberRole}>프론트엔드 개발</div>
+                  <div className={styles.teamMemberTasks}>
+                    <div className={styles.taskItem}>• 무한 캔버스 개발</div>
+                    <div className={styles.taskItem}>• AI 클러스터링 개발</div>
+                    <div className={styles.taskItem}>• 웹소켓 및 도메인 연결</div>
+                    <div className={styles.taskItem}>• CI/CD 구축</div>
+                  </div>
+                </div>
+                <div className={styles.teamMemberCard}>
+                  <div className={styles.teamMemberName}>김영서</div>
+                  <div className={styles.teamMemberRole}>프론트엔드 개발</div>
+                  <div className={styles.teamMemberTasks}>
+                    <div className={styles.taskItem}>• 무한 캔버스 개발</div>
+                    <div className={styles.taskItem}>• 메인 페이지 UI 개발</div>
+                    <div className={styles.taskItem}>• 구글 프로필 연결</div>
+                    <div className={styles.taskItem}>• CI/CD 구축</div>
+                  </div>
+                </div>
+                <div className={styles.teamMemberCard}>
+                  <div className={styles.teamMemberName}>박은서</div>
+                  <div className={styles.teamMemberRole}>프론트엔드 개발</div>
+                  <div className={styles.teamMemberTasks}>
+                    <div className={styles.taskItem}>• AI 클러스터링 개발</div>
+                    <div className={styles.taskItem}>• Google 로그인 연결</div>
+                    <div className={styles.taskItem}>• 클러스터링 UI 개발</div>
+                    <div className={styles.taskItem}>• CI/CD 구축</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className={styles.teamRoleSection}>
+              <div className={styles.teamRoleTitle}>백엔드</div>
+              <div className={styles.teamMembersRow}>
+                <div className={styles.teamMemberCard}>
+                  <div className={styles.teamMemberName}>김수빈</div>
+                  <div className={styles.teamMemberRole}>백엔드 개발</div>
+                  <div className={styles.teamMemberTasks}>
+                    <div className={styles.taskItem}>• 채팅 웹소켓 개발</div>
+                    <div className={styles.taskItem}>• 백엔드 배포</div>
+                    <div className={styles.taskItem}>• 백엔드 트러블슈팅 담당</div>
+                    <div className={styles.taskItem}>• CI/CD 구축</div>
+                  </div>
+                </div>
+                <div className={styles.teamMemberCard}>
+                  <div className={styles.teamMemberName}>이현준</div>
+                  <div className={styles.teamMemberRole}>백엔드 개발</div>
+                  <div className={styles.teamMemberTasks}>
+                    <div className={styles.taskItem}>• 워크스페이스 웹소켓 개발</div>
+                    <div className={styles.taskItem}>• 워크스페이스 API 개발</div>
+                    <div className={styles.taskItem}>• 백엔드 배포</div>
+                    <div className={styles.taskItem}>• CI/CD 구축</div>
+                  </div>
+                </div>
+                <div className={styles.teamMemberCard}>
+                  <div className={styles.teamMemberName}>정양효</div>
+                  <div className={styles.teamMemberRole}>백엔드 개발</div>
+                  <div className={styles.teamMemberTasks}>
+                    <div className={styles.taskItem}>• 채팅 API 개발</div>
+                    <div className={styles.taskItem}>• 초대 URL 생성 기능 개발</div>
+                    <div className={styles.taskItem}>• 구글 로그인 API 개발</div>
+                    <div className={styles.taskItem}>• CI/CD 구축</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section 
+        ref={(el) => (sectionsRef.current[9] = el)}
         className={styles.ctaSection}
       >
         <div className={styles.container}>
@@ -966,7 +1141,7 @@ const LandingPage = () => {
 
       {/* Navigation Dots */}
       <div className={styles.navDots}>
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((index) => (
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((index) => (
           <button
             key={index}
             className={`${styles.navDot} ${currentSection === index ? styles.active : ''}`}

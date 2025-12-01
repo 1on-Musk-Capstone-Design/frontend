@@ -1483,6 +1483,159 @@
   padding-left: 40px;
 }
 
+/* Development Schedule Section */
+.scheduleSection {
+  padding: 120px 40px;
+  background: white;
+}
+
+.scheduleBox {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.scheduleItem {
+  padding: 20px 24px;
+  background: #f9fafb;
+  border-left: 4px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.scheduleItem.completed {
+  opacity: 0.5;
+  background: #f3f4f6;
+}
+
+.scheduleItem.current {
+  border-left-color: #01CD15;
+  background: rgba(1, 205, 21, 0.05);
+  box-shadow: 0 4px 12px rgba(1, 205, 21, 0.1);
+}
+
+.scheduleWeek {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.scheduleItem.completed .scheduleWeek {
+  color: #6b7280;
+}
+
+.scheduleItem.current .scheduleWeek {
+  color: #01CD15;
+}
+
+.scheduleContent {
+  font-size: 0.9375rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.scheduleItem.completed .scheduleContent {
+  color: #9ca3af;
+}
+
+/* Team Roles Section */
+.teamRolesSection {
+  padding: 120px 40px;
+  background: #f9fafb;
+}
+
+.teamRolesBox {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+}
+
+.teamRoleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.teamRoleTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #01CD15;
+}
+
+.teamMembersRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+}
+
+.teamMemberCard {
+  padding: 32px;
+  background: white;
+  border-radius: 16px;
+  border: 2px solid #e5e7eb;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.teamMemberCard:hover {
+  border-color: #01CD15;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(1, 205, 21, 0.15);
+}
+
+.teamMemberName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.teamLeaderBadge {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #01CD15;
+  background: rgba(1, 205, 21, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.teamMemberRole {
+  font-size: 1rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.teamMemberTasks {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.taskItem {
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.8;
+  margin-bottom: 4px;
+}
+
 /* CTA Section */
 .ctaSection {
   padding: 120px 40px;
