@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Grid, List as ListIcon, Search } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import ProjectList from './components/ProjectList/ProjectList'
 import Sidebar from './components/Sidebar/Sidebar'
 import styles from './MainPage.module.css'
@@ -21,6 +22,7 @@ interface WorkspaceListItem {
 }
 
 export default function MainPage(): JSX.Element {
+  const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState<NewProjectForm>({ name: '', description: '' })
   const [projects, setProjects] = useState<Project[]>([])
@@ -46,10 +48,29 @@ export default function MainPage(): JSX.Element {
   // 탭 상태: all | mine | shared
   const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'shared'>('all')
 
+  // localStorage에서 즐겨찾기 로드
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('favorites')
+    if (savedFavorites) {
+      try {
+        const favoriteIds = JSON.parse(savedFavorites)
+        setFavorites(new Set(favoriteIds))
+      } catch (e) {
+        console.warn('즐겨찾기 로드 실패:', e)
+      }
+    }
+  }, [])
+
   const toggleFavorite = (id: string) => {
     setFavorites(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      // localStorage에 저장
+      localStorage.setItem('favorites', JSON.stringify(Array.from(next)))
       return next
     })
   }
@@ -186,6 +207,15 @@ export default function MainPage(): JSX.Element {
               }
             }
 
+            // localStorage에서 삭제된 프로젝트 목록 동기화
+            let isDeleted = false
+            try {
+              const deleted = JSON.parse(localStorage.getItem('deletedProjects') || '[]') as string[]
+              isDeleted = deleted.includes(String(workspace.workspaceId))
+            } catch {
+              // ignore
+            }
+
             return {
               id: String(workspace.workspaceId),
               title: workspace.name,
@@ -193,7 +223,8 @@ export default function MainPage(): JSX.Element {
               lastModified: '최근 수정됨',
               ownerName,
               ownerProfileImage,
-              isOwner
+              isOwner,
+              isDeleted
             }
           })
         )
@@ -543,23 +574,47 @@ export default function MainPage(): JSX.Element {
     setDeleteError(null)
 
     try {
-      const accessToken = localStorage.getItem('accessToken')
-      if (!accessToken) {
-        throw new Error('로그인이 필요합니다.')
-      }
-
-      await axios.delete(
-        `${API_BASE_URL}/v1/workspaces/${projectToDelete.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
+      // 실제 삭제 API 호출을 제거하고 로컬 Soft Delete로 전환
+      // 프로젝트를 휴지통으로 이동 (Soft Delete)
+      setProjects((s) => {
+        const next = s.map((p) => p.id === projectToDelete.id ? { ...p, isDeleted: true } : p)
+        // localStorage에도 저장하여 TrashPage와 동기화
+        try {
+          const deleted = JSON.parse(localStorage.getItem('deletedProjects') || '[]') as string[]
+          if (!deleted.includes(projectToDelete.id)) {
+            deleted.push(projectToDelete.id)
+            localStorage.setItem('deletedProjects', JSON.stringify(deleted))
           }
+        } catch {
+          localStorage.setItem('deletedProjects', JSON.stringify([projectToDelete.id]))
         }
-      )
-
-      // 프로젝트 목록에서 제거
-      setProjects((s) => s.filter((p) => p.id !== projectToDelete.id))
+        // 삭제 스냅샷 저장 (API에서 사라져도 휴지통에 표시하기 위해)
+        try {
+          const snapshots = JSON.parse(localStorage.getItem('deletedProjectSnapshots') || '{}') as Record<string, any>
+          const target = s.find((p) => p.id === projectToDelete.id)
+          if (target) {
+            snapshots[projectToDelete.id] = {
+              id: target.id,
+              title: target.title,
+              thumbnailUrl: target.thumbnailUrl || '',
+              lastModified: target.lastModified || '',
+              ownerName: target.ownerName,
+              ownerProfileImage: target.ownerProfileImage,
+              isOwner: target.isOwner,
+            }
+            localStorage.setItem('deletedProjectSnapshots', JSON.stringify(snapshots))
+          }
+        } catch {
+          // ignore
+        }
+        return next
+      })
       closeDeleteModal()
+      
+      // 휴지통 페이지로 이동
+      setTimeout(() => {
+        navigate('/trash')
+      }, 300)
     } catch (err: any) {
       console.error('워크스페이스 삭제 실패', err)
       console.error('에러 상세 정보:', {
@@ -603,7 +658,7 @@ export default function MainPage(): JSX.Element {
 
   // 탭 + 검색 필터 적용
   const filteredProjects = useMemo(() => {
-    let arr = projects
+    let arr = projects.filter((p) => !p.isDeleted) // 삭제되지 않은 프로젝트만 표시
     if (activeTab === 'mine') {
       arr = arr.filter(p => p.isOwner)
     } else if (activeTab === 'shared') {
@@ -869,8 +924,8 @@ export default function MainPage(): JSX.Element {
               <p style={{ margin: 0, color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
                 정말로 <strong style={{ color: '#111827' }}>"{projectToDelete?.title}"</strong> 프로젝트를 삭제하시겠습니까?
               </p>
-              <p style={{ margin: '8px 0 0 0', color: '#dc2626', fontSize: '0.875rem' }}>
-                ⚠️ 이 작업은 되돌릴 수 없으며, 프로젝트 내의 모든 메모도 함께 삭제됩니다.
+              <p style={{ margin: '8px 0 0 0', color: '#f59e0b', fontSize: '0.875rem' }}>
+                💡 삭제된 프로젝트는 휴지통에서 복구할 수 있습니다.
               </p>
             </div>
 

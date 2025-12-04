@@ -1,0 +1,296 @@
+.pageRoot {
+  min-height: 100vh;
+  width: 100vw;
+  background-color: #ffffff;
+  color: #111827;
+  font-family: inherit;
+}
+
+.main {
+  margin-left: 250px;
+  padding: 32px 40px 48px 40px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-color: #ffffff;
+}
+
+/* 헤더 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+
+.title {
+  font-size: 2.15rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.5px;
+  color: #111827;
+}
+
+.subtitle {
+  margin: 6px 0 0 0;
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* 알림 리스트 */
+.notificationList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+/* 알림 카드 - 메인페이지 스타일과 동일 */
+.notificationCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  transition: all 0.18s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.notificationCard:hover {
+  background: #f9fafb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: #d1d5db;
+}
+
+/* 읽지 않음 상태 */
+.notificationCard.unread {
+  background: #f0f9ff;
+  border-color: #bfdbfe;
+}
+
+.notificationCard.unread:hover {
+  background: #e0f2fe;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+
+
+/* 프로필 아바타 */
+.avatarContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 콘텐츠 영역 */
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 메시지 헤더 (메시지 + 뱃지) */
+.messageHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.message {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+}
+
+/* 뱃지 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badge.enter {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #d1fae5;
+}
+
+.badge.leave {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+/* 프로젝트명 */
+.projectName {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.folderIcon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+/* 시간 컨테이너 */
+.timeContainer {
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 50px;
+}
+
+.time {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+/* 빈 상태 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 32px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.emptyState p {
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .main {
+    margin-left: 0;
+    padding: 20px 16px 32px 16px;
+  }
+
+  .header {
+    margin-bottom: 24px;
+  }
+
+  .title {
+    font-size: 1.75rem;
+  }
+
+  .notificationCard {
+    padding: 12px;
+    gap: 12px;
+  }
+
+
+
+  .avatarContainer {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 0.8rem;
+  }
+
+  .message {
+    font-size: 0.9rem;
+  }
+
+  .badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+  }
+
+  .projectName {
+    font-size: 0.8rem;
+  }
+
+  .folderIcon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .time {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 16px 12px 24px 12px;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .notificationCard {
+    padding: 12px;
+    gap: 8px;
+  }
+
+
+
+  .avatarContainer {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 0.75rem;
+  }
+
+  .message {
+    font-size: 0.85rem;
+  }
+
+  .badge {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+  }
+
+  .projectName {
+    font-size: 0.75rem;
+  }
+
+  .folderIcon {
+    width: 11px;
+    height: 11px;
+  }
+
+  .time {
+    font-size: 0.75rem;
+  }
+}

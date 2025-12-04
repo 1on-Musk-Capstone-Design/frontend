@@ -1,4 +1,3 @@
-import React from 'react'
 import { Star, UserPlus, Trash } from 'lucide-react'
 import { Project } from '../../types'
 

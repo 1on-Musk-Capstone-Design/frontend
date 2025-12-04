@@ -1,4 +1,3 @@
-import React from 'react'
 import ProjectCard from '../ProjectCard/ProjectCard'
 import { Project } from '../../types'
 import { Star } from 'lucide-react'
