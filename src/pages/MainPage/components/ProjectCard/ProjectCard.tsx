@@ -16,12 +16,14 @@ export interface ProjectCardProps {
   onInvite?: (id: string) => void
   isFavorite?: boolean
   onToggleFavorite?: (id: string) => void
+  isTrash?: boolean
+  onRestore?: (id: string) => void
+  onPermanentDelete?: (id: string) => void
 }
 
-export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite }: ProjectCardProps) {
+export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite, isTrash = false, onRestore, onPermanentDelete }: ProjectCardProps) {
   const [imageError, setImageError] = React.useState(false)
   const hasValidImage = ownerProfileImage && ownerProfileImage.trim() !== '' && !imageError
-
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -47,6 +49,18 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
     }
   }
 
+  const handleRestoreClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onRestore) onRestore(id)
+  }
+
+  const handlePermanentDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onPermanentDelete) onPermanentDelete(id)
+  }
+
   return (
     <div className={styles.cardWrapper}>
       {/* Favorite star overlay */}
@@ -63,7 +77,7 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
       )}
       <Link to={`/canvas/${id}`} className={styles.linkReset} aria-label={`열기 ${title}`}>
         <article className={styles.card}>
-          <div className={styles.thumb}>
+          <div className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`}>
             {thumbnailUrl ? (
               // eslint-disable-next-line jsx-a11y/img-redundant-alt
               <img src={thumbnailUrl} alt={`${title} 썸네일`} className={styles.img} />
@@ -104,73 +118,112 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
         </article>
       </Link>
       <div className={styles.actionButtons}>
-        {onInvite && isOwner && (
-          <button
-            className={styles.inviteButton}
-            onClick={handleInviteClick}
-            aria-label={`${title} 초대`}
-            type="button"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M8 3.33333V12.6667M3.33333 8H12.6667"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
-        {isOwner && onDelete && (
-          <button
-            className={styles.deleteButton}
-            onClick={handleDeleteClick}
-            aria-label={`${title} 삭제`}
-            type="button"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M2 4H14M12.6667 4V13.3333C12.6667 14 12 14.6667 11.3333 14.6667H4.66667C4 14.6667 3.33333 14 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2 6 1.33333 6.66667 1.33333H9.33333C10 1.33333 10.6667 2 10.6667 2.66667V4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M6.66667 7.33333V11.3333"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9.33333 7.33333V11.3333"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
-        {!isOwner && onLeave && (
-          <button
-            className={styles.leaveButton}
-            onClick={handleLeaveClick}
-            aria-label={`${title} 나가기`}
-            type="button"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M10.6667 12L14 8M14 8L10.6667 4M14 8H2"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+        {isTrash ? (
+          <>
+            {onRestore && (
+              <button
+                className={styles.restoreButton}
+                onClick={handleRestoreClick}
+                aria-label={`${title} 복구`}
+                type="button"
+                title="복구"
+              >
+                {/* RotateCcw icon */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 5V1L7 6l5 5V7c3.86 0 7 3.14 7 7 0 1.11-.27 2.16-.75 3.08l1.46 1.46A8.96 8.96 0 0 0 21 14c0-4.97-4.03-9-9-9z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                </svg>
+              </button>
+            )}
+            {onPermanentDelete && (
+              <button
+                className={styles.permanentDeleteButton}
+                onClick={handlePermanentDeleteClick}
+                aria-label={`${title} 영구 삭제`}
+                type="button"
+                title="영구 삭제"
+              >
+                {/* Trash2 icon */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 6h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M7 6v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M10 11v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M14 11v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            {onInvite && isOwner && (
+              <button
+                className={styles.inviteButton}
+                onClick={handleInviteClick}
+                aria-label={`${title} 초대`}
+                type="button"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M8 3.33333V12.6667M3.33333 8H12.6667"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+            {isOwner && onDelete && (
+              <button
+                className={styles.deleteButton}
+                onClick={handleDeleteClick}
+                aria-label={`${title} 삭제`}
+                type="button"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M2 4H14M12.6667 4V13.3333C12.6667 14 12 14.6667 11.3333 14.6667H4.66667C4 14.6667 3.33333 14 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2 6 1.33333 6.66667 1.33333H9.33333C10 1.33333 10.6667 2 10.6667 2.66667V4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M6.66667 7.33333V11.3333"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9.33333 7.33333V11.3333"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+            {!isOwner && onLeave && (
+              <button
+                className={styles.leaveButton}
+                onClick={handleLeaveClick}
+                aria-label={`${title} 나가기`}
+                type="button"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M10.6667 12L14 8M14 8L10.6667 4M14 8H2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
