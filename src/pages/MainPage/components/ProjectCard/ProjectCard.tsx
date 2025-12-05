@@ -22,8 +22,33 @@ export interface ProjectCardProps {
 }
 
 export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite, isTrash = false, onRestore, onPermanentDelete }: ProjectCardProps) {
+  // Stable light pastel color via high-range RGB (based on id + title)
+  const getPastelRGB = (seed: string) => {
+    let h1 = 0, h2 = 0, h3 = 0
+    for (let i = 0; i < seed.length; i++) {
+      const c = seed.charCodeAt(i)
+      h1 = (h1 * 31 + c) | 0
+      h2 = (h2 * 33 + c) | 0
+      h3 = (h3 * 37 + c) | 0
+    }
+    const clamp = (n: number) => {
+      const min = 200, max = 245 // high RGB for lighter pastels
+      const x = Math.abs(n) % (max - min + 1)
+      return min + x
+    }
+    const r = clamp(h1)
+    const g = clamp(h2)
+    const b = clamp(h3)
+    return `rgb(${r}, ${g}, ${b})`
+  }
+
   const [imageError, setImageError] = React.useState(false)
-  const hasValidImage = ownerProfileImage && ownerProfileImage.trim() !== '' && !imageError
+  const localPhoto = typeof window !== 'undefined' ? localStorage.getItem('userPhotoURL') || '' : ''
+  const localName = typeof window !== 'undefined' ? localStorage.getItem('userName') || '' : ''
+  const effectiveOwnerImage = isOwner ? (localPhoto || ownerProfileImage || '') : (ownerProfileImage || '')
+  const hasValidImage = effectiveOwnerImage && effectiveOwnerImage.trim() !== '' && !imageError
+  const hasThumbImage = !!(thumbnailUrl && thumbnailUrl.trim() !== '')
+  const pastelBg = getPastelRGB(`${id}-${title}`)
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -77,13 +102,11 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
       )}
       <Link to={`/canvas/${id}`} className={styles.linkReset} aria-label={`열기 ${title}`}>
         <article className={styles.card}>
-          <div className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`}>
-            {thumbnailUrl ? (
+          <div className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`} style={hasThumbImage ? undefined : { background: pastelBg }}>
+            {hasThumbImage ? (
               // eslint-disable-next-line jsx-a11y/img-redundant-alt
               <img src={thumbnailUrl} alt={`${title} 썸네일`} className={styles.img} />
-            ) : (
-              <div className={styles.placeholder}>썸네일</div>
-            )}
+            ) : null}
           </div>
 
           <div className={styles.body}>
@@ -95,8 +118,8 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
                   <div className={styles.ownerBadgeContainer}>
                     {hasValidImage ? (
                       <img 
-                        src={ownerProfileImage} 
-                        alt={ownerName} 
+                        src={effectiveOwnerImage} 
+                        alt={isOwner ? (localName || ownerName || '내 프로젝트') : (ownerName || '소유자')} 
                         className={styles.ownerProfileImage}
                         onError={() => {
                           setImageError(true)
@@ -104,11 +127,11 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
                       />
                     ) : (
                       <div className={styles.ownerProfilePlaceholder}>
-                        {ownerName.charAt(0).toUpperCase()}
+                        {(isOwner ? (localName || ownerName || 'N') : (ownerName || 'N')).charAt(0).toUpperCase()}
                       </div>
                     )}
                     <span className={styles.ownerText}>
-                      {isOwner ? '내 프로젝트' : ownerName}
+                      {isOwner ? (localName || '내 프로젝트') : ownerName}
                     </span>
                   </div>
                 </div>

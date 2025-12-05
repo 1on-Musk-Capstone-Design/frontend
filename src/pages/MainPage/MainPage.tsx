@@ -216,11 +216,38 @@ export default function MainPage(): JSX.Element {
               // ignore
             }
 
+            // 생성일 포맷팅: /v1/workspaces/{id}에서 createdAt 사용
+            let createdAtStr: string = new Date().toLocaleDateString()
+            try {
+              const wsRes = await axios.get(
+                `${API_BASE_URL}/v1/workspaces/${workspace.workspaceId}`,
+                {
+                  headers: { 'Authorization': `Bearer ${accessToken}` }
+                }
+              )
+              const createdSrc = (wsRes.data as any).createdAt || (wsRes.data as any).created_at
+              if (createdSrc) {
+                const d = new Date(createdSrc)
+                createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
+              }
+            } catch (e) {
+              // 세부 조회 실패 시 목록의 createdAt 또는 오늘 날짜로 대체
+              const fallback = (workspace as any).createdAt || (workspace as any).created_at
+              if (fallback) {
+                try {
+                  const d = new Date(fallback)
+                  createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
+                } catch {
+                  createdAtStr = new Date().toLocaleDateString()
+                }
+              }
+            }
+
             return {
               id: String(workspace.workspaceId),
               title: workspace.name,
               thumbnailUrl: '',
-              lastModified: '최근 수정됨',
+              lastModified: createdAtStr,
               ownerName,
               ownerProfileImage,
               isOwner,
@@ -322,12 +349,31 @@ export default function MainPage(): JSX.Element {
         }
       )
 
+      // 생성된 워크스페이스의 생성일을 상세 API로 조회
+      let createdAtStr = new Date().toLocaleDateString()
+      try {
+        const accessToken2 = localStorage.getItem('accessToken')
+        if (accessToken2) {
+          const wsRes = await axios.get(
+            `${API_BASE_URL}/v1/workspaces/${res.data.workspaceId}`,
+            { headers: { 'Authorization': `Bearer ${accessToken2}` } }
+          )
+          const createdSrc = (wsRes.data as any).createdAt || (wsRes.data as any).created_at
+          if (createdSrc) {
+            const d = new Date(createdSrc)
+            createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
+          }
+        }
+      } catch {
+        // ignore and keep today
+      }
+
       // 생성된 워크스페이스를 Project 타입으로 변환
       const newProject: Project = {
         id: String(res.data.workspaceId),
         title: res.data.name,
         thumbnailUrl: '',
-        lastModified: '방금 수정됨',
+        lastModified: createdAtStr,
       }
 
       setProjects((s) => [newProject, ...s])

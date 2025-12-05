@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { User, AlignLeft, Mail, Bell, Shield } from "lucide-react";
 import Sidebar from '../MainPage/components/Sidebar/Sidebar';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function SettingsPage() {
   const [nickname, setNickname] = useState("");
@@ -11,6 +13,7 @@ export default function SettingsPage() {
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [emailNotif, setEmailNotif] = useState(true);
   const [marketing, setMarketing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
     <div
@@ -36,16 +39,36 @@ export default function SettingsPage() {
   // 비동기 로드 대비해 로딩 플래그와 옵셔널 체이닝 적용
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const loadUser = () => {
+  const loadUser = async () => {
     try {
-      const name = localStorage.getItem("userName") || "";
-      const mail = localStorage.getItem("userEmail") || "";
-      // 일부 환경에서 accessToken의 페이로드에서 사진 URL을 가져올 수 있으나, 현재 저장되지 않았으므로 폴백 유지
-      const storedPhoto = localStorage.getItem("userPhotoURL");
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        // Sidebar와 동일한 방식으로 /v1/users/me 에서 사용자 정보 조회
+        const res = await axios.get(`${API_BASE_URL}/v1/users/me`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const data: any = res.data || {};
+        const name = (data.name as string) || localStorage.getItem('userName') || '';
+        const mail = (data.email as string) || localStorage.getItem('userEmail') || '';
+        const photo = (data.profileImage as string) || localStorage.getItem('userPhotoURL') || '';
 
-      setNickname(name || "사용자");
-      setEmail(mail || "");
-      setPhotoURL(storedPhoto && storedPhoto.trim() !== "" ? storedPhoto : null);
+        setNickname(name || '사용자');
+        setEmail(mail || '');
+        setPhotoURL(photo && photo.trim() !== '' ? photo : null);
+
+        // 로컬 저장 (사이드바와 동일하게 다른 페이지에서도 사용)
+        if (name) localStorage.setItem('userName', name);
+        if (mail) localStorage.setItem('userEmail', mail);
+        if (photo) localStorage.setItem('userPhotoURL', photo);
+      } else {
+        // 토큰이 없으면 localStorage 기반 폴백
+        const name = localStorage.getItem("userName") || "";
+        const mail = localStorage.getItem("userEmail") || "";
+        const storedPhoto = localStorage.getItem("userPhotoURL");
+        setNickname(name || "사용자");
+        setEmail(mail || "");
+        setPhotoURL(storedPhoto && storedPhoto.trim() !== "" ? storedPhoto : null);
+      }
     } catch (e) {
       // 안전하게 폴백
       setNickname("사용자");
@@ -65,24 +88,24 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
       <div className="w-64 flex-shrink-0 h-full">
         <Sidebar activeMenu="settings" />
       </div>
       {/* Main */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {/* Header */}
-        <div className="px-6 md:px-8 lg:px-10 py-8 bg-white border-b border-gray-200">
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        {/* Header (fixed within main column) */}
+        <div className="bg-white border-b border-gray-200 px-6 md:px-8 lg:px-10 py-8">
           <h1 className="text-3xl font-bold text-gray-900">설정</h1>
           <p className="mt-2 text-gray-500">프로필 정보와 계정 설정을 관리하세요.</p>
         </div>
 
-        {/* Content Grid */}
-        <main className="px-6 md:px-8 lg:px-10 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left: Profile Summary Card (1 col) */}
-            <section className="md:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10">
+          <div className="max-w-3xl mx-auto space-y-6 pb-20">
+            {/* Profile Summary Card */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               {/* Cover */}
               <div className="h-32 bg-gradient-to-r from-emerald-200 to-teal-300" />
               {/* Content */}
@@ -108,14 +131,39 @@ export default function SettingsPage() {
                     <div className="text-xl font-bold text-gray-900">{nickname || '닉네임'}</div>
                     <div className="text-sm text-gray-500">{bio || '한 줄 소개를 설정하세요'}</div>
                   </div>
-                  <button className="mt-4 inline-flex items-center px-3 py-2 rounded-lg border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 text-sm font-medium" type="button">사진 변경</button>
+                  <button
+                    className="mt-4 inline-flex items-center px-3 py-2 rounded-lg border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 text-sm font-medium"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    사진 변경
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const objectUrl = URL.createObjectURL(file);
+                        setPhotoURL(objectUrl);
+                        setImageError(false);
+                        localStorage.setItem('userPhotoURL', objectUrl);
+                      } catch {
+                        setImageError(true);
+                      } finally {
+                        e.target.value = '';
+                      }
+                    }}
+                  />
                 </div>
               </div>
             </section>
 
-            {/* Right: Details (2 cols) */}
-            <div className="md:col-span-2 flex flex-col gap-6">
-              {/* Profile Edit */}
+            {/* Details Stack */}
+            {/* Profile Edit */}
               <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-left">
                 <h3 className="font-semibold text-lg mb-3 flex items-center gap-2"><User size={18} className="text-gray-700" /> 기본 정보</h3>
                 <div className="border-b border-gray-100 mb-4" />
@@ -147,7 +195,24 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="pt-3 flex justify-end">
-                    <button type="button" className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition">변경사항 저장</button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition"
+                      onClick={() => {
+                        try {
+                          const trimmed = (nickname || '').trim();
+                          const nameToStore = trimmed.length > 0 ? trimmed : '사용자';
+                          localStorage.setItem('userName', nameToStore);
+                          // 프로필 이미지는 파일 선택 시 이미 저장됨 (userPhotoURL)
+                          // 변경 사항을 다른 컴포넌트에 즉시 반영하기 위해 커스텀 이벤트 디스패치
+                          window.dispatchEvent(new Event('user-profile-updated'));
+                        } catch (e) {
+                          console.warn('프로필 저장 실패', e);
+                        }
+                      }}
+                    >
+                      변경사항 저장
+                    </button>
                   </div>
                 </div>
               </section>
@@ -183,9 +248,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </section>
-            </div>
           </div>
-        </main>
+        </div>
       </div>
     </div>
   );

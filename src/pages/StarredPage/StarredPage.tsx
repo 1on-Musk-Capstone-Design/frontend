@@ -1,18 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Grid, List as ListIcon, Search } from 'lucide-react'
-import ProjectList from '../MainPage/components/ProjectList/ProjectList'
+import ProjectCard from '../MainPage/components/ProjectCard/ProjectCard'
 import Sidebar from '../MainPage/components/Sidebar/Sidebar'
 import styles from '../MainPage/MainPage.module.css'
 import { Project } from '../MainPage/types'
 import Modal from '../../components/Modal/Modal'
 import axios from 'axios'
 import { API_BASE_URL } from '../../config/api'
-
-// form state types
-interface NewProjectForm {
-  name: string
-  description?: string
-}
 
 // API 응답 타입
 interface WorkspaceListItem {
@@ -27,7 +21,6 @@ export default function StarredPage(): JSX.Element {
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null)
@@ -67,11 +60,7 @@ export default function StarredPage(): JSX.Element {
     }
   }, [])
 
-  // 로그인 상태 확인
-  useEffect(() => {
-    const accessToken = localStorage.getItem('accessToken')
-    setIsLoggedIn(!!accessToken)
-  }, [])
+  // 로그인 상태 확인은 모달로만 처리 (isLoggedIn은 사용하지 않음)
 
   // 즐겨찾기된 프로젝트 필터링
   const filteredProjects = useMemo(() => {
@@ -99,7 +88,7 @@ export default function StarredPage(): JSX.Element {
         if (!accessToken) {
           setLoadError('로그인이 필요합니다.')
           setLoading(false)
-          setIsLoggedIn(false)
+          setAuthExpiredModalOpen(true)
           return
         }
 
@@ -113,13 +102,60 @@ export default function StarredPage(): JSX.Element {
           }
         )
 
-        const workspaceProjectsWithOwners: Project[] = response.data.map((workspace: WorkspaceListItem) => ({
-          id: String(workspace.workspaceId),
-          title: workspace.name,
-          thumbnailUrl: '',
-          lastModified: '방금 수정됨',
-          isOwner: true,
-        }))
+        const workspaceProjectsWithOwners: Project[] = await Promise.all(
+          response.data.map(async (workspace: WorkspaceListItem) => {
+            // 상세 조회로 생성일 확보
+            let createdAtStr: string = new Date().toLocaleDateString()
+            
+            try {
+              const wsRes = await axios.get(
+                `${API_BASE_URL}/v1/workspaces/${(workspace as any).workspaceId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              )
+              const createdSrc = (wsRes.data as any).createdAt || (wsRes.data as any).created_at
+              if (createdSrc) {
+                const d = new Date(createdSrc)
+                createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
+              }
+            } catch {
+              const fallback = (workspace as any).createdAt || (workspace as any).created_at
+              if (fallback) {
+                try {
+                  const d = new Date(fallback)
+                  createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
+                } catch {
+                  createdAtStr = new Date().toLocaleDateString()
+                }
+              }
+            }
+
+            const ownerName = (workspace as any).owner?.name 
+              || (workspace as any).ownerName 
+              || (workspace as any).createdBy?.name 
+              || ((workspace as any).users?.[0]?.name) 
+              || ''
+            const ownerProfileImage = (workspace as any).owner?.profileImage 
+              || (workspace as any).ownerProfileImage 
+              || (workspace as any).createdBy?.profileImage 
+              || ((workspace as any).users?.[0]?.profileImage) 
+              || ''
+
+            return {
+              id: String((workspace as any).workspaceId),
+              title: (workspace as any).name,
+              thumbnailUrl: '',
+              lastModified: createdAtStr,
+              ownerName,
+              ownerProfileImage,
+              isOwner: (workspace as any).isOwner ?? true,
+            }
+          })
+        )
 
         setProjects(workspaceProjectsWithOwners)
       } catch (err: any) {
@@ -129,7 +165,6 @@ export default function StarredPage(): JSX.Element {
         const status = err?.response?.status
         
         if (isAxiosError && (status === 401 || status === 403)) {
-          setIsLoggedIn(false)
           localStorage.removeItem('accessToken')
           localStorage.removeItem('refreshToken')
           localStorage.removeItem('userName')
@@ -148,7 +183,6 @@ export default function StarredPage(): JSX.Element {
     if (accessToken) {
       fetchWorkspaces()
     } else {
-      setIsLoggedIn(false)
       setLoading(false)
       setAuthExpiredModalOpen(true)
     }
@@ -254,7 +288,6 @@ export default function StarredPage(): JSX.Element {
     } catch (err: any) {
       console.error('초대 링크 생성 실패', err)
       if (err?.response?.status === 401 || err?.response?.status === 403) {
-        setIsLoggedIn(false)
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('userName')
@@ -336,53 +369,159 @@ export default function StarredPage(): JSX.Element {
           </div>
         </div>
 
-        {/* 프로젝트 리스트 */}
-        <ProjectList
-          projects={filteredProjects}
-          viewMode={viewMode}
-          favorites={favorites}
-          toggleFavorite={toggleFavorite}
-          onDelete={handleDeleteClick}
-          onInvite={handleInviteClick}
-          loading={loading}
-          loadError={loadError}
-        />
+        {/* 프로젝트 리스트: ProjectCard 직접 사용 */}
+        {viewMode === 'grid' ? (
+          <section aria-label="프로젝트 그리드" style={{ marginTop: 24, backgroundColor: '#ffffff' }}>
+            {loading && filteredProjects.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>로딩 중...</div>
+            ) : loadError && filteredProjects.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>{loadError}</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' }}>
+                {filteredProjects.map(p => (
+                  <ProjectCard
+                    key={p.id}
+                    id={p.id}
+                    title={p.title}
+                    thumbnailUrl={p.thumbnailUrl}
+                    lastModified={p.lastModified}
+                    ownerName={p.ownerName}
+                    ownerProfileImage={p.ownerProfileImage}
+                    isOwner={p.isOwner}
+                    onDelete={handleDeleteClick}
+                    onInvite={handleInviteClick}
+                    isFavorite={favorites.has(p.id)}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
+          <section aria-label="프로젝트 리스트" style={{ marginTop: 32, backgroundColor: '#ffffff' }}>
+            {filteredProjects.length === 0 && !loading && !loadError && (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280' }}>표시할 프로젝트가 없습니다.</div>
+            )}
+            {loading && filteredProjects.length === 0 && (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280' }}>로딩 중...</div>
+            )}
+            {loadError && filteredProjects.length === 0 && (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#dc2626' }}>{loadError}</div>
+            )}
+            {filteredProjects.length > 0 && (
+              <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' }}>
+                {filteredProjects.map(p => (
+                  <ProjectCard
+                    key={p.id}
+                    id={p.id}
+                    title={p.title}
+                    thumbnailUrl={p.thumbnailUrl}
+                    lastModified={p.lastModified}
+                    ownerName={p.ownerName}
+                    ownerProfileImage={p.ownerProfileImage}
+                    isOwner={p.isOwner}
+                    onDelete={handleDeleteClick}
+                    onInvite={handleInviteClick}
+                    isFavorite={favorites.has(p.id)}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* 모달들 */}
-        <Modal
-          isOpen={authExpiredModalOpen}
-          title="인증 만료"
-          message="로그인이 필요합니다. 로그인 페이지로 이동합니다."
-          onConfirm={handleAuthExpiredConfirm}
-          confirmButtonText="로그인하기"
-          showCancelButton={false}
-        />
+        <Modal isOpen={authExpiredModalOpen} onClose={() => setAuthExpiredModalOpen(false)}>
+          <div style={{ padding: 16 }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>인증 만료</h2>
+            <p style={{ marginTop: 8, color: '#6b7280' }}>로그인이 필요합니다. 로그인 페이지로 이동합니다.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={handleAuthExpiredConfirm}
+                style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', fontWeight: 500 }}
+              >
+                로그인하기
+              </button>
+            </div>
+          </div>
+        </Modal>
 
-        <Modal
-          isOpen={deleteModalOpen}
-          title="프로젝트 삭제"
-          message={`'${projectToDelete?.title}'을(를) 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.`}
-          onConfirm={handleDeleteConfirm}
-          onCancel={closeDeleteModal}
-          confirmButtonText="삭제"
-          confirmButtonStyle="danger"
-          loading={deleting}
-          error={deleteError}
-        />
+        <Modal isOpen={deleteModalOpen} onClose={closeDeleteModal}>
+          <div style={{ padding: 16 }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>프로젝트 삭제</h2>
+            <p style={{ marginTop: 8, color: '#6b7280' }}>
+              '{projectToDelete?.title}'을(를) 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.
+            </p>
+            {deleteError && (
+              <div style={{ marginTop: 8, color: '#dc2626', fontSize: 14 }}>{deleteError}</div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                style={{ background: 'transparent', color: '#6b7280', border: 'none', padding: '8px 12px' }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+                style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', fontWeight: 600, opacity: deleting ? 0.7 : 1 }}
+              >
+                {deleting ? '삭제 중...' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </Modal>
 
-        <Modal
-          isOpen={inviteModalOpen}
-          title="프로젝트 초대"
-          message={`'${projectToInvite?.title}'에 사람들을 초대할 수 있습니다.`}
-          onConfirm={handleGenerateInviteLink}
-          onCancel={closeInviteModal}
-          confirmButtonText={generating ? '생성 중...' : '초대 링크 생성'}
-          loading={generating}
-          error={inviteError}
-          inviteLink={inviteLink}
-          inviteLinkExpiresAt={inviteLinkExpiresAt}
-          onCopyInviteLink={handleCopyInviteLink}
-        />
+        <Modal isOpen={inviteModalOpen} onClose={closeInviteModal}>
+          <div style={{ padding: 16 }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>프로젝트 초대</h2>
+            <p style={{ marginTop: 8, color: '#6b7280' }}>
+              '{projectToInvite?.title}'에 사람들을 초대할 수 있습니다.
+            </p>
+            {inviteError && (
+              <div style={{ marginTop: 8, color: '#dc2626', fontSize: 14 }}>{inviteError}</div>
+            )}
+            {inviteLink && (
+              <div style={{ marginTop: 12, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: 12 }}>
+                <div style={{ fontSize: 13, color: '#374151' }}>{inviteLink}</div>
+                {inviteLinkExpiresAt && (
+                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>만료: {new Date(inviteLinkExpiresAt).toLocaleString()}</div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={handleCopyInviteLink}
+                    style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 12 }}
+                  >
+                    링크 복사
+                  </button>
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={closeInviteModal}
+                style={{ background: 'transparent', color: '#6b7280', border: 'none', padding: '8px 12px' }}
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateInviteLink}
+                disabled={generating}
+                style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', fontWeight: 600, opacity: generating ? 0.7 : 1 }}
+              >
+                {generating ? '생성 중...' : '초대 링크 생성'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       </main>
     </div>
   )
