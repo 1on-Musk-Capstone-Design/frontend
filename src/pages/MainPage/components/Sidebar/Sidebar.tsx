@@ -41,9 +41,24 @@ function getInitials(name: string): string {
 }
 
 export default function Sidebar({ activeMenu = 'home', unreadNotifications = false }: SidebarProps) {
-  const [userName, setUserName] = useState<string>('사용자')
-  const [userInitials, setUserInitials] = useState<string>('U')
-  const [profileImage, setProfileImage] = useState<string | null>(null)
+  // 초기 상태를 localStorage에서 먼저 읽어오기 (즉시 표시)
+  const getInitialState = () => {
+    if (typeof window === 'undefined') {
+      return { name: '사용자', initials: 'U', photo: null }
+    }
+    const storedName = localStorage.getItem('userName')
+    const storedPhoto = localStorage.getItem('userPhotoURL')
+    return {
+      name: storedName || '사용자',
+      initials: storedName ? getInitials(storedName) : 'U',
+      photo: storedPhoto
+    }
+  }
+
+  const initialState = getInitialState()
+  const [userName, setUserName] = useState<string>(initialState.name)
+  const [userInitials, setUserInitials] = useState<string>(initialState.initials)
+  const [profileImage, setProfileImage] = useState<string | null>(initialState.photo)
   const [imageError, setImageError] = useState<boolean>(false)
 
   useEffect(() => {
@@ -51,16 +66,7 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
       try {
         const accessToken = localStorage.getItem('accessToken')
         if (!accessToken) {
-          // 토큰이 없으면 localStorage에서 기본 정보 사용
-          const storedName = localStorage.getItem('userName')
-          const storedPhoto = localStorage.getItem('userPhotoURL')
-          if (storedName) {
-            setUserName(storedName)
-            setUserInitials(getInitials(storedName))
-          }
-          if (storedPhoto) {
-            setProfileImage(storedPhoto)
-          }
+          // 토큰이 없으면 localStorage에서 기본 정보 사용 (이미 초기 상태로 설정됨)
           return
         }
 

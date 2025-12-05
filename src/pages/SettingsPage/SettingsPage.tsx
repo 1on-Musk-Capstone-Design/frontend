@@ -3,17 +3,35 @@ import { User, AlignLeft, Mail, Bell, Shield } from "lucide-react";
 import Sidebar from '../MainPage/components/Sidebar/Sidebar';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api';
+import Toast, { ToastType } from '../../components/Toast/Toast';
 
 export default function SettingsPage() {
-  const [nickname, setNickname] = useState("");
+  // 초기 상태를 localStorage에서 먼저 읽어오기 (즉시 표시)
+  const getInitialUserData = () => {
+    if (typeof window === 'undefined') {
+      return { name: '', email: '', photo: null }
+    }
+    const name = localStorage.getItem('userName') || ''
+    const email = localStorage.getItem('userEmail') || ''
+    const photo = localStorage.getItem('userPhotoURL')
+    return {
+      name,
+      email,
+      photo: photo && photo.trim() !== '' ? photo : null
+    }
+  }
+
+  const initialData = getInitialUserData()
+  const [nickname, setNickname] = useState(initialData.name);
   const [bio, setBio] = useState("");
-  const [email, setEmail] = useState("");
-  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [email, setEmail] = useState(initialData.email);
+  const [photoURL, setPhotoURL] = useState<string | null>(initialData.photo);
   const [imageError, setImageError] = useState(false);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [emailNotif, setEmailNotif] = useState(true);
   const [marketing, setMarketing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
     <div
@@ -89,6 +107,15 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Toast 알림 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+      
       {/* Sidebar */}
       <div className="w-64 flex-shrink-0 h-full">
         <Sidebar activeMenu="settings" />
@@ -197,17 +224,61 @@ export default function SettingsPage() {
                   <div className="pt-3 flex justify-end">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition"
-                      onClick={() => {
+                      className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={async () => {
                         try {
+                          const accessToken = localStorage.getItem('accessToken');
+                          if (!accessToken) {
+                            setToast({ message: '로그인이 필요합니다.', type: 'warning' });
+                            return;
+                          }
+
                           const trimmed = (nickname || '').trim();
                           const nameToStore = trimmed.length > 0 ? trimmed : '사용자';
+                          
+                          // 백엔드 API 호출
+                          const updateData: any = {
+                            name: nameToStore
+                          };
+                          
+                          // 프로필 이미지가 있으면 포함
+                          if (photoURL) {
+                            updateData.profileImage = photoURL;
+                          }
+
+                          await axios.patch(
+                            `${API_BASE_URL}/v1/users/me`,
+                            updateData,
+                            {
+                              headers: {
+                                'Authorization': `Bearer ${accessToken}`
+                              }
+                            }
+                          );
+
+                          // localStorage에도 저장
                           localStorage.setItem('userName', nameToStore);
-                          // 프로필 이미지는 파일 선택 시 이미 저장됨 (userPhotoURL)
+                          if (photoURL) {
+                            localStorage.setItem('userPhotoURL', photoURL);
+                          }
+
                           // 변경 사항을 다른 컴포넌트에 즉시 반영하기 위해 커스텀 이벤트 디스패치
                           window.dispatchEvent(new Event('user-profile-updated'));
-                        } catch (e) {
-                          console.warn('프로필 저장 실패', e);
+                          
+                          setToast({ message: '프로필이 성공적으로 업데이트되었습니다.', type: 'success' });
+                        } catch (err: any) {
+                          console.error('프로필 저장 실패', err);
+                          if (err?.response?.status === 401 || err?.response?.status === 403) {
+                            setToast({ message: '인증이 만료되었습니다. 다시 로그인해주세요.', type: 'error' });
+                            setTimeout(() => {
+                              localStorage.removeItem('accessToken');
+                              localStorage.removeItem('refreshToken');
+                              window.location.href = '/auth';
+                            }, 2000);
+                          } else {
+                            const errorMessage = err?.response?.data || err?.message || '프로필 저장 중 오류가 발생했습니다.';
+                            setToast({ message: errorMessage, type: 'error' });
+                          }
                         }
                       }}
                     >

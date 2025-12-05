@@ -6,7 +6,7 @@ import styles from './TrashPage.module.css'
 import { Project } from '../MainPage/types'
 import Modal from '../../components/Modal/Modal'
 import axios from 'axios'
-import { API_BASE_URL } from '../../config/api'
+import { API_BASE_URL, normalizeThumbnailUrl } from '../../config/api'
 import ProjectCard from '../MainPage/components/ProjectCard/ProjectCard'
 
 interface TrashPageProps {
@@ -79,8 +79,9 @@ export default function TrashPage({
         return
       }
 
+      // 삭제된 워크스페이스 목록 조회
       const res = await axios.get<Array<any>>(
-        `${API_BASE_URL}/v1/workspaces`,
+        `${API_BASE_URL}/v1/workspaces/deleted`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`
@@ -138,55 +139,46 @@ export default function TrashPage({
             }
           }
 
-          // localStorage에서 삭제된 프로젝트 목록 동기화
-          let isDeleted = false
-          try {
-            const deleted = JSON.parse(localStorage.getItem('deletedProjects') || '[]') as string[]
-            isDeleted = deleted.includes(String(workspace.workspaceId))
-          } catch {
-            // ignore
+          // 썸네일 URL 처리
+          let thumbnailUrl = ''
+          const rawThumb: string | undefined = (workspace as any).thumbnailUrl
+          if (rawThumb) {
+            if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+              thumbnailUrl = rawThumb
+            } else if (rawThumb.startsWith('/')) {
+              thumbnailUrl = `${API_BASE_URL}${rawThumb}`
+            } else {
+              thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
+            }
+            thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+          }
+
+          // 생성일 포맷팅
+          let createdAtStr: string = new Date().toLocaleDateString()
+          const createdSrc = (workspace as any).createdAt || (workspace as any).created_at
+          if (createdSrc) {
+            try {
+              const d = new Date(createdSrc)
+              createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
+            } catch {
+              createdAtStr = new Date().toLocaleDateString()
+            }
           }
 
           return {
             id: String(workspace.workspaceId),
             title: workspace.name,
-            thumbnailUrl: '',
-            lastModified: '최근 수정됨',
+            thumbnailUrl,
+            lastModified: createdAtStr,
             ownerName,
             ownerProfileImage,
             isOwner,
-            isDeleted
+            isDeleted: true // 삭제된 워크스페이스 목록이므로 항상 true
           }
         })
       )
 
-      // 로컬 삭제 스냅샷도 포함 (API 목록에 없더라도 휴지통 표시)
-      let snapshotList: Project[] = []
-      try {
-        const snapshots = JSON.parse(localStorage.getItem('deletedProjectSnapshots') || '{}') as Record<string, any>
-        const deletedIds = new Set(Object.keys(snapshots))
-        snapshotList = Array.from(deletedIds).map((id) => ({
-          id,
-          title: snapshots[id]?.title || '삭제된 프로젝트',
-          thumbnailUrl: snapshots[id]?.thumbnailUrl || '',
-          lastModified: snapshots[id]?.lastModified || '삭제됨',
-          ownerName: snapshots[id]?.ownerName,
-          ownerProfileImage: snapshots[id]?.ownerProfileImage,
-          isOwner: snapshots[id]?.isOwner,
-          isDeleted: true,
-        }))
-      } catch {
-        // ignore
-      }
-
-      // API에서 가져온 목록과 스냅샷 병합 (중복 제거: API 우선)
-      const apiIds = new Set(workspaceProjectsWithOwners.map(p => p.id))
-      const merged = [
-        ...workspaceProjectsWithOwners,
-        ...snapshotList.filter(p => !apiIds.has(p.id)),
-      ]
-
-      setProjects(merged)
+      setProjects(workspaceProjectsWithOwners)
     } catch (err: any) {
       console.error('워크스페이스 목록 불러오기 실패', err)
       setLoadError(err?.message || '워크스페이스 목록을 불러오는 중 오류가 발생했습니다.')
@@ -218,11 +210,33 @@ export default function TrashPage({
   }, [projects, query])
 
   // 프로젝트 복구 핸들러
-  function handleRestoreClick(id: string) {
+  async function handleRestoreClick(id: string) {
     if (externalOnRestore) {
       externalOnRestore(id)
-    } else {
-      // 로컬 스토리지에서 삭제 목록/스냅샷 제거
+      return
+    }
+
+    try {
+      const accessToken = localStorage.getItem('accessToken')
+      if (!accessToken) {
+        throw new Error('로그인이 필요합니다.')
+      }
+
+      // 백엔드 API 호출: 복원
+      await axios.post(
+        `${API_BASE_URL}/v1/workspaces/${id}/restore`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      )
+
+      // 로컬 상태에서 제거 (복원된 것은 휴지통에 표시되지 않음)
+      setProjects(prev => prev.filter(p => p.id !== id))
+
+      // 로컬 스토리지에서도 제거
       try {
         const deletedRaw = localStorage.getItem('deletedProjects')
         const deletedIds: string[] = deletedRaw ? JSON.parse(deletedRaw) : []
@@ -239,11 +253,11 @@ export default function TrashPage({
         console.warn('복구 로컬 스토리지 업데이트 실패:', e)
       }
 
-      // 로컬 상태 즉시 반영
-      setProjects(prev => prev.map(p => (p.id === id ? { ...p, isDeleted: false } : p)))
-
       // 홈으로 이동하여 목록에서 복구된 프로젝트 표시
       navigate('/')
+    } catch (err: any) {
+      console.error('워크스페이스 복원 실패', err)
+      alert(err?.response?.data || err?.message || '워크스페이스 복원 중 오류가 발생했습니다.')
     }
   }
 
@@ -271,15 +285,67 @@ export default function TrashPage({
     setDeleteError(null)
 
     try {
+      const accessToken = localStorage.getItem('accessToken')
+      if (!accessToken) {
+        throw new Error('로그인이 필요합니다.')
+      }
+
       if (externalOnPermanentDelete) {
         externalOnPermanentDelete(projectToDelete.id)
       } else {
+        // 백엔드 API 호출: 영구 삭제
+        await axios.delete(
+          `${API_BASE_URL}/v1/workspaces/${projectToDelete.id}/permanent`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        )
+
         // 로컬 상태에서 제거
         setProjects(prev => prev.filter(p => p.id !== projectToDelete.id))
+
+        // 로컬 스토리지에서도 제거
+        try {
+          const deletedRaw = localStorage.getItem('deletedProjects')
+          const deletedIds: string[] = deletedRaw ? JSON.parse(deletedRaw) : []
+          const updatedDeleted = deletedIds.filter(pid => pid !== projectToDelete.id)
+          localStorage.setItem('deletedProjects', JSON.stringify(updatedDeleted))
+
+          const snapRaw = localStorage.getItem('deletedProjectSnapshots')
+          const snaps: Record<string, any> = snapRaw ? JSON.parse(snapRaw) : {}
+          if (snaps && snaps[projectToDelete.id]) {
+            delete snaps[projectToDelete.id]
+            localStorage.setItem('deletedProjectSnapshots', JSON.stringify(snaps))
+          }
+        } catch (e) {
+          console.warn('영구 삭제 로컬 스토리지 업데이트 실패:', e)
+        }
       }
       closeDeleteModal()
     } catch (err: any) {
-      setDeleteError(err?.message || '프로젝트 삭제 중 오류가 발생했습니다.')
+      console.error('워크스페이스 영구 삭제 실패', err)
+      let errorMessage = '프로젝트 삭제 중 오류가 발생했습니다.'
+      
+      if (err?.response) {
+        const status = err.response.status
+        const data = err.response.data
+        
+        if (status === 401 || status === 403) {
+          errorMessage = '인증이 만료되었습니다. 다시 로그인해주세요.'
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          window.location.href = '/auth'
+          return
+        } else {
+          errorMessage = data?.message || data?.error || `서버 오류 (${status})`
+        }
+      } else if (err?.message) {
+        errorMessage = err.message
+      }
+      
+      setDeleteError(errorMessage)
     } finally {
       setDeleting(false)
     }
@@ -300,15 +366,42 @@ export default function TrashPage({
     setEmptyingTrash(true)
 
     try {
+      const accessToken = localStorage.getItem('accessToken')
+      if (!accessToken) {
+        throw new Error('로그인이 필요합니다.')
+      }
+
       if (externalOnEmptyTrash) {
         externalOnEmptyTrash()
       } else {
+        // 모든 삭제된 워크스페이스를 영구 삭제
+        const deletePromises = trashedProjects.map(project =>
+          axios.delete(
+            `${API_BASE_URL}/v1/workspaces/${project.id}/permanent`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
+            }
+          ).catch(err => {
+            console.error(`워크스페이스 ${project.id} 영구 삭제 실패:`, err)
+            return null // 실패해도 계속 진행
+          })
+        )
+
+        await Promise.all(deletePromises)
+
         // 로컬 상태에서 삭제된 프로젝트 모두 제거
         setProjects(prev => prev.filter(p => !p.isDeleted))
+
+        // 로컬 스토리지도 비우기
+        localStorage.removeItem('deletedProjects')
+        localStorage.removeItem('deletedProjectSnapshots')
       }
       closeEmptyTrashModal()
     } catch (err: any) {
       console.error('휴지통 비우기 실패:', err)
+      alert(err?.response?.data || err?.message || '휴지통 비우기 중 오류가 발생했습니다.')
     } finally {
       setEmptyingTrash(false)
     }
