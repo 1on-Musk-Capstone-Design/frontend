@@ -7,7 +7,7 @@
   flex-direction: column;
   border: 1px solid #e5e7eb; /* subtle border */
   box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-  height: 260px;
+  height: 300px;
   overflow: hidden;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
@@ -48,7 +48,7 @@
 }
 
 .body {
-  flex: 0 0 72px;
+  flex: 0 0 92px;
   padding: 12px 16px 14px 16px; /* unified left/right padding for consistent start */
   display: flex;
   flex-direction: column;
@@ -86,6 +86,7 @@
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.08);
+  max-width: 100%;
 }
 
 .ownerProfileImage {
@@ -114,6 +115,10 @@
   font-size: 0.7rem;
   font-weight: 500;
   color: #475569;
+  flex: 1 1 auto;
+  min-width: 0; /* allow text to wrap/ellipsis correctly in flex */
+  white-space: normal; /* allow multiple lines if needed */
+  word-break: break-word; /* prevent clipping on long names */
 }
 
 .card:hover {

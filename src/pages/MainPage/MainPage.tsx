@@ -7,7 +7,7 @@ import styles from './MainPage.module.css'
 import { Project } from './types'
 import Modal from '../../components/Modal/Modal'
 import axios from 'axios'
-import { API_BASE_URL } from '../../config/api'
+import { API_BASE_URL, normalizeThumbnailUrl } from '../../config/api'
 
 // form state types
 interface NewProjectForm {
@@ -207,15 +207,6 @@ export default function MainPage(): JSX.Element {
               }
             }
 
-            // localStorage에서 삭제된 프로젝트 목록 동기화
-            let isDeleted = false
-            try {
-              const deleted = JSON.parse(localStorage.getItem('deletedProjects') || '[]') as string[]
-              isDeleted = deleted.includes(String(workspace.workspaceId))
-            } catch {
-              // ignore
-            }
-
             // 생성일 포맷팅: /v1/workspaces/{id}에서 createdAt 사용
             let createdAtStr: string = new Date().toLocaleDateString()
             try {
@@ -237,21 +228,35 @@ export default function MainPage(): JSX.Element {
                 try {
                   const d = new Date(fallback)
                   createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
-                } catch {
+                } catch (_) {
                   createdAtStr = new Date().toLocaleDateString()
                 }
               }
             }
 
+            // 썸네일 URL 처리
+            let thumbnailUrl = ''
+            const rawThumb: string | undefined = (workspace as any).thumbnailUrl
+            if (rawThumb) {
+              if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+                thumbnailUrl = rawThumb
+              } else if (rawThumb.startsWith('/')) {
+                thumbnailUrl = `${API_BASE_URL}${rawThumb}`
+              } else {
+                thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
+              }
+              thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+            }
+
             return {
               id: String(workspace.workspaceId),
               title: workspace.name,
-              thumbnailUrl: '',
+              thumbnailUrl,
               lastModified: createdAtStr,
               ownerName,
               ownerProfileImage,
               isOwner,
-              isDeleted
+              isDeleted: false // 백엔드에서 이미 삭제된 것은 제외되므로 항상 false
             }
           })
         )
@@ -364,7 +369,7 @@ export default function MainPage(): JSX.Element {
             createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
           }
         }
-      } catch {
+      } catch (_) {
         // ignore and keep today
       }
 
@@ -620,55 +625,26 @@ export default function MainPage(): JSX.Element {
     setDeleteError(null)
 
     try {
-      // 실제 삭제 API 호출을 제거하고 로컬 Soft Delete로 전환
-      // 프로젝트를 휴지통으로 이동 (Soft Delete)
-      setProjects((s) => {
-        const next = s.map((p) => p.id === projectToDelete.id ? { ...p, isDeleted: true } : p)
-        // localStorage에도 저장하여 TrashPage와 동기화
-        try {
-          const deleted = JSON.parse(localStorage.getItem('deletedProjects') || '[]') as string[]
-          if (!deleted.includes(projectToDelete.id)) {
-            deleted.push(projectToDelete.id)
-            localStorage.setItem('deletedProjects', JSON.stringify(deleted))
+      const accessToken = localStorage.getItem('accessToken')
+      if (!accessToken) {
+        throw new Error('로그인이 필요합니다.')
+      }
+
+      // 백엔드 API 호출: Soft Delete
+      await axios.delete(
+        `${API_BASE_URL}/v1/workspaces/${projectToDelete.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
           }
-        } catch {
-          localStorage.setItem('deletedProjects', JSON.stringify([projectToDelete.id]))
         }
-        // 삭제 스냅샷 저장 (API에서 사라져도 휴지통에 표시하기 위해)
-        try {
-          const snapshots = JSON.parse(localStorage.getItem('deletedProjectSnapshots') || '{}') as Record<string, any>
-          const target = s.find((p) => p.id === projectToDelete.id)
-          if (target) {
-            snapshots[projectToDelete.id] = {
-              id: target.id,
-              title: target.title,
-              thumbnailUrl: target.thumbnailUrl || '',
-              lastModified: target.lastModified || '',
-              ownerName: target.ownerName,
-              ownerProfileImage: target.ownerProfileImage,
-              isOwner: target.isOwner,
-            }
-            localStorage.setItem('deletedProjectSnapshots', JSON.stringify(snapshots))
-          }
-        } catch {
-          // ignore
-        }
-        return next
-      })
+      )
+
+      // 프로젝트 목록에서 제거 (삭제된 것은 일반 목록에 표시되지 않음)
+      setProjects((s) => s.filter((p) => p.id !== projectToDelete.id))
       closeDeleteModal()
-      
-      // 휴지통 페이지로 이동
-      setTimeout(() => {
-        navigate('/trash')
-      }, 300)
     } catch (err: any) {
       console.error('워크스페이스 삭제 실패', err)
-      console.error('에러 상세 정보:', {
-        status: err?.response?.status,
-        data: err?.response?.data,
-        headers: err?.response?.headers,
-        workspaceId: projectToDelete.id
-      })
       
       let errorMessage = '워크스페이스 삭제 중 오류가 발생했습니다.'
       
