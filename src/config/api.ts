@@ -56,7 +56,7 @@ export const SOCKET_SERVER_URL = getSocketServerUrl();
 /**
  * 썸네일 URL 정규화
  * - 로컬 개발 환경: localhost:8080을 원격 서버로 치환
- * - 프로덕션 환경: HTTP URL을 상대 경로로 변환하여 Mixed Content 오류 방지
+ * - 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환하여 Mixed Content 오류 방지
  */
 export const normalizeThumbnailUrl = (url: string | null | undefined): string => {
   if (!url) return '';
@@ -68,18 +68,34 @@ export const normalizeThumbnailUrl = (url: string | null | undefined): string =>
     return url.replace('http://localhost:8080/api', 'http://51.20.106.74:8080/api');
   }
   
-  // 프로덕션 환경: HTTP URL을 상대 경로로 변환 (Nginx 프록시 사용)
+  // 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환 (Nginx 프록시 사용)
   if (isProduction) {
     // http://51.20.106.74:8080/api/uploads/... → /api/uploads/...
     if (url.includes('http://51.20.106.74:8080/api')) {
       return url.replace('http://51.20.106.74:8080/api', '/api');
     }
+    // https://51.20.106.74:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('https://51.20.106.74:8080/api')) {
+      return url.replace('https://51.20.106.74:8080/api', '/api');
+    }
     // http://localhost:8080/api/uploads/... → /api/uploads/...
     if (url.includes('http://localhost:8080/api')) {
       return url.replace('http://localhost:8080/api', '/api');
     }
-    // 다른 HTTP URL도 상대 경로로 변환
-    if (url.startsWith('http://') && url.includes('/api/')) {
+    // https://localhost:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('https://localhost:8080/api')) {
+      return url.replace('https://localhost:8080/api', '/api');
+    }
+    // https://on-it.kro.kr/api/uploads/... → /api/uploads/... (같은 도메인)
+    if (url.includes('https://on-it.kro.kr/api')) {
+      return url.replace('https://on-it.kro.kr/api', '/api');
+    }
+    // http://on-it.kro.kr/api/uploads/... → /api/uploads/...
+    if (url.includes('http://on-it.kro.kr/api')) {
+      return url.replace('http://on-it.kro.kr/api', '/api');
+    }
+    // 다른 HTTP/HTTPS URL도 상대 경로로 변환
+    if ((url.startsWith('http://') || url.startsWith('https://')) && url.includes('/api/')) {
       const match = url.match(/\/api\/.*$/);
       if (match) {
         return match[0];
