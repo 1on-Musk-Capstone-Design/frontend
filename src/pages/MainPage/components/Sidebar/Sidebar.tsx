@@ -110,6 +110,36 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
     }
 
     fetchUserInfo()
+
+    // 로컬 스토리지 변경(설정 페이지에서 저장) 시 실시간 반영
+    const onStorage = (e: StorageEvent) => {
+      try {
+        if (e.key === 'userName' && e.newValue) {
+          setUserName(e.newValue)
+          setUserInitials(getInitials(e.newValue))
+        }
+        if (e.key === 'userPhotoURL') {
+          setProfileImage(e.newValue)
+        }
+      } catch {}
+    }
+    const onCustomUpdate = () => {
+      const storedName = localStorage.getItem('userName')
+      const storedPhoto = localStorage.getItem('userPhotoURL')
+      if (storedName) {
+        setUserName(storedName)
+        setUserInitials(getInitials(storedName))
+      }
+      if (storedPhoto) {
+        setProfileImage(storedPhoto)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('user-profile-updated', onCustomUpdate as EventListener)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('user-profile-updated', onCustomUpdate as EventListener)
+    }
   }, [])
 
   // 메뉴 정의 (상단)
