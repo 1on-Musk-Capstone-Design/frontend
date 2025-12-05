@@ -6,7 +6,7 @@ import styles from '../MainPage/MainPage.module.css'
 import { Project } from '../MainPage/types'
 import Modal from '../../components/Modal/Modal'
 import axios from 'axios'
-import { API_BASE_URL } from '../../config/api'
+import { API_BASE_URL, normalizeThumbnailUrl } from '../../config/api'
 
 // API 응답 타입
 interface WorkspaceListItem {
@@ -145,10 +145,24 @@ export default function StarredPage(): JSX.Element {
               || ((workspace as any).users?.[0]?.profileImage) 
               || ''
 
+            // 썸네일 URL 처리
+            let thumbnailUrl = ''
+            const rawThumb: string | undefined = (workspace as any).thumbnailUrl
+            if (rawThumb) {
+              if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+                thumbnailUrl = rawThumb
+              } else if (rawThumb.startsWith('/')) {
+                thumbnailUrl = `${API_BASE_URL}${rawThumb}`
+              } else {
+                thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
+              }
+              thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+            }
+
             return {
               id: String((workspace as any).workspaceId),
               title: (workspace as any).name,
-              thumbnailUrl: '',
+              thumbnailUrl,
               lastModified: createdAtStr,
               ownerName,
               ownerProfileImage,

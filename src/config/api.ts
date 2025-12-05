@@ -54,6 +54,20 @@ export const getSocketServerUrl = (): string => {
 export const SOCKET_SERVER_URL = getSocketServerUrl();
 
 /**
+ * 썸네일 URL 정규화
+ * - 로컬 개발 환경에서 백엔드가 localhost:8080을 반환하는 경우 원격 서버로 치환
+ * - 그 외에는 주어진 URL을 그대로 사용
+ */
+export const normalizeThumbnailUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  const hostname = window.location.hostname;
+  if ((hostname === 'localhost' || hostname === '127.0.0.1') && url.includes('localhost:8080')) {
+    return url.replace('http://localhost:8080/api', 'http://51.20.106.74:8080/api');
+  }
+  return url;
+};
+
+/**
  * OAuth 리다이렉트 URI 생성
  * 환경에 따라 로컬 또는 프로덕션 URL 반환
  * 

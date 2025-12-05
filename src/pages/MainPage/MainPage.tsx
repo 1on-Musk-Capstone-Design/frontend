@@ -7,7 +7,7 @@ import styles from './MainPage.module.css'
 import { Project } from './types'
 import Modal from '../../components/Modal/Modal'
 import axios from 'axios'
-import { API_BASE_URL } from '../../config/api'
+import { API_BASE_URL, normalizeThumbnailUrl } from '../../config/api'
 
 // form state types
 interface NewProjectForm {
@@ -243,10 +243,24 @@ export default function MainPage(): JSX.Element {
               }
             }
 
+            // 썸네일 URL 처리
+            let thumbnailUrl = ''
+            const rawThumb: string | undefined = (workspace as any).thumbnailUrl
+            if (rawThumb) {
+              if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+                thumbnailUrl = rawThumb
+              } else if (rawThumb.startsWith('/')) {
+                thumbnailUrl = `${API_BASE_URL}${rawThumb}`
+              } else {
+                thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
+              }
+              thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+            }
+
             return {
               id: String(workspace.workspaceId),
               title: workspace.name,
-              thumbnailUrl: '',
+              thumbnailUrl,
               lastModified: createdAtStr,
               ownerName,
               ownerProfileImage,
@@ -656,11 +670,6 @@ export default function MainPage(): JSX.Element {
         return next
       })
       closeDeleteModal()
-      
-      // 휴지통 페이지로 이동
-      setTimeout(() => {
-        navigate('/trash')
-      }, 300)
     } catch (err: any) {
       console.error('워크스페이스 삭제 실패', err)
       console.error('에러 상세 정보:', {

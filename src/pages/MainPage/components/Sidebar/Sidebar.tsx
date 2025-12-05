@@ -44,6 +44,7 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
   const [userName, setUserName] = useState<string>('사용자')
   const [userInitials, setUserInitials] = useState<string>('U')
   const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<boolean>(false)
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -52,9 +53,13 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
         if (!accessToken) {
           // 토큰이 없으면 localStorage에서 기본 정보 사용
           const storedName = localStorage.getItem('userName')
+          const storedPhoto = localStorage.getItem('userPhotoURL')
           if (storedName) {
             setUserName(storedName)
             setUserInitials(getInitials(storedName))
+          }
+          if (storedPhoto) {
+            setProfileImage(storedPhoto)
           }
           return
         }
@@ -74,7 +79,14 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
           setUserInitials(getInitials(res.data.name))
         }
         if (res.data.profileImage) {
-          setProfileImage(res.data.profileImage)
+          // 절대/상대 경로 정규화
+          const url = res.data.profileImage
+          let normalized = url
+          if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            normalized = url.startsWith('/') ? `${API_BASE_URL}${url}` : `${API_BASE_URL}/${url}`
+          }
+          setProfileImage(normalized)
+          localStorage.setItem('userPhotoURL', normalized)
         }
 
         // localStorage에도 저장 (다른 곳에서 사용할 수 있도록)
@@ -120,6 +132,7 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
         }
         if (e.key === 'userPhotoURL') {
           setProfileImage(e.newValue)
+          setImageError(false)
         }
       } catch {}
     }
@@ -132,6 +145,7 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
       }
       if (storedPhoto) {
         setProfileImage(storedPhoto)
+        setImageError(false)
       }
     }
     window.addEventListener('storage', onStorage)
@@ -165,8 +179,15 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
       {/* 프로필 영역 */}
       <div className={styles.profile}>
         <div className={styles.avatar}>
-          {profileImage ? (
-            <img src={profileImage} alt={userName} className={styles.avatarImage} />
+          {profileImage && !imageError ? (
+            <img
+              src={profileImage}
+              alt={userName}
+              className={styles.avatarImage}
+              onError={() => {
+                setImageError(true)
+              }}
+            />
           ) : (
             userInitials
           )}

@@ -6,6 +6,7 @@ import styles from './ProjectCard.module.css'
 export interface ProjectCardProps {
   id: string
   thumbnailUrl?: string
+  previewItems?: Array<{ x: number; y: number; width: number; height: number; background?: string }>
   title: string
   lastModified: string
   ownerName?: string
@@ -21,25 +22,25 @@ export interface ProjectCardProps {
   onPermanentDelete?: (id: string) => void
 }
 
-export default function ProjectCard({ id, thumbnailUrl, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite, isTrash = false, onRestore, onPermanentDelete }: ProjectCardProps) {
-  // Stable light pastel color via high-range RGB (based on id + title)
-  const getPastelRGB = (seed: string) => {
-    let h1 = 0, h2 = 0, h3 = 0
+export default function ProjectCard({ id, thumbnailUrl, previewItems, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite, isTrash = false, onRestore, onPermanentDelete }: ProjectCardProps) {
+  // Pastel palette (UI/UX guided selection)
+  const PASTEL_PALETTE = [
+    '#FFD1DC', // pastel pink
+    '#AEC6CF', // pastel blue
+    '#FFFACD', // pastel yellow
+    '#77DD77', // pastel green
+    '#B39EB5', // pastel purple
+    '#FFB347', // pastel orange
+  ] as const
+
+  // Deterministic palette selection based on seed (id + title)
+  const getPastelFromPalette = (seed: string) => {
+    let hash = 0
     for (let i = 0; i < seed.length; i++) {
-      const c = seed.charCodeAt(i)
-      h1 = (h1 * 31 + c) | 0
-      h2 = (h2 * 33 + c) | 0
-      h3 = (h3 * 37 + c) | 0
+      hash = (hash * 31 + seed.charCodeAt(i)) | 0
     }
-    const clamp = (n: number) => {
-      const min = 200, max = 245 // high RGB for lighter pastels
-      const x = Math.abs(n) % (max - min + 1)
-      return min + x
-    }
-    const r = clamp(h1)
-    const g = clamp(h2)
-    const b = clamp(h3)
-    return `rgb(${r}, ${g}, ${b})`
+    const idx = Math.abs(hash) % PASTEL_PALETTE.length
+    return PASTEL_PALETTE[idx]
   }
 
   const [imageError, setImageError] = React.useState(false)
@@ -48,7 +49,8 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
   const effectiveOwnerImage = isOwner ? (localPhoto || ownerProfileImage || '') : (ownerProfileImage || '')
   const hasValidImage = effectiveOwnerImage && effectiveOwnerImage.trim() !== '' && !imageError
   const hasThumbImage = !!(thumbnailUrl && thumbnailUrl.trim() !== '')
-  const pastelBg = getPastelRGB(`${id}-${title}`)
+  const pastelBg = getPastelFromPalette(`${id}-${title}`)
+  const [showThumb, setShowThumb] = React.useState<boolean>(hasThumbImage)
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -102,10 +104,48 @@ export default function ProjectCard({ id, thumbnailUrl, title, lastModified, own
       )}
       <Link to={`/canvas/${id}`} className={styles.linkReset} aria-label={`열기 ${title}`}>
         <article className={styles.card}>
-          <div className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`} style={hasThumbImage ? undefined : { background: pastelBg }}>
-            {hasThumbImage ? (
+          <div
+            className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`}
+            style={showThumb ? undefined : { background: pastelBg, overflow: 'hidden', pointerEvents: 'none' }}
+          >
+            {previewItems && previewItems.length > 0 ? (
+              <div
+                style={{
+                  position: 'relative',
+                  width: 1200,
+                  height: 720,
+                  transform: 'scale(0.25)',
+                  transformOrigin: 'top left',
+                  pointerEvents: 'none',
+                }}
+              >
+                {previewItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      position: 'absolute',
+                      left: item.x,
+                      top: item.y,
+                      width: item.width,
+                      height: item.height,
+                      background: item.background || 'rgba(0,0,0,0.08)',
+                      borderRadius: 6,
+                    }}
+                  />
+                ))}
+              </div>
+            ) : showThumb ? (
               // eslint-disable-next-line jsx-a11y/img-redundant-alt
-              <img src={thumbnailUrl} alt={`${title} 썸네일`} className={styles.img} />
+              <img 
+                src={thumbnailUrl} 
+                alt="" 
+                className={styles.img}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.style.display = 'none'
+                  setShowThumb(false) // fall back to solid pastel background
+                }}
+              />
             ) : null}
           </div>
 
