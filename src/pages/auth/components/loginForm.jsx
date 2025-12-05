@@ -135,8 +135,8 @@ const buttonStyle = {
         style={buttonStyle}
          onMouseEnter={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "#34495e"; 
-            e.currentTarget.style.color = "#ffffff";
+            e.currentTarget.style.background = "#e9ecef"; 
+            e.currentTarget.style.color = "#2c3e50";
             e.currentTarget.style.transform = "translateY(-2px)";
             e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)"; 
           }
