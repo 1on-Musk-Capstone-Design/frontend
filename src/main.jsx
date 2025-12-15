@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 import packageJson from '../package.json'
-import { API_CONSTANTS } from './pages/infinite-canvas/constants'
 import { API_BASE_URL } from './config/api'
 
 // 앱/백엔드 버전 콘솔 출력 (CI/CD 확인용)
@@ -15,7 +14,6 @@ const logVersions = async () => {
   console.info(`[VERSION] frontend: ${FRONT_VERSION}`)
   console.info(`[BUILD] build time: ${BUILD_TIME}`)
   try {
-    // 백엔드 메인 API 버전 조회
     const res = await fetch(`${API_BASE_URL}/v1/health`)
     if (res.ok) {
       const data = await res.json()

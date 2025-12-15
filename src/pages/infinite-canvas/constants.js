@@ -131,26 +131,10 @@ export const TOOLBAR_AREA_CONSTANTS = {
 // ============================================
 /**
  * 클러스터링 API URL
- * 환경에 따라 자동 선택
+ * 별도 배포된 서버(39.112.89.182:8002)를 직접 호출
+ * - 기존 on-it.kro.kr 프록시(/clustering) 사용하지 않음
  */
-const getClusteringApiUrl = () => {
-  const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
-  
-  // 로컬 개발 환경
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8002';
-  }
-  
-  // 프로덕션 환경: HTTPS인 경우 상대 경로 사용 (Nginx 프록시)
-  // HTTP인 경우에만 직접 IP 사용
-  if (protocol === 'https:') {
-    return '/clustering'; // Nginx 프록시 사용
-  }
-  
-  // HTTP 환경에서는 직접 연결 (새로운 서버 IP)
-  return 'http://39.112.89.182:8002';
-};
+const getClusteringApiUrl = () => 'http://39.112.89.182:8002';
 
 export const API_CONSTANTS = {
   // 클러스터링 API 주소
