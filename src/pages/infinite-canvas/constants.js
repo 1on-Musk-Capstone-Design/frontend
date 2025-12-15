@@ -135,16 +135,21 @@ export const TOOLBAR_AREA_CONSTANTS = {
  */
 const getClusteringApiUrl = () => {
   const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
   
   // 로컬 개발 환경
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8002';
   }
   
-  // 프로덕션 환경: Nginx 프록시 사용 또는 직접 연결
-  // Nginx 프록시 사용 시: '/clustering'
-  // 직접 연결 시: 'http://51.20.106.74:8002'
-  return 'http://51.20.106.74:8002';
+  // 프로덕션 환경: HTTPS인 경우 상대 경로 사용 (Nginx 프록시)
+  // HTTP인 경우에만 직접 IP 사용
+  if (protocol === 'https:') {
+    return '/clustering'; // Nginx 프록시 사용
+  }
+  
+  // HTTP 환경에서는 직접 연결 (새로운 서버 IP)
+  return 'http://39.112.89.182:8002';
 };
 
 export const API_CONSTANTS = {

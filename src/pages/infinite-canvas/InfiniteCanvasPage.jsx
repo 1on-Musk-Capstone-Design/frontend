@@ -313,13 +313,13 @@ const InfiniteCanvasPage = () => {
         let ideasRes;
         try {
           ideasRes = await axios.get(
-            `${API_BASE_URL}/v1/ideas/workspaces/${workspaceId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`
-              }
+          `${API_BASE_URL}/v1/ideas/workspaces/${workspaceId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
             }
-          );
+          }
+        );
         } catch (err) {
           console.error('메모 목록 불러오기 실패', err);
           // 인증 오류 감지
@@ -434,13 +434,13 @@ const InfiniteCanvasPage = () => {
         let messagesRes;
         try {
           messagesRes = await axios.get(
-            `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`
-              }
+          `${API_BASE_URL}/v1/chat/messages/workspace/${workspaceId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
             }
-          );
+          }
+        );
         } catch (err) {
           console.error('채팅 메시지 불러오기 실패', err);
           // 인증 오류 감지
@@ -558,9 +558,9 @@ const InfiniteCanvasPage = () => {
       
       // 참가자 목록과 toast 업데이트 함수
       const updateParticipantAndToast = (name) => {
-        // 참가자 목록 업데이트
-        setWorkspaceParticipants(prev => {
-          // 이미 존재하는 참가자인지 확인
+      // 참가자 목록 업데이트
+      setWorkspaceParticipants(prev => {
+        // 이미 존재하는 참가자인지 확인
           const existsById = userIdStr && prev.some(p => p.id === userIdStr);
           const existsByName = prev.some(p => p.name === name && (!userIdStr || p.id === userIdStr));
           
@@ -570,16 +570,16 @@ const InfiniteCanvasPage = () => {
           }
           
           if (existsByName) {
-            return prev;
-          }
-          
-          // 새 참가자 추가
-          return [...prev, {
+          return prev;
+        }
+        
+        // 새 참가자 추가
+        return [...prev, {
             id: finalUserId,
             name: name
-          }];
-        });
-        
+        }];
+      });
+      
         // 현재 사용자가 아닌 경우에만 Toast 알림 표시
         if (!userIdStr || userIdStr !== String(currentUserId)) {
           setToast({
@@ -615,13 +615,13 @@ const InfiniteCanvasPage = () => {
                 userName = user.name || user.email || '알 수 없음';
                 
                 // workspaceUsers에 추가
-                setWorkspaceUsers(prev => {
-                  const newMap = new Map(prev);
+          setWorkspaceUsers(prev => {
+            const newMap = new Map(prev);
                   newMap.set(userIdStr, userName);
-                  return newMap;
-                });
-              }
-            }
+            return newMap;
+          });
+        }
+      }
           } catch (err) {
             console.error('참가자 정보 조회 실패:', err);
             // 인증 오류 감지
@@ -727,8 +727,8 @@ const InfiniteCanvasPage = () => {
       
       // 현재 사용자가 아닌 경우에만 알림 표시
       if (!userIdStr || userIdStr !== String(currentUserId)) {
-        // 참가자 목록에서 제거
-        setWorkspaceParticipants(prev => {
+      // 참가자 목록에서 제거
+      setWorkspaceParticipants(prev => {
           return prev.filter(p => p.id !== userIdStr);
         });
         
@@ -742,7 +742,7 @@ const InfiniteCanvasPage = () => {
         // 현재 사용자인 경우 목록만 업데이트 (알림 없음)
         setWorkspaceParticipants(prev => {
           return prev.filter(p => p.id !== userIdStr);
-        });
+      });
       }
     },
     onIdeaUpdated: (data) => {
@@ -1936,10 +1936,10 @@ const InfiniteCanvasPage = () => {
               index: textIndex,
               content: content
             });
-          } else {
+      } else {
             console.warn(`텍스트 "${content}"를 찾을 수 없습니다.`);
-          }
-        });
+      }
+    });
       }
     });
     
@@ -1950,17 +1950,17 @@ const InfiniteCanvasPage = () => {
       textFields.texts.forEach(text => {
         textMapById.set(text.id, text);
       });
-      
+    
       // labels를 사용하여 누락된 텍스트 추가
       textIds.forEach((id, index) => {
-        const clusterId = labels[index];
+      const clusterId = labels[index];
         const text = textMapById.get(id);
         
         if (text && clusterGroups[clusterId]) {
           // 이미 추가되었는지 확인
           const alreadyAdded = clusterGroups[clusterId].some(item => item.text.id === id);
           if (!alreadyAdded) {
-            clusterGroups[clusterId].push({ text, index });
+      clusterGroups[clusterId].push({ text, index });
           }
         }
       });
@@ -2385,7 +2385,7 @@ const InfiniteCanvasPage = () => {
       const textData = textFields.texts.find(t => t.id === update.id);
       if (textData) {
         // 로컬 상태 업데이트
-        textFields.updateText(update.id, { x: update.x, y: update.y });
+      textFields.updateText(update.id, { x: update.x, y: update.y });
         
         // 웹소켓으로 브로드캐스트 (다른 사용자에게도 클러스터링 결과 전달)
         if (workspaceId && canvasWebSocket.emitIdeaUpdate) {
@@ -2402,8 +2402,8 @@ const InfiniteCanvasPage = () => {
           }
         }
         
-        // 클러스터링으로 이동한 메모의 위치에 대해 캔버스 확장 체크
-        checkAndExpandCanvas(update.x, update.y);
+      // 클러스터링으로 이동한 메모의 위치에 대해 캔버스 확장 체크
+      checkAndExpandCanvas(update.x, update.y);
       }
     });
     
