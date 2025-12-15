@@ -1988,14 +1988,39 @@ const InfiniteCanvasPage = () => {
       };
     };
     
-    // 두 도형이 겹치는지 확인
-    const isShapesOverlapping = (bounds1, bounds2) => {
-      return !(
-        bounds1.maxX <= bounds2.minX ||
-        bounds2.maxX <= bounds1.minX ||
-        bounds1.maxY <= bounds2.minY ||
-        bounds2.maxY <= bounds1.minY
+    // 두 도형이 겹치는지 확인 (여백 포함)
+    const isShapesOverlapping = (bounds1, bounds2, minDistance = 0) => {
+      // 각 방향에서의 거리 계산
+      const distanceX = Math.min(
+        Math.abs(bounds1.maxX - bounds2.minX),
+        Math.abs(bounds2.maxX - bounds1.minX)
       );
+      const distanceY = Math.min(
+        Math.abs(bounds1.maxY - bounds2.minY),
+        Math.abs(bounds2.maxY - bounds1.minY)
+      );
+      
+      // 겹침 확인: X와 Y 모두 최소 거리보다 가까우면 겹침
+      return distanceX < minDistance && distanceY < minDistance;
+    };
+    
+    // 두 도형 간의 겹침 영역 계산
+    const calculateOverlap = (bounds1, bounds2) => {
+      const overlapLeft = Math.max(bounds1.minX, bounds2.minX);
+      const overlapRight = Math.min(bounds1.maxX, bounds2.maxX);
+      const overlapTop = Math.max(bounds1.minY, bounds2.minY);
+      const overlapBottom = Math.min(bounds1.maxY, bounds2.maxY);
+      
+      const overlapX = Math.max(0, overlapRight - overlapLeft);
+      const overlapY = Math.max(0, overlapBottom - overlapTop);
+      
+      return {
+        overlapX,
+        overlapY,
+        overlapArea: overlapX * overlapY,
+        center1: { x: bounds1.centerX, y: bounds1.centerY },
+        center2: { x: bounds2.centerX, y: bounds2.centerY }
+      };
     };
     
     // 클러스터 배치 설정
@@ -2139,8 +2164,13 @@ const InfiniteCanvasPage = () => {
     const avgCenterY = sortedShapes.reduce((sum, s) => sum + s.bounds.centerY, 0) / sortedShapes.length;
     
     // 그리드 형태로 자동 배치
+    // 각 클러스터의 최대 크기를 고려하여 충분한 간격 확보
+    const maxWidth = Math.max(...sortedShapes.map(s => s.bounds.width));
+    const maxHeight = Math.max(...sortedShapes.map(s => s.bounds.height));
+    const minSpacing = Math.max(maxWidth, maxHeight) + shapePadding * 4; // 충분한 여백 확보
+    
     const colsPerRow = Math.ceil(Math.sqrt(sortedShapes.length));
-    const spacing = 400; // 클러스터 간 기본 간격 (여백 포함)
+    const spacing = Math.max(600, minSpacing); // 최소 600px, 필요시 더 큰 간격
     
     // 그리드 배치된 클러스터들
     const gridShapes = sortedShapes.map((shape, index) => {
@@ -2198,13 +2228,13 @@ const InfiniteCanvasPage = () => {
     
     // 3단계: 그리드 배치 후 겹치는 부분이 있으면 추가 조정 (최소 거리 유지)
     const adjustedShapes = [];
-    const minClusterDistance = shapePadding * 2; // 클러스터 간 최소 거리
+    const minClusterDistance = shapePadding * 3; // 클러스터 간 최소 거리 (더 여유있게)
     
     gridShapes.forEach((shape, index) => {
       let adjustedBounds = { ...shape.bounds };
       let hasCollision = true;
       let attempts = 0;
-      const maxAttempts = 300; // 최대 시도 횟수 증가
+      const maxAttempts = 500; // 최대 시도 횟수 증가
       
       while (hasCollision && attempts < maxAttempts) {
         hasCollision = false;
@@ -2213,49 +2243,48 @@ const InfiniteCanvasPage = () => {
         for (let i = 0; i < adjustedShapes.length; i++) {
           const otherShape = adjustedShapes[i];
           
-          // 정확한 겹침 확인 (여백 포함)
-          const bounds1 = adjustedBounds;
-          const bounds2 = otherShape.bounds;
-          
-          // 실제 겹침 영역 계산
-          const overlapLeft = Math.max(bounds1.minX, bounds2.minX);
-          const overlapRight = Math.min(bounds1.maxX, bounds2.maxX);
-          const overlapTop = Math.max(bounds1.minY, bounds2.minY);
-          const overlapBottom = Math.min(bounds1.maxY, bounds2.maxY);
-          
-          const overlapX = overlapRight - overlapLeft;
-          const overlapY = overlapBottom - overlapTop;
-          
-          // 겹침이 있는지 확인 (여백 포함)
-          const isOverlapping = overlapX > -minClusterDistance && overlapY > -minClusterDistance;
-          
-          if (isOverlapping) {
+          // 겹침 확인 (더 정확한 방법)
+          if (isShapesOverlapping(adjustedBounds, otherShape.bounds, minClusterDistance)) {
             hasCollision = true;
             
+            // 겹침 정보 계산
+            const overlap = calculateOverlap(adjustedBounds, otherShape.bounds);
+            
             // 중심점 간 거리와 방향 계산
-            const dx = bounds1.centerX - bounds2.centerX;
-            const dy = bounds1.centerY - bounds2.centerY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const dx = overlap.center1.x - overlap.center2.x;
+            const dy = overlap.center1.y - overlap.center2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
             
-            // 최소 거리 계산 (양쪽 도형의 반지름 + 여백)
-            const halfWidth1 = bounds1.width / 2;
-            const halfHeight1 = bounds1.height / 2;
-            const halfWidth2 = bounds2.width / 2;
-            const halfHeight2 = bounds2.height / 2;
+            // 각 클러스터의 반지름 계산
+            const radius1 = Math.max(adjustedBounds.width, adjustedBounds.height) / 2;
+            const radius2 = Math.max(otherShape.bounds.width, otherShape.bounds.height) / 2;
             
-            const minDistanceX = halfWidth1 + halfWidth2 + minClusterDistance;
-            const minDistanceY = halfHeight1 + halfHeight2 + minClusterDistance;
-            const minDistance = Math.max(minDistanceX, minDistanceY);
+            // 필요한 최소 거리 (반지름 합 + 여백)
+            const requiredDistance = radius1 + radius2 + minClusterDistance;
             
-            if (distance > 0.1 && distance < minDistance) {
+            // 현재 거리가 필요한 거리보다 작으면 이동
+            if (distance < requiredDistance) {
               // 정규화된 방향 벡터
               const normalizedDx = dx / distance;
               const normalizedDy = dy / distance;
               
-              // 필요한 이동 거리 (최소 거리 보장)
-              const moveDistance = minDistance - distance + minClusterDistance * 0.5;
+              // 필요한 이동 거리 (확실하게 분리)
+              const moveDistance = requiredDistance - distance + minClusterDistance;
               const moveX = normalizedDx * moveDistance;
               const moveY = normalizedDy * moveDistance;
+              
+              // 경계 업데이트
+              adjustedBounds.minX += moveX;
+              adjustedBounds.maxX += moveX;
+              adjustedBounds.minY += moveY;
+              adjustedBounds.maxY += moveY;
+              adjustedBounds.centerX += moveX;
+              adjustedBounds.centerY += moveY;
+            } else if (overlap.overlapArea > 0) {
+              // 거리는 충분하지만 여전히 겹치는 경우 (대각선 겹침)
+              // 겹침 영역만큼 확실하게 이동
+              const moveX = overlap.overlapX > 0 ? (overlap.overlapX + minClusterDistance) * (dx / Math.abs(dx) || 1) : 0;
+              const moveY = overlap.overlapY > 0 ? (overlap.overlapY + minClusterDistance) * (dy / Math.abs(dy) || 1) : 0;
               
               adjustedBounds.minX += moveX;
               adjustedBounds.maxX += moveX;
@@ -2263,42 +2292,6 @@ const InfiniteCanvasPage = () => {
               adjustedBounds.maxY += moveY;
               adjustedBounds.centerX += moveX;
               adjustedBounds.centerY += moveY;
-            } else if (distance <= 0.1 || isNaN(distance)) {
-              // 거리가 거의 0이거나 계산 불가능한 경우
-              // 겹치는 영역이 큰 쪽으로 이동
-              const moveX = overlapX > overlapY ? (overlapX + minClusterDistance) : 0;
-              const moveY = overlapY > overlapX ? (overlapY + minClusterDistance) : 0;
-              
-              // 랜덤 방향 추가 (같은 위치에 여러 개가 있을 때 분산)
-              const angle = (attempts * 0.5) % (2 * Math.PI);
-              const randomOffset = minClusterDistance * (attempts + 1) * 0.5;
-              
-              adjustedBounds.minX += moveX + Math.cos(angle) * randomOffset;
-              adjustedBounds.maxX += moveX + Math.cos(angle) * randomOffset;
-              adjustedBounds.minY += moveY + Math.sin(angle) * randomOffset;
-              adjustedBounds.maxY += moveY + Math.sin(angle) * randomOffset;
-              adjustedBounds.centerX += moveX + Math.cos(angle) * randomOffset;
-              adjustedBounds.centerY += moveY + Math.sin(angle) * randomOffset;
-            } else {
-              // 이미 충분히 떨어져 있지만 여전히 겹치는 경우 (대각선 겹침)
-              // 겹치는 영역만큼 이동
-              const moveX = overlapX > 0 ? (overlapX + minClusterDistance) : 0;
-              const moveY = overlapY > 0 ? (overlapY + minClusterDistance) : 0;
-              
-              // 방향 결정 (더 큰 겹침 방향으로)
-              if (moveX > 0 || moveY > 0) {
-                const angle = Math.atan2(dy, dx);
-                const moveDistance = Math.max(moveX, moveY);
-                const finalMoveX = Math.cos(angle) * moveDistance;
-                const finalMoveY = Math.sin(angle) * moveDistance;
-                
-                adjustedBounds.minX += finalMoveX;
-                adjustedBounds.maxX += finalMoveX;
-                adjustedBounds.minY += finalMoveY;
-                adjustedBounds.maxY += finalMoveY;
-                adjustedBounds.centerX += finalMoveX;
-                adjustedBounds.centerY += finalMoveY;
-              }
             }
             break;
           }
@@ -2310,33 +2303,34 @@ const InfiniteCanvasPage = () => {
         attempts++;
       }
       
-      // 최종 겹침 확인 (모든 조정된 도형과 다시 확인)
-      let finalCheck = true;
+      // 최종 검증: 모든 조정된 도형과 다시 한 번 확인
+      let needsFinalAdjustment = true;
       let finalAttempts = 0;
-      while (finalCheck && finalAttempts < 50) {
-        finalCheck = false;
+      while (needsFinalAdjustment && finalAttempts < 100) {
+        needsFinalAdjustment = false;
+        
         for (let i = 0; i < adjustedShapes.length; i++) {
           const otherShape = adjustedShapes[i];
-          const bounds1 = adjustedBounds;
-          const bounds2 = otherShape.bounds;
           
-          const overlapLeft = Math.max(bounds1.minX, bounds2.minX);
-          const overlapRight = Math.min(bounds1.maxX, bounds2.maxX);
-          const overlapTop = Math.max(bounds1.minY, bounds2.minY);
-          const overlapBottom = Math.min(bounds1.maxY, bounds2.maxY);
-          
-          const overlapX = overlapRight - overlapLeft;
-          const overlapY = overlapBottom - overlapTop;
-          
-          if (overlapX > -minClusterDistance && overlapY > -minClusterDistance) {
-            finalCheck = true;
-            const dx = bounds1.centerX - bounds2.centerX;
-            const dy = bounds1.centerY - bounds2.centerY;
+          if (isShapesOverlapping(adjustedBounds, otherShape.bounds, minClusterDistance)) {
+            needsFinalAdjustment = true;
+            
+            const overlap = calculateOverlap(adjustedBounds, otherShape.bounds);
+            const dx = overlap.center1.x - overlap.center2.x;
+            const dy = overlap.center1.y - overlap.center2.y;
             const distance = Math.sqrt(dx * dx + dy * dy) || 1;
             
-            const moveDistance = Math.max(overlapX, overlapY) + minClusterDistance;
-            const moveX = (dx / distance) * moveDistance;
-            const moveY = (dy / distance) * moveDistance;
+            // 확실하게 분리하기 위한 이동
+            const radius1 = Math.max(adjustedBounds.width, adjustedBounds.height) / 2;
+            const radius2 = Math.max(otherShape.bounds.width, otherShape.bounds.height) / 2;
+            const requiredDistance = radius1 + radius2 + minClusterDistance;
+            
+            const moveDistance = requiredDistance - distance + minClusterDistance;
+            const normalizedDx = dx / distance;
+            const normalizedDy = dy / distance;
+            
+            const moveX = normalizedDx * moveDistance;
+            const moveY = normalizedDy * moveDistance;
             
             adjustedBounds.minX += moveX;
             adjustedBounds.maxX += moveX;
