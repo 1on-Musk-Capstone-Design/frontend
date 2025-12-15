@@ -131,10 +131,10 @@ export const TOOLBAR_AREA_CONSTANTS = {
 // ============================================
 /**
  * 클러스터링 API URL
- * 별도 배포된 서버(39.112.89.182:8002)를 직접 호출
+ * 배포된 클러스터링 API 서버 (ngrok)
  * - 기존 on-it.kro.kr 프록시(/clustering) 사용하지 않음
  */
-const getClusteringApiUrl = () => 'http://39.112.89.182:8002';
+const getClusteringApiUrl = () => 'https://77471dd01f95.ngrok-free.app';
 
 export const API_CONSTANTS = {
   // 클러스터링 API 주소
