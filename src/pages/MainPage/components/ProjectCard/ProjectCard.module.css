@@ -63,17 +63,16 @@
   flex: 0 0 92px;
   min-height: 92px;
   max-height: 92px;
-  padding: 16px; /* 상하좌우 균등한 패딩 */
+  padding: 12px 16px; /* 상하 패딩 줄임 (12px), 좌우는 유지 (16px) */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   overflow: hidden;
   box-sizing: border-box;
-  border-top: 1px solid #e5e7eb; /* 썸네일과 body 사이 경계선 */
 }
 
 .title { 
-  margin: 0 0 8px 0; 
+  margin: 0 0 4px 0; /* 하단 마진 줄임 (8px -> 4px) */
   font-size: 0.92rem; 
   font-weight: 600; 
   color: #111827; 
@@ -84,17 +83,17 @@
   -webkit-line-clamp: 1;
   line-clamp: 1;
   -webkit-box-orient: vertical;
-  line-height: 1.4;
+  line-height: 1.3; /* 줄 간격 약간 줄임 */
 }
 
 .meta { margin-top: 6px; font-size: 0.7rem; color: #6b7280; font-weight: 500; }
 
 .card:hover { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(1,205,21,0.18); border-color: #01CD15; }
 .metaContainer {
-  margin-top: 4px; /* 제목과의 간격 */
+  margin-top: 2px; /* 제목과의 간격 줄임 (4px -> 2px) */
   display: flex;
   flex-direction: column;
-  gap: 6px; /* slightly increased for clarity and uniformity */
+  gap: 4px; /* 간격 줄임 (6px -> 4px) */
   overflow: hidden;
   flex: 1 1 auto;
   min-height: 0;
@@ -104,14 +103,7 @@
   font-size: 0.8rem;
   color: var(--muted, #6b7280);
   margin: 0;
-}
-
-.ownerInfoOverlay {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 5;
-  pointer-events: none;
+  line-height: 1.2; /* 줄 간격 줄임 */
 }
 
 .ownerInfo {
@@ -122,14 +114,12 @@
 .ownerBadgeContainer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px; /* 간격 줄임 (6px -> 4px) */
+  padding: 1px 6px; /* 상하 패딩 줄임 (2px -> 1px) */
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  max-width: 150px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  max-width: 100%;
 }
 
 .ownerProfileImage {
@@ -171,7 +161,7 @@
 
 .actionButtons {
   position: absolute;
-  bottom: 8px;
+  top: 8px;
   right: 8px;
   display: flex;
   gap: 4px;
