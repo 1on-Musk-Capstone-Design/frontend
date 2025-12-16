@@ -110,6 +110,30 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
             className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`}
             style={isEmptyThumbnail ? { background: '#ffffff', overflow: 'hidden', pointerEvents: 'none' } : (showThumb ? undefined : { background: pastelBg, overflow: 'hidden', pointerEvents: 'none' })}
           >
+            {/* 사용자 정보를 썸네일 영역 오른쪽 위에 배치 */}
+            {ownerName && (
+              <div className={styles.ownerInfoOverlay}>
+                <div className={styles.ownerBadgeContainer}>
+                  {hasValidImage ? (
+                    <img 
+                      src={effectiveOwnerImage} 
+                      alt={isOwner ? (localName || ownerName || '내 프로젝트') : (ownerName || '소유자')} 
+                      className={styles.ownerProfileImage}
+                      onError={() => {
+                        setImageError(true)
+                      }}
+                    />
+                  ) : (
+                    <div className={styles.ownerProfilePlaceholder}>
+                      {(isOwner ? (localName || ownerName || 'N') : (ownerName || 'N')).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className={styles.ownerText}>
+                    {isOwner ? (localName || '내 프로젝트') : ownerName}
+                  </span>
+                </div>
+              </div>
+            )}
             {previewItems && previewItems.length > 0 ? (
               <div
                 style={{
@@ -173,29 +197,6 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
             <h3 className={styles.title}>{title}</h3>
             <div className={styles.metaContainer}>
               <p className={styles.meta}>{lastModified}</p>
-              {ownerName && (
-                <div className={styles.ownerInfo}>
-                  <div className={styles.ownerBadgeContainer}>
-                    {hasValidImage ? (
-                      <img 
-                        src={effectiveOwnerImage} 
-                        alt={isOwner ? (localName || ownerName || '내 프로젝트') : (ownerName || '소유자')} 
-                        className={styles.ownerProfileImage}
-                        onError={() => {
-                          setImageError(true)
-                        }}
-                      />
-                    ) : (
-                      <div className={styles.ownerProfilePlaceholder}>
-                        {(isOwner ? (localName || ownerName || 'N') : (ownerName || 'N')).charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className={styles.ownerText}>
-                      {isOwner ? (localName || '내 프로젝트') : ownerName}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </article>
