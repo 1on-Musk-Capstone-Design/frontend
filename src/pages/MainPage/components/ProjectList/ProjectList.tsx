@@ -63,11 +63,10 @@ export default function ProjectList({ projects, viewMode, favorites, toggleFavor
       {projects.length > 0 && (
         <>
           <div
-            className="grid grid-cols-[40px_1fr_140px_120px_80px] gap-3 px-2 pb-3"
+            className="grid grid-cols-[40px_1fr_120px_80px] gap-3 px-2 pb-3"
           >
             <div className="flex items-center justify-center text-base font-semibold text-gray-700"><Star size={16} /></div>
             <div className="text-base font-semibold text-gray-700">제목</div>
-            <div className="text-base font-semibold text-gray-700">파일수</div>
             <div className="text-base font-semibold text-gray-700">최근 수정</div>
             <div className="flex items-center justify-center text-base font-semibold text-gray-700">관리</div>
           </div>
@@ -76,7 +75,6 @@ export default function ProjectList({ projects, viewMode, favorites, toggleFavor
               <ProjectRow
                 key={p.id}
                 project={p}
-                fileCount={Math.floor(Math.random() * 25) + 1}
                 isFavorite={favorites.has(p.id)}
                 onToggleFavorite={toggleFavorite}
                 onInvite={onInvite}

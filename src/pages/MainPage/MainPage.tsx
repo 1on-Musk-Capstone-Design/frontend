@@ -233,19 +233,41 @@ export default function MainPage(): JSX.Element {
             }
           }
 
-          // 썸네일 URL 처리
-          let thumbnailUrl = ''
-          const rawThumb: string | undefined = (workspace as any).thumbnailUrl
-          if (rawThumb) {
-            if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
-              thumbnailUrl = rawThumb
-            } else if (rawThumb.startsWith('/')) {
-              thumbnailUrl = `${API_BASE_URL}${rawThumb}`
-            } else {
-              thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
+            // 썸네일 URL 처리
+            let thumbnailUrl = ''
+            
+            // 워크스페이스에 아이디어가 있는지 확인
+            let hasIdeas = false
+            try {
+              const ideasRes = await axios.get(
+                `${API_BASE_URL}/v1/ideas/workspaces/${workspace.workspaceId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                  }
+                }
+              )
+              hasIdeas = ideasRes.data && Array.isArray(ideasRes.data) && ideasRes.data.length > 0
+            } catch (err) {
+              // 아이디어 조회 실패 시 기본값 사용 (아이디어 없음으로 간주)
+              hasIdeas = false
             }
-            thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
-          }
+            
+            // 아이디어가 있으면 썸네일 URL 사용, 없으면 빈 문자열 (흰 화면)
+            if (hasIdeas) {
+              const rawThumb: string | undefined = (workspace as any).thumbnailUrl
+              if (rawThumb) {
+                if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+                  thumbnailUrl = rawThumb
+                } else if (rawThumb.startsWith('/')) {
+                  thumbnailUrl = `${API_BASE_URL}${rawThumb}`
+                } else {
+                  thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
+                }
+                thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+              }
+            }
+            // 아이디어가 없으면 thumbnailUrl은 빈 문자열로 유지 (흰 화면 표시)
 
           return {
             id: String(workspace.workspaceId),

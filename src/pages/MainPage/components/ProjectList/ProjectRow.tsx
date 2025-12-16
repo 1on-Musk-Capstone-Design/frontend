@@ -3,17 +3,16 @@ import { Project } from '../../types'
 
 interface ProjectRowProps {
   project: Project
-  fileCount: number
   isFavorite: boolean
   onToggleFavorite: (id: string) => void
   onInvite: (id: string) => void
   onDelete: (id: string) => void
 }
 
-export function ProjectRow({ project, fileCount, isFavorite, onToggleFavorite, onInvite, onDelete }: ProjectRowProps) {
+export function ProjectRow({ project, isFavorite, onToggleFavorite, onInvite, onDelete }: ProjectRowProps) {
   return (
     <li
-      className="grid grid-cols-[40px_1fr_140px_120px_80px] gap-3 items-center py-4 px-3 mb-2 bg-white rounded-lg border border-black/5 hover:bg-gray-50 transition-colors"
+      className="grid grid-cols-[40px_1fr_120px_80px] gap-3 items-center py-4 px-3 mb-2 bg-white rounded-lg border border-black/5 hover:bg-gray-50 transition-colors"
       style={{ position: 'relative' }}
     >
       <button
@@ -36,7 +35,6 @@ export function ProjectRow({ project, fileCount, isFavorite, onToggleFavorite, o
         <Star size={16} fill={isFavorite ? '#fbbf24' : 'none'} />
       </button>
       <div className="text-[15px] font-medium text-gray-900">{project.title}</div>
-      <div className="text-sm text-gray-500">{fileCount}개</div>
       <div className="text-sm text-gray-500">{project.lastModified}</div>
       <div className="flex items-center justify-center gap-2">
         <button
