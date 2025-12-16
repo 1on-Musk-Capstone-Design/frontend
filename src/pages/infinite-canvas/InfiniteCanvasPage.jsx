@@ -58,9 +58,9 @@ const InfiniteCanvasPage = () => {
   const [workspaceParticipants, setWorkspaceParticipants] = useState([]); // 워크스페이스 참가자 목록
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
-  const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName})
+  const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName, canvasX, canvasY})
   const [displayCursors, setDisplayCursors] = useState(new Map()); // 화면에 표시되는 커서 위치 (보간된 위치)
-  const targetCursorsRef = useRef(new Map()); // 목표 커서 위치 (서버에서 받은 위치)
+  const targetCursorsRef = useRef(new Map()); // 목표 커서 위치 (캔버스 좌표로 저장)
   const animationFrameRef = useRef(null); // 애니메이션 프레임 참조
   const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
   
@@ -112,9 +112,27 @@ const InfiniteCanvasPage = () => {
   }, []);
 
   // 커서 위치 보간 애니메이션 (부드러운 이동)
+  // 캔버스 좌표를 뷰포트 좌표로 변환하여 표시 (줌 레벨 변경 시 자동 반영)
   useEffect(() => {
     const lerp = (start, end, factor) => {
       return start + (end - start) * factor;
+    };
+
+    // 캔버스 좌표를 뷰포트 좌표로 변환하는 함수
+    const canvasToViewportForDisplay = (canvasX, canvasY) => {
+      if (!canvas.canvasRef.current) return { x: 0, y: 0 };
+      
+      const rect = canvas.canvasRef.current.getBoundingClientRect();
+      const scrollX = canvas.canvasRef.current.scrollLeft || 0;
+      const scrollY = canvas.canvasRef.current.scrollTop || 0;
+      
+      const containerX = canvasX * canvas.canvasTransform.scale + canvas.canvasTransform.x;
+      const containerY = canvasY * canvas.canvasTransform.scale + canvas.canvasTransform.y;
+      
+      const viewportX = containerX + rect.left - scrollX;
+      const viewportY = containerY + rect.top - scrollY;
+      
+      return { x: viewportX, y: viewportY };
     };
 
     const animate = () => {
@@ -123,21 +141,23 @@ const InfiniteCanvasPage = () => {
         const lerpFactor = 0.15; // 보간 계수 (0.15 = 빠른 이동, 0.05 = 느린 이동)
         
         targetCursorsRef.current.forEach((targetCursor, userId) => {
+          // 캔버스 좌표를 뷰포트 좌표로 변환
+          const targetViewport = canvasToViewportForDisplay(targetCursor.canvasX, targetCursor.canvasY);
           const currentCursor = prev.get(userId);
           
           if (currentCursor) {
             // 이전 위치에서 목표 위치로 부드럽게 보간
             newMap.set(userId, {
-              x: lerp(currentCursor.x, targetCursor.x, lerpFactor),
-              y: lerp(currentCursor.y, targetCursor.y, lerpFactor),
+              x: lerp(currentCursor.x, targetViewport.x, lerpFactor),
+              y: lerp(currentCursor.y, targetViewport.y, lerpFactor),
               userName: targetCursor.userName,
               timestamp: targetCursor.timestamp
             });
           } else {
             // 처음 나타나는 커서는 즉시 목표 위치로
             newMap.set(userId, {
-              x: targetCursor.x,
-              y: targetCursor.y,
+              x: targetViewport.x,
+              y: targetViewport.y,
               userName: targetCursor.userName,
               timestamp: targetCursor.timestamp
             });
@@ -157,9 +177,10 @@ const InfiniteCanvasPage = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [canvas.canvasTransform, canvas.canvasRef]);
 
-  // 오래된 커서 위치 정리 (5초 이상 업데이트되지 않은 커서 제거)
+  // 오래된 커서 위치 정리 (15초 이상 업데이트되지 않은 커서 제거)
+  // 텍스트 편집 중일 때도 커서가 유지되도록 타임아웃을 늘림
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const now = Date.now();
@@ -168,7 +189,7 @@ const InfiniteCanvasPage = () => {
         const toRemove = [];
         
         prev.forEach((cursor, userId) => {
-          if (now - cursor.timestamp < 5000) {
+          if (now - cursor.timestamp < 15000) {
             newMap.set(userId, cursor);
           } else {
             // 오래된 커서는 목표 위치에서 제거
@@ -514,21 +535,23 @@ const InfiniteCanvasPage = () => {
   // 캔버스 웹소켓 연결 (실시간 협업용)
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
     onCursorMove: (cursorPosition) => {
-      // 목표 위치 업데이트 (서버에서 받은 위치)
+      // 서버에서 받은 위치는 캔버스 좌표이므로 그대로 저장
       const userId = String(cursorPosition.userId);
+      
+      // 목표 위치 업데이트 (캔버스 좌표로 저장하여 줌 레벨 변경 시 자동 반영)
       targetCursorsRef.current.set(userId, {
-        x: cursorPosition.x,
-        y: cursorPosition.y,
+        canvasX: cursorPosition.x,
+        canvasY: cursorPosition.y,
         userName: cursorPosition.userName || workspaceUsers.get(userId) || '알 수 없음',
         timestamp: cursorPosition.timestamp || Date.now()
       });
       
-      // remoteCursors도 업데이트 (타임스탬프 추적용)
+      // remoteCursors도 업데이트 (타임스탬프 추적용, 캔버스 좌표 저장)
       setRemoteCursors(prev => {
         const newMap = new Map(prev);
         newMap.set(userId, {
-          x: cursorPosition.x,
-          y: cursorPosition.y,
+          canvasX: cursorPosition.x,
+          canvasY: cursorPosition.y,
           userName: cursorPosition.userName || workspaceUsers.get(userId) || '알 수 없음',
           timestamp: cursorPosition.timestamp || Date.now()
         });
@@ -1125,6 +1148,40 @@ const InfiniteCanvasPage = () => {
     }
   };
 
+  // 뷰포트 좌표를 캔버스 좌표로 변환
+  const viewportToCanvas = (clientX, clientY) => {
+    if (!canvas.canvasRef.current) return { x: 0, y: 0 };
+    
+    const rect = canvas.canvasRef.current.getBoundingClientRect();
+    const scrollX = canvas.canvasRef.current.scrollLeft || 0;
+    const scrollY = canvas.canvasRef.current.scrollTop || 0;
+    
+    const containerX = clientX - rect.left + scrollX;
+    const containerY = clientY - rect.top + scrollY;
+    
+    const canvasX = (containerX - canvas.canvasTransform.x) / canvas.canvasTransform.scale;
+    const canvasY = (containerY - canvas.canvasTransform.y) / canvas.canvasTransform.scale;
+    
+    return { x: canvasX, y: canvasY };
+  };
+
+  // 캔버스 좌표를 뷰포트 좌표로 변환
+  const canvasToViewport = (canvasX, canvasY) => {
+    if (!canvas.canvasRef.current) return { x: 0, y: 0 };
+    
+    const rect = canvas.canvasRef.current.getBoundingClientRect();
+    const scrollX = canvas.canvasRef.current.scrollLeft || 0;
+    const scrollY = canvas.canvasRef.current.scrollTop || 0;
+    
+    const containerX = canvasX * canvas.canvasTransform.scale + canvas.canvasTransform.x;
+    const containerY = canvasY * canvas.canvasTransform.scale + canvas.canvasTransform.y;
+    
+    const viewportX = containerX + rect.left - scrollX;
+    const viewportY = containerY + rect.top - scrollY;
+    
+    return { x: viewportX, y: viewportY };
+  };
+
   const handleCanvasMouseMove = (e) => {
     if (mode === 'move' && canvas.isAreaSelecting) {
       // 영역 선택이 시작된 후에는 Shift 키 상태와 관계없이 계속 업데이트
@@ -1134,9 +1191,10 @@ const InfiniteCanvasPage = () => {
 
     // 커서 위치 공유 (뷰포트 내에 마우스가 있을 때만)
     if (isMouseInViewportRef.current && canvasWebSocket.isConnected && currentUserId) {
-      // Throttle 제거: 마우스 이동 시마다 즉시 전송
+      // 뷰포트 좌표를 캔버스 좌표로 변환하여 전송
+      const canvasPos = viewportToCanvas(e.clientX, e.clientY);
       const userName = workspaceUsers.get(String(currentUserId)) || localStorage.getItem('userName') || '사용자';
-      canvasWebSocket.sendCursorPosition(e.clientX, e.clientY, userName);
+      canvasWebSocket.sendCursorPosition(canvasPos.x, canvasPos.y, userName);
     }
   };
 
