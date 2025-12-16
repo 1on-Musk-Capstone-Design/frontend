@@ -69,6 +69,7 @@
   justify-content: flex-start;
   overflow: hidden;
   box-sizing: border-box;
+  border-top: 1px solid #e5e7eb; /* 썸네일과 body 사이 경계선 */
 }
 
 .title { 
@@ -170,7 +171,7 @@
 
 .actionButtons {
   position: absolute;
-  top: 8px;
+  bottom: 8px;
   right: 8px;
   display: flex;
   gap: 4px;
