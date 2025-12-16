@@ -51,6 +51,8 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
   const hasThumbImage = !!(thumbnailUrl && thumbnailUrl.trim() !== '')
   const pastelBg = getPastelFromPalette(`${id}-${title}`)
   const [showThumb, setShowThumb] = React.useState<boolean>(hasThumbImage)
+  // 새 프로젝트는 흰 화면으로 표시
+  const isEmptyThumbnail = !thumbnailUrl || thumbnailUrl.trim() === ''
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -106,7 +108,7 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
         <article className={styles.card}>
           <div
             className={`${styles.thumb} ${isTrash ? styles.thumbGrayscale : ''}`}
-            style={showThumb ? undefined : { background: pastelBg, overflow: 'hidden', pointerEvents: 'none' }}
+            style={isEmptyThumbnail ? { background: '#ffffff', overflow: 'hidden', pointerEvents: 'none' } : (showThumb ? undefined : { background: pastelBg, overflow: 'hidden', pointerEvents: 'none' })}
           >
             {previewItems && previewItems.length > 0 ? (
               <div

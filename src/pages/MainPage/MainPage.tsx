@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Grid, List as ListIcon, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ProjectList from './components/ProjectList/ProjectList'
@@ -108,191 +108,192 @@ export default function MainPage(): JSX.Element {
   // 이 로직은 CallbackPage에서 처리됨
 
   // 워크스페이스 목록 불러오기
-  useEffect(() => {
-    const fetchWorkspaces = async () => {
-      setLoading(true)
-      setLoadError(null)
+  const fetchWorkspaces = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    
+    try {
+      const accessToken = localStorage.getItem('accessToken')
       
-      try {
-        const accessToken = localStorage.getItem('accessToken')
-        
-        if (!accessToken) {
-          setLoadError('로그인이 필요합니다.')
-          setLoading(false)
-          setIsLoggedIn(false)
-          setAuthExpiredModalOpen(true)
-          return
-        }
-        
-        // accessToken이 있으면 로그인 상태로 설정하고 API 호출 시도
-        setIsLoggedIn(true)
+      if (!accessToken) {
+        setLoadError('로그인이 필요합니다.')
+        setLoading(false)
+        setIsLoggedIn(false)
+        setAuthExpiredModalOpen(true)
+        return
+      }
+      
+      // accessToken이 있으면 로그인 상태로 설정하고 API 호출 시도
+      setIsLoggedIn(true)
 
-        const res = await axios.get<WorkspaceListItem[]>(
-          `${API_BASE_URL}/v1/workspaces`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
+      const res = await axios.get<WorkspaceListItem[]>(
+        `${API_BASE_URL}/v1/workspaces`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      )
+
+
+      // 현재 사용자 ID 추출
+      let currentUserId: string | null = null
+      try {
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]))
+        currentUserId = String(tokenPayload.user_id || tokenPayload.sub)
+      } catch (e) {
+        console.warn('JWT 토큰 파싱 실패:', e)
+      }
+
+      // 각 워크스페이스의 사용자 목록을 병렬로 가져와서 OWNER 찾기
+      const workspaceProjectsWithOwners = await Promise.all(
+        res.data.map(async (workspace) => {
+          let ownerName = '알 수 없음'
+          let ownerProfileImage: string | undefined = undefined
+          let isOwner = false
+
+          try {
+            const usersRes = await axios.get(
+              `${API_BASE_URL}/v1/workspaces/${workspace.workspaceId}/users`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`
+                }
+              }
+            )
+
+            // OWNER 역할을 가진 사용자 찾기
+            const owner = usersRes.data.find((user: any) => user.role === 'OWNER')
+            if (owner) {
+              ownerName = owner.name || owner.email || '알 수 없음'
+              
+              // profileImage가 유효한 문자열인 경우에만 설정
+              if (owner.profileImage && owner.profileImage.trim() !== '') {
+                // 상대 경로인 경우 절대 경로로 변환
+                if (owner.profileImage.startsWith('/')) {
+                  ownerProfileImage = `${API_BASE_URL}${owner.profileImage}`
+                } else if (!owner.profileImage.startsWith('http://') && !owner.profileImage.startsWith('https://')) {
+                  // 상대 경로인 경우 (http/https로 시작하지 않으면)
+                  ownerProfileImage = `${API_BASE_URL}/${owner.profileImage}`
+                } else {
+                  ownerProfileImage = owner.profileImage
+                }
+              } else {
+                ownerProfileImage = undefined
+              }
+              
+              // 현재 사용자가 OWNER인지 확인
+              if (currentUserId && String(owner.id) === currentUserId) {
+                isOwner = true
+              }
+            } else {
+              console.warn(`워크스페이스 ${workspace.workspaceId}에서 OWNER를 찾을 수 없습니다.`)
+            }
+          } catch (err: any) {
+            console.error(`워크스페이스 ${workspace.workspaceId} 사용자 목록 불러오기 실패:`, err)
+            // 사용자 목록 조회 중 인증 오류 발생 시에도 처리
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+              console.log('사용자 목록 조회 중 인증 오류 감지! 모달 표시 시작')
+              setIsLoggedIn(false)
+              localStorage.removeItem('accessToken')
+              localStorage.removeItem('refreshToken')
+              localStorage.removeItem('userName')
+              localStorage.removeItem('userEmail')
+              setAuthExpiredModalOpen(true)
+              console.log('사용자 목록 조회 중 모달 상태 업데이트 완료')
+              // 더 이상 다른 워크스페이스를 처리할 필요 없으므로 중단
+              throw err
             }
           }
-        )
 
-
-        // 현재 사용자 ID 추출
-        let currentUserId: string | null = null
-        try {
-          const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]))
-          currentUserId = String(tokenPayload.user_id || tokenPayload.sub)
-        } catch (e) {
-          console.warn('JWT 토큰 파싱 실패:', e)
-        }
-
-        // 각 워크스페이스의 사용자 목록을 병렬로 가져와서 OWNER 찾기
-        const workspaceProjectsWithOwners = await Promise.all(
-          res.data.map(async (workspace) => {
-            let ownerName = '알 수 없음'
-            let ownerProfileImage: string | undefined = undefined
-            let isOwner = false
-
-            try {
-              const usersRes = await axios.get(
-                `${API_BASE_URL}/v1/workspaces/${workspace.workspaceId}/users`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                  }
-                }
-              )
-
-              // OWNER 역할을 가진 사용자 찾기
-              const owner = usersRes.data.find((user: any) => user.role === 'OWNER')
-              if (owner) {
-                ownerName = owner.name || owner.email || '알 수 없음'
-                
-                // profileImage가 유효한 문자열인 경우에만 설정
-                if (owner.profileImage && owner.profileImage.trim() !== '') {
-                  // 상대 경로인 경우 절대 경로로 변환
-                  if (owner.profileImage.startsWith('/')) {
-                    ownerProfileImage = `${API_BASE_URL}${owner.profileImage}`
-                  } else if (!owner.profileImage.startsWith('http://') && !owner.profileImage.startsWith('https://')) {
-                    // 상대 경로인 경우 (http/https로 시작하지 않으면)
-                    ownerProfileImage = `${API_BASE_URL}/${owner.profileImage}`
-                  } else {
-                    ownerProfileImage = owner.profileImage
-                  }
-                } else {
-                  ownerProfileImage = undefined
-                }
-                
-                // 현재 사용자가 OWNER인지 확인
-                if (currentUserId && String(owner.id) === currentUserId) {
-                  isOwner = true
-                }
-              } else {
-                console.warn(`워크스페이스 ${workspace.workspaceId}에서 OWNER를 찾을 수 없습니다.`)
+          // 생성일 포맷팅: /v1/workspaces/{id}에서 createdAt 사용
+          let createdAtStr: string = new Date().toLocaleDateString()
+          try {
+            const wsRes = await axios.get(
+              `${API_BASE_URL}/v1/workspaces/${workspace.workspaceId}`,
+              {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
               }
-            } catch (err: any) {
-              console.error(`워크스페이스 ${workspace.workspaceId} 사용자 목록 불러오기 실패:`, err)
-              // 사용자 목록 조회 중 인증 오류 발생 시에도 처리
-              if (err?.response?.status === 401 || err?.response?.status === 403) {
-                console.log('사용자 목록 조회 중 인증 오류 감지! 모달 표시 시작')
-                setIsLoggedIn(false)
-                localStorage.removeItem('accessToken')
-                localStorage.removeItem('refreshToken')
-                localStorage.removeItem('userName')
-                localStorage.removeItem('userEmail')
-                setAuthExpiredModalOpen(true)
-                console.log('사용자 목록 조회 중 모달 상태 업데이트 완료')
-                // 더 이상 다른 워크스페이스를 처리할 필요 없으므로 중단
-                throw err
-              }
+            )
+            const createdSrc = (wsRes.data as any).createdAt || (wsRes.data as any).created_at
+            if (createdSrc) {
+              const d = new Date(createdSrc)
+              createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
             }
-
-            // 생성일 포맷팅: /v1/workspaces/{id}에서 createdAt 사용
-            let createdAtStr: string = new Date().toLocaleDateString()
-            try {
-              const wsRes = await axios.get(
-                `${API_BASE_URL}/v1/workspaces/${workspace.workspaceId}`,
-                {
-                  headers: { 'Authorization': `Bearer ${accessToken}` }
-                }
-              )
-              const createdSrc = (wsRes.data as any).createdAt || (wsRes.data as any).created_at
-              if (createdSrc) {
-                const d = new Date(createdSrc)
+          } catch (e) {
+            // 세부 조회 실패 시 목록의 createdAt 또는 오늘 날짜로 대체
+            const fallback = (workspace as any).createdAt || (workspace as any).created_at
+            if (fallback) {
+              try {
+                const d = new Date(fallback)
                 createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
-              }
-            } catch (e) {
-              // 세부 조회 실패 시 목록의 createdAt 또는 오늘 날짜로 대체
-              const fallback = (workspace as any).createdAt || (workspace as any).created_at
-              if (fallback) {
-                try {
-                  const d = new Date(fallback)
-                  createdAtStr = isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString()
-                } catch (_) {
-                  createdAtStr = new Date().toLocaleDateString()
-                }
+              } catch (_) {
+                createdAtStr = new Date().toLocaleDateString()
               }
             }
+          }
 
-            // 썸네일 URL 처리
-            let thumbnailUrl = ''
-            const rawThumb: string | undefined = (workspace as any).thumbnailUrl
-            if (rawThumb) {
-              if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
-                thumbnailUrl = rawThumb
-              } else if (rawThumb.startsWith('/')) {
-                thumbnailUrl = `${API_BASE_URL}${rawThumb}`
-              } else {
-                thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
-              }
-              thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+          // 썸네일 URL 처리
+          let thumbnailUrl = ''
+          const rawThumb: string | undefined = (workspace as any).thumbnailUrl
+          if (rawThumb) {
+            if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+              thumbnailUrl = rawThumb
+            } else if (rawThumb.startsWith('/')) {
+              thumbnailUrl = `${API_BASE_URL}${rawThumb}`
+            } else {
+              thumbnailUrl = `${API_BASE_URL}/${rawThumb}`
             }
+            thumbnailUrl = normalizeThumbnailUrl(thumbnailUrl)
+          }
 
-            return {
-              id: String(workspace.workspaceId),
-              title: workspace.name,
-              thumbnailUrl,
-              lastModified: createdAtStr,
-              ownerName,
-              ownerProfileImage,
-              isOwner,
-              isDeleted: false // 백엔드에서 이미 삭제된 것은 제외되므로 항상 false
-            }
-          })
-        )
+          return {
+            id: String(workspace.workspaceId),
+            title: workspace.name,
+            thumbnailUrl,
+            lastModified: createdAtStr,
+            ownerName,
+            ownerProfileImage,
+            isOwner,
+            isDeleted: false // 백엔드에서 이미 삭제된 것은 제외되므로 항상 false
+          }
+        })
+      )
 
-        setProjects(workspaceProjectsWithOwners)
-        
-        // 초대 수락 플래그가 있으면 제거 (목록 새로고침 완료)
-        if (localStorage.getItem('inviteAccepted') === 'true') {
-          localStorage.removeItem('inviteAccepted')
-        }
-      } catch (err: any) {
-        console.error('워크스페이스 목록 불러오기 실패', err)
-        
-        // axios 오류인지 확인
-        const isAxiosError = err?.isAxiosError || err?.response !== undefined || err?.request !== undefined
-        const status = err?.response?.status
-        
-        if (isAxiosError && (status === 401 || status === 403)) {
-          // 인증 오류 시 로그아웃 처리 및 모달 표시
-          console.log('인증 오류 감지! 모달 표시 시작')
-          setIsLoggedIn(false)
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-          localStorage.removeItem('userName')
-          localStorage.removeItem('userEmail')
-          console.log('setAuthExpiredModalOpen(true) 호출 전')
-          setAuthExpiredModalOpen(true)
-          console.log('setAuthExpiredModalOpen(true) 호출 후')
-        } else {
-          setLoadError(err?.response?.data?.message || err?.message || '워크스페이스 목록을 불러오는 중 오류가 발생했습니다.')
-        }
-      } finally {
-        setLoading(false)
+      setProjects(workspaceProjectsWithOwners)
+      
+      // 초대 수락 플래그가 있으면 제거 (목록 새로고침 완료)
+      if (localStorage.getItem('inviteAccepted') === 'true') {
+        localStorage.removeItem('inviteAccepted')
       }
+    } catch (err: any) {
+      console.error('워크스페이스 목록 불러오기 실패', err)
+      
+      // axios 오류인지 확인
+      const isAxiosError = err?.isAxiosError || err?.response !== undefined || err?.request !== undefined
+      const status = err?.response?.status
+      
+      if (isAxiosError && (status === 401 || status === 403)) {
+        // 인증 오류 시 로그아웃 처리 및 모달 표시
+        console.log('인증 오류 감지! 모달 표시 시작')
+        setIsLoggedIn(false)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('userName')
+        localStorage.removeItem('userEmail')
+        console.log('setAuthExpiredModalOpen(true) 호출 전')
+        setAuthExpiredModalOpen(true)
+        console.log('setAuthExpiredModalOpen(true) 호출 후')
+      } else {
+        setLoadError(err?.response?.data?.message || err?.message || '워크스페이스 목록을 불러오는 중 오류가 발생했습니다.')
+      }
+    } finally {
+      setLoading(false)
     }
+  }, [])
 
+  // 워크스페이스 목록 초기 로드
+  useEffect(() => {
     // accessToken이 있으면 API 호출 시도, 없으면 모달 표시
     const accessToken = localStorage.getItem('accessToken')
     
@@ -304,7 +305,23 @@ export default function MainPage(): JSX.Element {
       // accessToken이 없으면 인증 만료 모달 표시
       setAuthExpiredModalOpen(true)
     }
-  }, [])
+  }, [fetchWorkspaces])
+
+  // 프로필 업데이트 이벤트 리스너: 워크스페이스 목록 다시 불러오기
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      // 프로필이 업데이트되면 워크스페이스 목록을 다시 불러와서 OWNER 프로필 이미지 반영
+      const accessToken = localStorage.getItem('accessToken')
+      if (accessToken) {
+        fetchWorkspaces()
+      }
+    }
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate)
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate)
+    }
+  }, [fetchWorkspaces])
 
   // 로그인 핸들러
   const handleLogin = () => {
@@ -373,12 +390,47 @@ export default function MainPage(): JSX.Element {
         // ignore and keep today
       }
 
+      // 현재 사용자 정보 가져오기
+      let ownerName = localStorage.getItem('userName') || '사용자'
+      let ownerProfileImage: string | undefined = undefined
+
+      // 사용자 프로필 이미지 가져오기
+      try {
+        const userRes = await axios.get(
+          `${API_BASE_URL}/v1/users/me`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        )
+        if (userRes.data.name) {
+          ownerName = userRes.data.name
+        }
+        if (userRes.data.profileImage && userRes.data.profileImage.trim() !== '') {
+          const url = userRes.data.profileImage
+          if (url.startsWith('/')) {
+            ownerProfileImage = `${API_BASE_URL}${url}`
+          } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            ownerProfileImage = `${API_BASE_URL}/${url}`
+          } else {
+            ownerProfileImage = url
+          }
+        }
+      } catch (err) {
+        console.warn('사용자 정보 가져오기 실패, 기본값 사용', err)
+      }
+
       // 생성된 워크스페이스를 Project 타입으로 변환
       const newProject: Project = {
         id: String(res.data.workspaceId),
         title: res.data.name,
-        thumbnailUrl: '',
+        thumbnailUrl: '', // 빈 문자열 = 흰 화면
         lastModified: createdAtStr,
+        ownerName: ownerName,
+        ownerProfileImage: ownerProfileImage,
+        isOwner: true, // 생성자는 항상 OWNER
+        isDeleted: false
       }
 
       setProjects((s) => [newProject, ...s])
