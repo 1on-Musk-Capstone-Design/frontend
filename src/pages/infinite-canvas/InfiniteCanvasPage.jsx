@@ -2850,9 +2850,7 @@ const InfiniteCanvasPage = () => {
       {/* 플로팅 툴바 */}
       <FloatingToolbar 
         mode={mode} 
-        onModeChange={handleModeChange} 
-        onReset={resetCanvas}
-        onArrange={arrangeTexts}
+        onModeChange={handleModeChange}
       />
 
       {/* 중앙 표시 점 */}

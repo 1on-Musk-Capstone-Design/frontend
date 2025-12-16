@@ -1,7 +1,7 @@
 import React from 'react';
 import { TOOLBAR_CONSTANTS } from '../constants';
 
-const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
+const FloatingToolbar = ({ mode, onModeChange }) => {
   return (
     <div 
       className="floatingToolbar"
@@ -47,35 +47,6 @@ const FloatingToolbar = ({ mode, onModeChange, onReset, onArrange }) => {
         </svg>
       </button>
 
-      {/* 구분선 */}
-      <div className="toolbarDivider"></div>
-
-      {/* 정리 도구 */}
-      <button
-        onClick={onArrange}
-        className="toolbarButton"
-        title="정리"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7"/>
-          <rect x="14" y="3" width="7" height="7"/>
-          <rect x="3" y="14" width="7" height="7"/>
-          <rect x="14" y="14" width="7" height="7"/>
-        </svg>
-      </button>
-
-      {/* 초기화 */}
-      <button
-        onClick={onReset}
-        className="toolbarButton"
-        title="초기화"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-          <path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-          <path d="M3 21v-5h5"/>
-        </svg>
-      </button>
     </div>
   );
 };

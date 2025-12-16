@@ -14,6 +14,9 @@ const ChatPanel = ({
   const [newMessage, setNewMessage] = useState("");
   const [isHidden, setIsHidden] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const scrollTimeoutRef = useRef(null);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -54,15 +57,55 @@ const ChatPanel = ({
     return prevMessage.userId !== message.userId || prevMessage.sender !== 'other';
   };
 
+  // 사용자가 스크롤하는지 감지
+  useEffect(() => {
+    const messagesContainer = messagesContainerRef.current;
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      // 사용자가 스크롤 중임을 표시
+      setIsUserScrolling(true);
+      
+      // 스크롤이 맨 아래에 있는지 확인
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px 여유
+      
+      // 맨 아래에 있으면 사용자 스크롤 상태 해제
+      if (isAtBottom) {
+        setIsUserScrolling(false);
+      }
+      
+      // 스크롤이 멈춘 후 일정 시간이 지나면 자동 스크롤 재개
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (isAtBottom) {
+          setIsUserScrolling(false);
+        }
+      }, 1000);
+    };
+
+    messagesContainer.addEventListener('scroll', handleScroll);
+    return () => {
+      messagesContainer.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // 자동 스크롤 함수
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current && !isUserScrolling) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
-  // 메시지가 추가될 때마다 자동 스크롤
+  // 메시지가 추가될 때마다 자동 스크롤 (사용자가 스크롤 중이 아닐 때만)
   useEffect(() => {
     scrollToBottom();
-  }, [allMessages]);
+  }, [allMessages, isUserScrolling]);
 
   return (
     <>
@@ -112,7 +155,7 @@ const ChatPanel = ({
 
         {/* 메시지 목록 */}
         <div className="chatContent">
-          <div className="chatMessages">
+          <div className="chatMessages" ref={messagesContainerRef}>
             {allMessages.map((message, index) => {
               const showName = shouldShowName(message, index);
               return (
