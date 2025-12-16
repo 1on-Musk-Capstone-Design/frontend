@@ -280,6 +280,43 @@ const ClusteringPanel = ({
             </div>
           </div>
 
+          {/* 알고리즘 섹션 */}
+          <div className="clusteringSection">
+            <div className="clusteringSectionHeader">
+              <span>알고리즘</span>
+            </div>
+            <div className="clusteringSectionContent">
+              <select
+                value={clusteringParams.algorithm}
+                onChange={(e) => handleParamChange('algorithm', e.target.value)}
+                className="clusteringSelect"
+              >
+                <option value="kmeans">K-Means</option>
+              </select>
+              <div className="clusteringDescription">
+                {getAlgorithmDescription(clusteringParams.algorithm)}
+              </div>
+            </div>
+          </div>
+
+          {/* 거리 측정 방법 섹션 */}
+          <div className="clusteringSection">
+            <div className="clusteringSectionHeader">
+              <span>거리 측정</span>
+            </div>
+            <div className="clusteringSectionContent">
+              <select
+                value={clusteringParams.distanceMetric}
+                onChange={(e) => handleParamChange('distanceMetric', e.target.value)}
+                className="clusteringSelect"
+              >
+                <option value="euclidean">Euclidean</option>
+              </select>
+              <div className="clusteringDescription">
+                {getDistanceMetricDescription(clusteringParams.distanceMetric)}
+              </div>
+            </div>
+          </div>
 
           {/* DBSCAN 파라미터 (DBSCAN 선택 시에만 표시) */}
           {clusteringParams.algorithm === 'dbscan' && (
