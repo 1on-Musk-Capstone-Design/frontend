@@ -147,6 +147,24 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
                   target.style.display = 'none'
                   setShowThumb(false) // fall back to solid pastel background
                 }}
+                onLoad={(e) => {
+                  // blob URL인 경우 이미지 로드 성공 확인
+                  const target = e.target as HTMLImageElement
+                  if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
+                    // blob URL이 유효한지 확인
+                    try {
+                      const img = new Image()
+                      img.onerror = () => {
+                        target.style.display = 'none'
+                        setShowThumb(false)
+                      }
+                      img.src = thumbnailUrl
+                    } catch (err) {
+                      target.style.display = 'none'
+                      setShowThumb(false)
+                    }
+                  }
+                }}
               />
             ) : null}
           </div>

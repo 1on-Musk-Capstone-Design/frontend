@@ -257,7 +257,10 @@ export default function MainPage(): JSX.Element {
             if (hasIdeas) {
               const rawThumb: string | undefined = (workspace as any).thumbnailUrl
               if (rawThumb) {
-                if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
+                // blob URL은 사용하지 않음 (만료되거나 잘못된 URL일 수 있음)
+                if (rawThumb.startsWith('blob:')) {
+                  thumbnailUrl = '' // blob URL은 무시하고 빈 문자열로 설정
+                } else if (rawThumb.startsWith('http://') || rawThumb.startsWith('https://')) {
                   thumbnailUrl = rawThumb
                 } else if (rawThumb.startsWith('/')) {
                   thumbnailUrl = `${API_BASE_URL}${rawThumb}`
