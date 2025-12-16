@@ -32,8 +32,6 @@ export default function SettingsPage() {
   const [marketing, setMarketing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
     <div
@@ -175,27 +173,34 @@ export default function SettingsPage() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      
+
                       // 파일 크기 제한 (5MB)
                       if (file.size > 5 * 1024 * 1024) {
                         setToast({ message: '이미지 크기는 5MB 이하여야 합니다.', type: 'error' });
                         e.target.value = '';
                         return;
                       }
-                      
+
                       // 파일 타입 확인
                       if (!file.type.startsWith('image/')) {
                         setToast({ message: '이미지 파일만 업로드할 수 있습니다.', type: 'error' });
                         e.target.value = '';
                         return;
                       }
-                      
+
                       try {
-                        // 미리보기를 위해 로컬 URL 생성
-                        const objectUrl = URL.createObjectURL(file);
-                        setPhotoURL(objectUrl);
-                        setImageError(false);
-                        setSelectedImageFile(file); // 나중에 업로드할 파일 저장
+                        // 파일을 Data URL(blob)로 읽어서 바로 저장/전송에 사용
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          const result = reader.result as string;
+                          setPhotoURL(result);
+                          setImageError(false);
+                        };
+                        reader.onerror = () => {
+                          setImageError(true);
+                          setToast({ message: '이미지를 불러오는 중 오류가 발생했습니다.', type: 'error' });
+                        };
+                        reader.readAsDataURL(file);
                       } catch {
                         setImageError(true);
                         setToast({ message: '이미지를 불러오는 중 오류가 발생했습니다.', type: 'error' });
@@ -244,7 +249,6 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={uploadingImage}
                       onClick={async () => {
                         try {
                           const accessToken = localStorage.getItem('accessToken');
@@ -255,56 +259,14 @@ export default function SettingsPage() {
 
                           const trimmed = (nickname || '').trim();
                           const nameToStore = trimmed.length > 0 ? trimmed : '사용자';
-                          
-                          let finalImageURL = photoURL;
-                          
-                          // 새로 선택한 이미지 파일이 있으면 서버에 업로드
-                          if (selectedImageFile) {
-                            setUploadingImage(true);
-                            try {
-                              const formData = new FormData();
-                              formData.append('file', selectedImageFile);
-                              
-                              // 이미지 업로드 API 호출 (일반적인 Spring Boot 업로드 엔드포인트)
-                              const uploadRes = await axios.post(
-                                `${API_BASE_URL}/v1/upload`,
-                                formData,
-                                {
-                                  headers: {
-                                    'Authorization': `Bearer ${accessToken}`,
-                                    'Content-Type': 'multipart/form-data'
-                                  }
-                                }
-                              );
-                              
-                              // 업로드된 이미지 URL 사용
-                              finalImageURL = uploadRes.data.url || uploadRes.data.path || uploadRes.data.fileUrl;
-                              
-                              // 이전 blob URL 정리
-                              if (photoURL && photoURL.startsWith('blob:')) {
-                                URL.revokeObjectURL(photoURL);
-                              }
-                              
-                              setPhotoURL(finalImageURL);
-                              setSelectedImageFile(null);
-                            } catch (uploadErr: any) {
-                              console.error('이미지 업로드 실패', uploadErr);
-                              setToast({ message: '이미지 업로드에 실패했습니다. 다시 시도해주세요.', type: 'error' });
-                              setUploadingImage(false);
-                              return;
-                            } finally {
-                              setUploadingImage(false);
-                            }
-                          }
-                          
-                          // 백엔드 API 호출
+
                           const updateData: any = {
                             name: nameToStore
                           };
-                          
-                          // 프로필 이미지가 있으면 포함 (blob URL이 아닌 실제 URL만)
-                          if (finalImageURL && !finalImageURL.startsWith('blob:')) {
-                            updateData.profileImage = finalImageURL;
+
+                          // 프로필 이미지는 Data URL 또는 기존 URL을 그대로 전달
+                          if (photoURL && photoURL.trim() !== '') {
+                            updateData.profileImage = photoURL;
                           }
 
                           await axios.patch(
@@ -319,8 +281,8 @@ export default function SettingsPage() {
 
                           // localStorage에도 저장
                           localStorage.setItem('userName', nameToStore);
-                          if (finalImageURL && !finalImageURL.startsWith('blob:')) {
-                            localStorage.setItem('userPhotoURL', finalImageURL);
+                          if (photoURL && photoURL.trim() !== '') {
+                            localStorage.setItem('userPhotoURL', photoURL);
                           }
 
                           // 변경 사항을 다른 컴포넌트에 즉시 반영하기 위해 커스텀 이벤트 디스패치
