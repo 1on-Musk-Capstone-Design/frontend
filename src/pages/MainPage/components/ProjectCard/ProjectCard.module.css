@@ -69,6 +69,10 @@
   justify-content: flex-start;
   overflow: hidden;
   box-sizing: border-box;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.06); /* 위쪽 그림자로 구분 효과 */
+  background: #ffffff; /* 배경색 명시 */
+  position: relative;
+  z-index: 1;
 }
 
 .title { 
