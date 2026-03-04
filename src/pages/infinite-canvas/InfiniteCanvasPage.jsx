@@ -1253,18 +1253,31 @@ const InfiniteCanvasPage = () => {
     const cursorCanvas = viewportToCanvas(viewportX, viewportY);
     const now = Date.now();
 
-    // 양손 핀치 zoom_scale을 캔버스 커스텀 줌으로 반영
+    // 1. Scroll Gesture (Index+Middle fingers moving)
+    if (gesture === 'scroll' && nuiHandState.scrollDelta) {
+      canvas.panCanvas(nuiHandState.scrollDelta.x, nuiHandState.scrollDelta.y);
+    }
+
+    // 2. Zoom Gesture (Two-hand pinch, one holding background)
+    // Only zoom if we are not dragging a memo (holding background)
     const currentZoomScale = Number.isFinite(nuiHandState.zoom_scale) ? nuiHandState.zoom_scale : 1;
-    if (currentZoomScale > 0 && gestureState.prevZoomScale > 0) {
-      const zoomRatio = currentZoomScale / gestureState.prevZoomScale;
-      if (zoomRatio > 1.015 || zoomRatio < 0.985) {
-        canvas.zoomAtViewportPoint(viewportX, viewportY, zoomRatio);
+    if (gesture === 'zoom' && gestureState.draggedTextId === null) {
+      if (currentZoomScale > 0 && gestureState.prevZoomScale > 0) {
+        const zoomRatio = currentZoomScale / gestureState.prevZoomScale;
+        if (zoomRatio > 1.005 || zoomRatio < 0.995) {
+          canvas.zoomAtViewportPoint(viewportX, viewportY, zoomRatio);
+        }
       }
     }
     gestureState.prevZoomScale = currentZoomScale || 1;
 
-    const isPinch = gesture === 'pinch_drag';
-    if (isPinch) {
+    // 3. Pinch Drag (Memo Move)
+    const isPinch = gesture === 'pinch_drag' || gesture === 'zoom'; // Zoom implies pinch too, but we separate actions
+    // However, if we start pinch on a memo, we drag. If on background, we wait for zoom?
+    // User said: "One hand holds non-memo area... then other hand enters... zoom".
+    // So if first pinch is on background, draggedTextId is null. Then if gesture becomes zoom, we zoom.
+
+    if (gesture === 'pinch_drag') {
       if (!gestureState.pinchActive) {
         gestureState.pinchActive = true;
         const targetMemo = findMemoAtCanvasPoint(cursorCanvas.x, cursorCanvas.y);
@@ -1273,7 +1286,7 @@ const InfiniteCanvasPage = () => {
           gestureState.dragOffsetX = cursorCanvas.x - targetMemo.x;
           gestureState.dragOffsetY = cursorCanvas.y - targetMemo.y;
 
-          // 같은 메모에서 빠른 두 번 핀치 시작 => 편집 모드
+          // Double pinch on memo => Edit mode
           if (
             gestureState.lastPinchTextId === targetMemo.id &&
             now - gestureState.lastPinchAt < 450
@@ -1281,6 +1294,9 @@ const InfiniteCanvasPage = () => {
             setForcedEditState((prev) => ({ textId: targetMemo.id, token: prev.token + 1 }));
             gestureState.draggedTextId = null;
           }
+        } else {
+          // Pinched background
+          gestureState.draggedTextId = null; 
         }
         gestureState.lastPinchAt = now;
         gestureState.lastPinchTextId = targetMemo ? targetMemo.id : null;
@@ -1302,7 +1318,8 @@ const InfiniteCanvasPage = () => {
           gestureState.draggedTextId = null;
         }
       }
-    } else {
+    } else if (gesture !== 'zoom') {
+      // If not pinching and not zooming, release pinch state
       gestureState.pinchActive = false;
       gestureState.draggedTextId = null;
     }

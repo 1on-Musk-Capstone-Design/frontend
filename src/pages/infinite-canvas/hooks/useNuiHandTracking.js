@@ -5,10 +5,21 @@ const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmark
 
 const PINCH_ON_THRESHOLD = 0.055;
 const PINCH_OFF_THRESHOLD = 0.075;
-const INDEX_TIP = 8;
-const THUMB_TIP = 4;
+const SCROLL_SPEED = 2.0;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
+
+// 랜드마크 인덱스
+const THUMB_TIP = 4;
+const INDEX_MCP = 5;
+const INDEX_PIP = 6;
+const INDEX_TIP = 8;
+const MIDDLE_PIP = 10;
+const MIDDLE_TIP = 12;
+const RING_PIP = 14;
+const RING_TIP = 16;
+const PINKY_PIP = 18;
+const PINKY_TIP = 20;
 
 function distance(a, b) {
   return Math.hypot(b.x - a.x, b.y - a.y);
@@ -69,34 +80,80 @@ export function useNuiHandTracking(enabled) {
     const x = 1 - indexTip.x;
     const y = indexTip.y;
 
-    // Two-hand zoom: cumulative scale (page uses current/prev as ratio)
+    let gesture = 'none';
+    let scrollDelta = { x: 0, y: 0 };
+
+    // 1. Scroll: Index & Middle Extended, Ring & Pinky Curled, Thumb Curled, No Pinch
+    const isIndexExtended = primary[INDEX_TIP].y < primary[INDEX_PIP].y;
+    const isMiddleExtended = primary[MIDDLE_TIP].y < primary[MIDDLE_PIP].y;
+    const isRingCurled = primary[RING_TIP].y > primary[RING_PIP].y;
+    const isPinkyCurled = primary[PINKY_TIP].y > primary[PINKY_PIP].y;
+    // Thumb check: Tip close to Index MCP (tucked/folded)
+    const isThumbCurled = distance(primary[THUMB_TIP], primary[INDEX_MCP]) < 0.1;
+
+    if (!isPinch && isIndexExtended && isMiddleExtended && isRingCurled && isPinkyCurled && isThumbCurled) {
+      gesture = 'scroll';
+      if (lastScrollPosRef.current) {
+        // Natural scroll (drag content): Hand moves right -> Content moves right
+        // Hand moves Right (normalized x decreases).
+        // So if x decreases, we want dx > 0.
+        // dx = (last - x) * width * speed
+        const dx = (lastScrollPosRef.current.x - x) * window.innerWidth * SCROLL_SPEED;
+        const dy = (y - lastScrollPosRef.current.y) * window.innerHeight * SCROLL_SPEED;
+        scrollDelta = { x: dx, y: dy };
+      }
+      lastScrollPosRef.current = { x, y };
+    } else {
+      lastScrollPosRef.current = null;
+    }
+
+    // 2. Pinch Drag
+    if (isPinch) {
+      gesture = 'pinch_drag';
+    }
+
+    // 3. Two-hand Zoom (Normal: Farther -> Zoom In, Closer -> Zoom Out)
+    // Condition: Both hands visible & Both pinching
     if (results.landmarks.length >= 2) {
       const other = results.landmarks[1 - primaryIdx];
-      if (other && other.length >= 9) {
-        const dOther = distance(other[THUMB_TIP], other[INDEX_TIP]);
-        const baseline = pinchDist * dOther;
+      const otherPinchDist = distance(other[THUMB_TIP], other[INDEX_TIP]);
+      const isOtherPinch = otherPinchDist < PINCH_OFF_THRESHOLD;
+
+      if (isPinch && isOtherPinch) {
+        gesture = 'zoom';
+        const dHands = distance(indexTip, other[INDEX_TIP]);
+        
         if (twoHandBaselineRef.current == null) {
-          twoHandBaselineRef.current = baseline;
+          twoHandBaselineRef.current = dHands;
         }
+
         if (twoHandBaselineRef.current > 1e-6) {
-          const ratio = baseline / twoHandBaselineRef.current;
-          const clamped = Math.max(1 / ZOOM_MAX, Math.min(ZOOM_MAX, ratio));
-          cumulativeZoomRef.current *= clamped;
+          // Normal Logic:
+          // Distance Increase -> Scale Increase
+          // ratio = current / prev
+          const ratio = dHands / twoHandBaselineRef.current;
+          
+          // Damping
+          const dampedRatio = 1 + (ratio - 1) * 0.1;
+          
+          cumulativeZoomRef.current *= dampedRatio;
           cumulativeZoomRef.current = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cumulativeZoomRef.current));
         }
-        twoHandBaselineRef.current = baseline;
+        twoHandBaselineRef.current = dHands;
+      } else {
+        twoHandBaselineRef.current = null;
       }
     } else {
       twoHandBaselineRef.current = null;
-      cumulativeZoomRef.current = 1;
     }
 
     setHandState({
       active: true,
       x,
       y,
-      gesture: isPinch ? 'pinch_drag' : 'none',
-      zoom_scale: cumulativeZoomRef.current
+      gesture,
+      zoom_scale: cumulativeZoomRef.current,
+      scrollDelta
     });
   }, []);
 

@@ -500,6 +500,7 @@ export const useCanvas = () => {
     updateAreaSelection,
     endAreaSelection,
     getTextsInSelectionArea,
-    isAnimating
+    isAnimating,
+    panCanvas
   };
 };
