@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false, onDragStart, onDragEnd, onResizeStart, onResizeEnd, autoFocus = false }) => {
+const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canvasTransform, onSendToChat, onEditingChange, mode, isHighlighted, isSelected, isMultiSelecting, onStartGroupDrag, onUpdateGroupDrag, onEndGroupDrag, isClusterDragging = false, onDragStart, onDragEnd, onResizeStart, onResizeEnd, autoFocus = false, forceEditToken = 0 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState(null); // 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
@@ -36,6 +36,19 @@ const DraggableText = ({ id, x, y, text, width, height, onUpdate, onDelete, canv
       }, 0);
     }
   }, [autoFocus, text, isEditing, onEditingChange]);
+
+  // 외부(제스처)에서 편집 모드 강제 진입
+  useEffect(() => {
+    if (!forceEditToken || mode === 'delete') return;
+    setIsEditing(true);
+    onEditingChange(true);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.select();
+      }
+    }, 0);
+  }, [forceEditToken, mode, onEditingChange]);
   
   // CSS 변수에서 기본 크기 가져오기
   const getDefaultWidth = () => {

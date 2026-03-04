@@ -7,7 +7,9 @@ const TopToolbar = ({
   participants = [],
   inviteLink = '',
   onCopyInviteLink,
-  onGenerateInviteLink
+  onGenerateInviteLink,
+  isNuiEnabled = false,
+  onToggleNui
 }) => {
   const navigate = useNavigate();
   const [isShareDropdownOpen, setIsShareDropdownOpen] = useState(false);
@@ -287,6 +289,19 @@ const TopToolbar = ({
           </div>
         )}
       </div>
+
+      {/* 구분선 */}
+      <div className="toolbarDivider"></div>
+
+      {/* NUI 모드 토글 */}
+      <button
+        className={`toolbarButton ${isNuiEnabled ? 'active' : ''}`}
+        onClick={onToggleNui}
+        title="NUI 모드 토글"
+        style={{ width: 'auto', minWidth: '64px', padding: '0 10px', fontSize: '11px', fontWeight: 700 }}
+      >
+        {isNuiEnabled ? 'NUI ON' : 'NUI OFF'}
+      </button>
     </div>
   );
 };

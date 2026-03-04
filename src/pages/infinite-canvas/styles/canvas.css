@@ -131,6 +131,40 @@
   overflow: auto; /* 항상 스크롤 가능 */
 }
 
+.nui-camera-layer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #000;
+}
+
+.nui-camera-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nui-virtual-cursor {
+  position: fixed;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgba(255, 0, 0, 0.75);
+  transform: translate(-50%, -50%);
+  z-index: 10010;
+  pointer-events: none;
+  transition: transform 0.08s ease;
+}
+
+.nui-virtual-cursor.pinching {
+  background: rgba(0, 230, 118, 0.85);
+  transform: translate(-50%, -50%) scale(0.85);
+}
+
 .canvas-container:active {
   cursor: grabbing;
 }

@@ -249,6 +249,33 @@ export const useCanvas = () => {
     }
   }, [canvasTransform]);
 
+  // 외부 입력(예: 제스처)으로 특정 뷰포트 지점을 기준으로 줌
+  const zoomAtViewportPoint = useCallback((viewportX, viewportY, scaleMultiplier = 1) => {
+    if (!canvasRef.current) return;
+    if (!Number.isFinite(scaleMultiplier) || scaleMultiplier <= 0) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = viewportX - rect.left;
+    const mouseY = viewportY - rect.top;
+
+    const newScale = Math.max(
+      CANVAS_CONSTANTS.MIN_SCALE,
+      Math.min(CANVAS_CONSTANTS.MAX_SCALE, canvasTransform.scale * scaleMultiplier)
+    );
+    if (newScale === canvasTransform.scale) return;
+
+    const scaleChange = newScale / canvasTransform.scale;
+    const newX = mouseX - (mouseX - canvasTransform.x) * scaleChange;
+    const newY = mouseY - (mouseY - canvasTransform.y) * scaleChange;
+
+    setCanvasTransform(prev => ({
+      ...prev,
+      x: newX,
+      y: newY,
+      scale: newScale
+    }));
+  }, [canvasTransform, canvasRef]);
+
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleCanvasMouseMove);
@@ -460,6 +487,7 @@ export const useCanvas = () => {
     handleCanvasClick,
     handleCanvasMouseDown,
     handleWheel,
+    zoomAtViewportPoint,
     resetCanvas,
     addCanvasArea,
     addCanvasAreaWithSize,

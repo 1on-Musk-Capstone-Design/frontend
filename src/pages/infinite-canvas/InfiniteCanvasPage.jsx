@@ -20,6 +20,7 @@ import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants'
 import { API_BASE_URL } from '../../config/api';
 import { packClusterTextsSimple } from './utils/simplePacking';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import './styles/canvas.css';
 
 // 메인 무한 캔버스 컴포넌트
@@ -34,6 +35,10 @@ const InfiniteCanvasPage = () => {
   const [showGrid, setShowGrid] = useState(false);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showCenterIndicator, setShowCenterIndicator] = useState(true);
+  const [isNuiEnabled, setIsNuiEnabled] = useState(false);
+  const [nuiHandState, setNuiHandState] = useState(null);
+  const [nuiCursor, setNuiCursor] = useState({ x: 0, y: 0, visible: false, gesture: 'none' });
+  const [forcedEditState, setForcedEditState] = useState({ textId: null, token: 0 });
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight
@@ -63,6 +68,16 @@ const InfiniteCanvasPage = () => {
   const targetCursorsRef = useRef(new Map()); // 목표 커서 위치 (캔버스 좌표로 저장)
   const animationFrameRef = useRef(null); // 애니메이션 프레임 참조
   const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
+  const nuiSocketRef = useRef(null);
+  const nuiGestureRef = useRef({
+    pinchActive: false,
+    draggedTextId: null,
+    dragOffsetX: 0,
+    dragOffsetY: 0,
+    lastPinchAt: 0,
+    lastPinchTextId: null,
+    prevZoomScale: 1
+  });
   
   // 커스텀 훅들 사용
   const canvas = useCanvas();
@@ -1181,6 +1196,144 @@ const InfiniteCanvasPage = () => {
     
     return { x: viewportX, y: viewportY };
   };
+
+  const getMemoWidth = (memo) => memo.width ?? 500;
+  const getMemoHeight = (memo) => memo.height ?? 400;
+
+  const findMemoAtCanvasPoint = useCallback((canvasX, canvasY) => {
+    for (let i = textFields.texts.length - 1; i >= 0; i -= 1) {
+      const memo = textFields.texts[i];
+      const width = getMemoWidth(memo);
+      const height = getMemoHeight(memo);
+      if (
+        canvasX >= memo.x &&
+        canvasX <= memo.x + width &&
+        canvasY >= memo.y &&
+        canvasY <= memo.y + height
+      ) {
+        return memo;
+      }
+    }
+    return null;
+  }, [textFields.texts]);
+
+  const handleNuiToggle = useCallback(() => {
+    setIsNuiEnabled((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (!isNuiEnabled) {
+      if (nuiSocketRef.current) {
+        nuiSocketRef.current.disconnect();
+        nuiSocketRef.current = null;
+      }
+      nuiGestureRef.current = {
+        pinchActive: false,
+        draggedTextId: null,
+        dragOffsetX: 0,
+        dragOffsetY: 0,
+        lastPinchAt: 0,
+        lastPinchTextId: null,
+        prevZoomScale: 1
+      };
+      setNuiHandState(null);
+      setNuiCursor((prev) => ({ ...prev, visible: false, gesture: 'none' }));
+      return;
+    }
+
+    fetch('http://127.0.0.1:5001/start_camera', { method: 'POST' }).catch(() => {});
+    const socket = io('http://127.0.0.1:5001', {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      timeout: 10000
+    });
+    nuiSocketRef.current = socket;
+
+    socket.on('hand_state', (state) => {
+      setNuiHandState(state);
+    });
+
+    return () => {
+      socket.disconnect();
+      if (nuiSocketRef.current === socket) {
+        nuiSocketRef.current = null;
+      }
+    };
+  }, [isNuiEnabled]);
+
+  useEffect(() => {
+    if (!isNuiEnabled || !nuiHandState) return;
+
+    const gesture = nuiHandState.gesture || 'none';
+    const viewportX = Math.max(0, Math.min(window.innerWidth, (nuiHandState.x ?? 0.5) * window.innerWidth));
+    const viewportY = Math.max(0, Math.min(window.innerHeight, (nuiHandState.y ?? 0.5) * window.innerHeight));
+    setNuiCursor({ x: viewportX, y: viewportY, visible: true, gesture });
+
+    const gestureState = nuiGestureRef.current;
+    const cursorCanvas = viewportToCanvas(viewportX, viewportY);
+    const now = Date.now();
+
+    // 양손 핀치 zoom_scale을 캔버스 커스텀 줌으로 반영
+    const currentZoomScale = Number.isFinite(nuiHandState.zoom_scale) ? nuiHandState.zoom_scale : 1;
+    if (currentZoomScale > 0 && gestureState.prevZoomScale > 0) {
+      const zoomRatio = currentZoomScale / gestureState.prevZoomScale;
+      if (zoomRatio > 1.015 || zoomRatio < 0.985) {
+        canvas.zoomAtViewportPoint(viewportX, viewportY, zoomRatio);
+      }
+    }
+    gestureState.prevZoomScale = currentZoomScale || 1;
+
+    const isPinch = gesture === 'pinch_drag';
+    if (isPinch) {
+      if (!gestureState.pinchActive) {
+        gestureState.pinchActive = true;
+        const targetMemo = findMemoAtCanvasPoint(cursorCanvas.x, cursorCanvas.y);
+        if (targetMemo) {
+          gestureState.draggedTextId = targetMemo.id;
+          gestureState.dragOffsetX = cursorCanvas.x - targetMemo.x;
+          gestureState.dragOffsetY = cursorCanvas.y - targetMemo.y;
+
+          // 같은 메모에서 빠른 두 번 핀치 시작 => 편집 모드
+          if (
+            gestureState.lastPinchTextId === targetMemo.id &&
+            now - gestureState.lastPinchAt < 450
+          ) {
+            setForcedEditState((prev) => ({ textId: targetMemo.id, token: prev.token + 1 }));
+            gestureState.draggedTextId = null;
+          }
+        }
+        gestureState.lastPinchAt = now;
+        gestureState.lastPinchTextId = targetMemo ? targetMemo.id : null;
+      }
+
+      if (gestureState.draggedTextId != null) {
+        const draggingMemo = textFields.texts.find((t) => t.id === gestureState.draggedTextId);
+        if (draggingMemo) {
+          const newX = cursorCanvas.x - gestureState.dragOffsetX;
+          const newY = cursorCanvas.y - gestureState.dragOffsetY;
+          textFields.updateText(draggingMemo.id, {
+            x: newX,
+            y: newY,
+            text: draggingMemo.text,
+            width: draggingMemo.width,
+            height: draggingMemo.height
+          });
+        } else {
+          gestureState.draggedTextId = null;
+        }
+      }
+    } else {
+      gestureState.pinchActive = false;
+      gestureState.draggedTextId = null;
+    }
+  }, [
+    isNuiEnabled,
+    nuiHandState,
+    canvas,
+    findMemoAtCanvasPoint,
+    textFields
+  ]);
 
   const handleCanvasMouseMove = (e) => {
     if (mode === 'move' && canvas.isAreaSelecting) {
@@ -2821,6 +2974,8 @@ const InfiniteCanvasPage = () => {
         inviteLink={inviteLink}
         onCopyInviteLink={handleCopyInviteLink}
         onGenerateInviteLink={handleGenerateInviteLink}
+        isNuiEnabled={isNuiEnabled}
+        onToggleNui={handleNuiToggle}
       />
       
       {/* 채팅창 */}
@@ -2876,6 +3031,22 @@ const InfiniteCanvasPage = () => {
       )}
 
       {/* 캔버스 */}
+      {isNuiEnabled && (
+        <div
+          className="nui-camera-layer"
+          style={{
+            left: isChatPanelOpen ? 280 : 40,
+            right: isClusteringPanelOpen ? 280 : 40
+          }}
+        >
+          <img
+            src="http://127.0.0.1:5001/video_feed"
+            alt="NUI camera"
+            className="nui-camera-feed"
+          />
+        </div>
+      )}
+
       <div
         ref={canvas.canvasRef}
         className={`canvas-container canvas-grid ${canvas.isScrolling ? 'scrolling' : ''}`}
@@ -2884,7 +3055,9 @@ const InfiniteCanvasPage = () => {
         onWheel={canvas.handleWheel}
         style={{
           backgroundSize: `${20 * canvas.canvasTransform.scale}px ${20 * canvas.canvasTransform.scale}px`,
-          backgroundPosition: `${canvas.canvasTransform.x}px ${canvas.canvasTransform.y}px`
+          backgroundPosition: `${canvas.canvasTransform.x}px ${canvas.canvasTransform.y}px`,
+          opacity: isNuiEnabled ? 0.7 : 1,
+          zIndex: 2
         }}
       >
         {/* 다른 사용자의 커서 표시 (보간된 위치 사용) */}
@@ -2968,8 +3141,17 @@ const InfiniteCanvasPage = () => {
           onClusterDrag={handleClusterDrag}
           onClusterDragEnd={handleClusterDragEnd}
           draggingCluster={draggingCluster}
+          forcedEditTextId={forcedEditState.textId}
+          forcedEditToken={forcedEditState.token}
         />
       </div>
+
+      {isNuiEnabled && nuiCursor.visible && (
+        <div
+          className={`nui-virtual-cursor ${nuiCursor.gesture === 'pinch_drag' ? 'pinching' : ''}`}
+          style={{ left: nuiCursor.x, top: nuiCursor.y }}
+        />
+      )}
     </div>
   );
 };
