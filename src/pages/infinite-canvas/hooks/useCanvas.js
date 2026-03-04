@@ -276,6 +276,17 @@ export const useCanvas = () => {
     }));
   }, [canvasTransform, canvasRef]);
 
+  // 외부 입력(예: 제스처)으로 캔버스 패닝
+  const panCanvas = useCallback((deltaX = 0, deltaY = 0) => {
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+    if (deltaX === 0 && deltaY === 0) return;
+    setCanvasTransform(prev => ({
+      ...prev,
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }));
+  }, []);
+
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleCanvasMouseMove);

@@ -42,6 +42,7 @@ export function useNuiHandTracking(enabled) {
   const twoHandBaselineRef = useRef(null); // initial combined pinch for zoom
   const cumulativeZoomRef = useRef(1);
   const pinchActiveRef = useRef(false);
+  const lastScrollPosRef = useRef(null);
 
   const processFrame = useCallback((video) => {
     const landmarker = handLandmarkerRef.current;
