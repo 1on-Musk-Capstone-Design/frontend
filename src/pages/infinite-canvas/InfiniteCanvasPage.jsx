@@ -74,6 +74,9 @@ const InfiniteCanvasPage = () => {
     draggedTextId: null,
     dragOffsetX: 0,
     dragOffsetY: 0,
+    backgroundPanActive: false,
+    lastPanViewportX: 0,
+    lastPanViewportY: 0,
     lastPinchAt: 0,
     lastPinchTextId: null,
     prevZoomScale: 1
@@ -1229,6 +1232,9 @@ const InfiniteCanvasPage = () => {
         draggedTextId: null,
         dragOffsetX: 0,
         dragOffsetY: 0,
+        backgroundPanActive: false,
+        lastPanViewportX: 0,
+        lastPanViewportY: 0,
         lastPinchAt: 0,
         lastPinchTextId: null,
         prevZoomScale: 1
@@ -1253,12 +1259,7 @@ const InfiniteCanvasPage = () => {
     const cursorCanvas = viewportToCanvas(viewportX, viewportY);
     const now = Date.now();
 
-    // 1. Scroll Gesture (Index+Middle fingers moving)
-    if (gesture === 'scroll' && nuiHandState.scrollDelta) {
-      canvas.panCanvas(nuiHandState.scrollDelta.x, nuiHandState.scrollDelta.y);
-    }
-
-    // 2. Zoom Gesture (Two-hand pinch, one holding background)
+    // 1. Zoom Gesture (Two-hand pinch, one holding background)
     // Only zoom if we are not dragging a memo (holding background)
     const currentZoomScale = Number.isFinite(nuiHandState.zoom_scale) ? nuiHandState.zoom_scale : 1;
     if (gesture === 'zoom' && gestureState.draggedTextId === null) {
@@ -1271,12 +1272,7 @@ const InfiniteCanvasPage = () => {
     }
     gestureState.prevZoomScale = currentZoomScale || 1;
 
-    // 3. Pinch Drag (Memo Move)
-    const isPinch = gesture === 'pinch_drag' || gesture === 'zoom'; // Zoom implies pinch too, but we separate actions
-    // However, if we start pinch on a memo, we drag. If on background, we wait for zoom?
-    // User said: "One hand holds non-memo area... then other hand enters... zoom".
-    // So if first pinch is on background, draggedTextId is null. Then if gesture becomes zoom, we zoom.
-
+    // 2. Pinch Drag: memo drag OR background pan
     if (gesture === 'pinch_drag') {
       if (!gestureState.pinchActive) {
         gestureState.pinchActive = true;
@@ -1294,9 +1290,13 @@ const InfiniteCanvasPage = () => {
             setForcedEditState((prev) => ({ textId: targetMemo.id, token: prev.token + 1 }));
             gestureState.draggedTextId = null;
           }
+          gestureState.backgroundPanActive = false;
         } else {
-          // Pinched background
-          gestureState.draggedTextId = null; 
+          // Pinched background -> enable canvas pan while pinching
+          gestureState.draggedTextId = null;
+          gestureState.backgroundPanActive = true;
+          gestureState.lastPanViewportX = viewportX;
+          gestureState.lastPanViewportY = viewportY;
         }
         gestureState.lastPinchAt = now;
         gestureState.lastPinchTextId = targetMemo ? targetMemo.id : null;
@@ -1317,11 +1317,18 @@ const InfiniteCanvasPage = () => {
         } else {
           gestureState.draggedTextId = null;
         }
+      } else if (gestureState.backgroundPanActive) {
+        const deltaX = viewportX - gestureState.lastPanViewportX;
+        const deltaY = viewportY - gestureState.lastPanViewportY;
+        canvas.panCanvas(deltaX, deltaY);
+        gestureState.lastPanViewportX = viewportX;
+        gestureState.lastPanViewportY = viewportY;
       }
     } else if (gesture !== 'zoom') {
       // If not pinching and not zooming, release pinch state
       gestureState.pinchActive = false;
       gestureState.draggedTextId = null;
+      gestureState.backgroundPanActive = false;
     }
   }, [
     isNuiEnabled,

@@ -5,22 +5,13 @@ const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmark
 
 const PINCH_ON_THRESHOLD = 0.055;
 const PINCH_OFF_THRESHOLD = 0.075;
-const SCROLL_SPEED = 1.0;
 const ZOOM_SENSITIVITY = 0.2;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
 
 // 랜드마크 인덱스
 const THUMB_TIP = 4;
-const INDEX_MCP = 5;
-const INDEX_PIP = 6;
 const INDEX_TIP = 8;
-const MIDDLE_PIP = 10;
-const MIDDLE_TIP = 12;
-const RING_PIP = 14;
-const RING_TIP = 16;
-const PINKY_PIP = 18;
-const PINKY_TIP = 20;
 
 function distance(a, b) {
   return Math.hypot(b.x - a.x, b.y - a.y);
@@ -43,7 +34,6 @@ export function useNuiHandTracking(enabled) {
   const twoHandBaselineRef = useRef(null); // initial combined pinch for zoom
   const cumulativeZoomRef = useRef(1);
   const pinchActiveRef = useRef(false);
-  const lastScrollPosRef = useRef(null);
 
   const processFrame = useCallback((video) => {
     const landmarker = handLandmarkerRef.current;
@@ -83,36 +73,13 @@ export function useNuiHandTracking(enabled) {
     const y = indexTip.y;
 
     let gesture = 'none';
-    let scrollDelta = { x: 0, y: 0 };
 
-    // 1. Scroll: Index & Middle Extended, Ring & Pinky Curled, Thumb Curled, No Pinch
-    const isIndexExtended = primary[INDEX_TIP].y < primary[INDEX_PIP].y;
-    const isMiddleExtended = primary[MIDDLE_TIP].y < primary[MIDDLE_PIP].y;
-    const isRingCurled = primary[RING_TIP].y > primary[RING_PIP].y;
-    const isPinkyCurled = primary[PINKY_TIP].y > primary[PINKY_PIP].y;
-    // Thumb check: Tip close to Index MCP (tucked/folded)
-    const isThumbCurled = distance(primary[THUMB_TIP], primary[INDEX_MCP]) < 0.1;
-
-    if (!isPinch && isIndexExtended && isMiddleExtended && isRingCurled && isPinkyCurled && isThumbCurled) {
-      gesture = 'scroll';
-      if (lastScrollPosRef.current) {
-        // Reverse scroll direction (requested):
-        // previous implementation used (last - current), now (current - last)
-        const dx = (x - lastScrollPosRef.current.x) * window.innerWidth * SCROLL_SPEED;
-        const dy = (lastScrollPosRef.current.y - y) * window.innerHeight * SCROLL_SPEED;
-        scrollDelta = { x: dx, y: dy };
-      }
-      lastScrollPosRef.current = { x, y };
-    } else {
-      lastScrollPosRef.current = null;
-    }
-
-    // 2. Pinch Drag
+    // 1. Pinch Drag
     if (isPinch) {
       gesture = 'pinch_drag';
     }
 
-    // 3. Two-hand Zoom (Normal: Farther -> Zoom In, Closer -> Zoom Out)
+    // 2. Two-hand Zoom (Normal: Farther -> Zoom In, Closer -> Zoom Out)
     // Condition: Both hands visible & Both pinching
     if (results.landmarks.length >= 2) {
       const other = results.landmarks[1 - primaryIdx];
@@ -152,8 +119,7 @@ export function useNuiHandTracking(enabled) {
       x,
       y,
       gesture,
-      zoom_scale: cumulativeZoomRef.current,
-      scrollDelta
+      zoom_scale: cumulativeZoomRef.current
     });
   }, []);
 
