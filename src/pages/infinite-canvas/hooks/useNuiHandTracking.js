@@ -5,7 +5,8 @@ const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmark
 
 const PINCH_ON_THRESHOLD = 0.055;
 const PINCH_OFF_THRESHOLD = 0.075;
-const SCROLL_SPEED = 2.0;
+const SCROLL_SPEED = 1.0;
+const ZOOM_SENSITIVITY = 0.2;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
 
@@ -95,12 +96,10 @@ export function useNuiHandTracking(enabled) {
     if (!isPinch && isIndexExtended && isMiddleExtended && isRingCurled && isPinkyCurled && isThumbCurled) {
       gesture = 'scroll';
       if (lastScrollPosRef.current) {
-        // Natural scroll (drag content): Hand moves right -> Content moves right
-        // Hand moves Right (normalized x decreases).
-        // So if x decreases, we want dx > 0.
-        // dx = (last - x) * width * speed
-        const dx = (lastScrollPosRef.current.x - x) * window.innerWidth * SCROLL_SPEED;
-        const dy = (y - lastScrollPosRef.current.y) * window.innerHeight * SCROLL_SPEED;
+        // Reverse scroll direction (requested):
+        // previous implementation used (last - current), now (current - last)
+        const dx = (x - lastScrollPosRef.current.x) * window.innerWidth * SCROLL_SPEED;
+        const dy = (lastScrollPosRef.current.y - y) * window.innerHeight * SCROLL_SPEED;
         scrollDelta = { x: dx, y: dy };
       }
       lastScrollPosRef.current = { x, y };
@@ -134,8 +133,8 @@ export function useNuiHandTracking(enabled) {
           // ratio = current / prev
           const ratio = dHands / twoHandBaselineRef.current;
           
-          // Damping
-          const dampedRatio = 1 + (ratio - 1) * 0.1;
+          // Higher zoom sensitivity (requested)
+          const dampedRatio = 1 + (ratio - 1) * ZOOM_SENSITIVITY;
           
           cumulativeZoomRef.current *= dampedRatio;
           cumulativeZoomRef.current = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cumulativeZoomRef.current));
