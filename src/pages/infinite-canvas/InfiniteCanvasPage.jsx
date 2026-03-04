@@ -20,7 +20,7 @@ import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants'
 import { API_BASE_URL } from '../../config/api';
 import { packClusterTextsSimple } from './utils/simplePacking';
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { useNuiHandTracking } from './hooks/useNuiHandTracking';
 import './styles/canvas.css';
 
 // 메인 무한 캔버스 컴포넌트
@@ -36,9 +36,10 @@ const InfiniteCanvasPage = () => {
   const [showMinimap, setShowMinimap] = useState(true);
   const [showCenterIndicator, setShowCenterIndicator] = useState(true);
   const [isNuiEnabled, setIsNuiEnabled] = useState(false);
-  const [nuiHandState, setNuiHandState] = useState(null);
   const [nuiCursor, setNuiCursor] = useState({ x: 0, y: 0, visible: false, gesture: 'none' });
   const [forcedEditState, setForcedEditState] = useState({ textId: null, token: 0 });
+  const nuiTracking = useNuiHandTracking(isNuiEnabled);
+  const nuiHandState = nuiTracking.handState;
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight
@@ -68,7 +69,6 @@ const InfiniteCanvasPage = () => {
   const targetCursorsRef = useRef(new Map()); // 목표 커서 위치 (캔버스 좌표로 저장)
   const animationFrameRef = useRef(null); // 애니메이션 프레임 참조
   const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
-  const nuiSocketRef = useRef(null);
   const nuiGestureRef = useRef({
     pinchActive: false,
     draggedTextId: null,
@@ -1221,12 +1221,9 @@ const InfiniteCanvasPage = () => {
     setIsNuiEnabled((prev) => !prev);
   }, []);
 
+  // NUI off 시 제스처/커서 상태 초기화 (프론트 전용 손 추적은 useNuiHandTracking에서 처리)
   useEffect(() => {
     if (!isNuiEnabled) {
-      if (nuiSocketRef.current) {
-        nuiSocketRef.current.disconnect();
-        nuiSocketRef.current = null;
-      }
       nuiGestureRef.current = {
         pinchActive: false,
         draggedTextId: null,
@@ -1236,34 +1233,16 @@ const InfiniteCanvasPage = () => {
         lastPinchTextId: null,
         prevZoomScale: 1
       };
-      setNuiHandState(null);
       setNuiCursor((prev) => ({ ...prev, visible: false, gesture: 'none' }));
-      return;
     }
-
-    fetch('http://127.0.0.1:5001/start_camera', { method: 'POST' }).catch(() => {});
-    const socket = io('http://127.0.0.1:5001', {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      upgrade: true,
-      timeout: 10000
-    });
-    nuiSocketRef.current = socket;
-
-    socket.on('hand_state', (state) => {
-      setNuiHandState(state);
-    });
-
-    return () => {
-      socket.disconnect();
-      if (nuiSocketRef.current === socket) {
-        nuiSocketRef.current = null;
-      }
-    };
   }, [isNuiEnabled]);
 
   useEffect(() => {
-    if (!isNuiEnabled || !nuiHandState) return;
+    if (!isNuiEnabled) return;
+    if (!nuiHandState || !nuiHandState.active) {
+      setNuiCursor((prev) => (prev.visible ? { ...prev, visible: false, gesture: 'none' } : prev));
+      return;
+    }
 
     const gesture = nuiHandState.gesture || 'none';
     const viewportX = Math.max(0, Math.min(window.innerWidth, (nuiHandState.x ?? 0.5) * window.innerWidth));
@@ -3039,11 +3018,19 @@ const InfiniteCanvasPage = () => {
             right: isClusteringPanelOpen ? 280 : 40
           }}
         >
-          <img
-            src="http://127.0.0.1:5001/video_feed"
-            alt="NUI camera"
+          <video
+            ref={nuiTracking.videoRef}
+            autoPlay
+            playsInline
+            muted
             className="nui-camera-feed"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
+          {nuiTracking.error && (
+            <div className="nui-camera-error" style={{ position: 'absolute', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: 8, fontSize: 12 }}>
+              {nuiTracking.error}
+            </div>
+          )}
         </div>
       )}
 
