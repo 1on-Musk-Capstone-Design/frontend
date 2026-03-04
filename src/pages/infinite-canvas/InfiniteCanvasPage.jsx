@@ -3024,7 +3024,7 @@ const InfiniteCanvasPage = () => {
             playsInline
             muted
             className="nui-camera-feed"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
           />
           {nuiTracking.error && (
             <div className="nui-camera-error" style={{ position: 'absolute', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: 8, fontSize: 12 }}>
