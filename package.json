@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:capstone": "npm run build:capstone:copy && vite build",
+    "build:capstone:copy": "cd ../onit_v2/app && npm run build && mkdir -p ../../frontend/public/capstone_v2 && cp -r dist/* ../../frontend/public/capstone_v2/",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

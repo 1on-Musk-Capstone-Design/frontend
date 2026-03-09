@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage/SettingsPage'
 import StarredPage from './pages/StarredPage/StarredPage'
 import NotificationPage from './pages/NotificationPage/NotificationPage'
 import LandingPage from './pages/LandingPage/LandingPage'
+import LandingPage2 from './pages/LandingPage2/LandingPage2'
 import TrashPage from './pages/TrashPage/TrashPage'
 import './index.css'
 import Login from './pages/login/Login'
@@ -19,6 +20,8 @@ function App() {
       <Routes>
         {/* 랜딩 페이지 */}
         <Route path="/landing" element={<LandingPage />} />
+        <Route path="/landing2" element={<LandingPage2 />} />
+        <Route path="/capstone_v2" element={<CapstoneV2Redirect />} />
         {/* 초대 수락 페이지 - 경로 파라미터와 쿼리 파라미터 모두 지원 */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="/invite" element={<InviteAcceptPage />} />
