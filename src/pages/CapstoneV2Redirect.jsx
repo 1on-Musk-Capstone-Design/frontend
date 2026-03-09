@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 /**
  * /capstone_v2 경로 접근 시 캡스톤 랜딩 페이지로 전체 페이지 이동
- * (onit_v2/app 빌드 결과물이 public/capstone_v2/에 배치됨)
+ * (onit_v2/app 빌드 결과물이 capstone_v2/에 배치되고, 빌드 시 dist/로 복사됨)
  */
 function CapstoneV2Redirect() {
   useEffect(() => {
