@@ -129,9 +129,10 @@ export const getOAuthRedirectUri = (
   const port = window.location.port;
   
   // 로컬 개발 환경 (localhost:3000)
+  // Google Console에 등록된 redirect URI는 항상 3000번 포트이므로
+  // Vite가 다른 포트(3001 등)로 실행되더라도 3000으로 고정
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    const origin = `${protocol}//${hostname}:${port || '3000'}`;
-    return `${origin}${callbackPath}`;
+    return `http://localhost:3000${callbackPath}`;
   }
   
   // 프로덕션 환경: 현재 origin 사용

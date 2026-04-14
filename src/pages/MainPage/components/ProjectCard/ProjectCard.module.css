@@ -216,6 +216,37 @@
 .permanentDeleteButton { color: #ef4444; }
 .permanentDeleteButton:hover { background: #fee2e2; color: #b91c1c; }
 
+/* PRD 생성 버튼 */
+.prdButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(1, 205, 21, 0.9);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(1, 205, 21, 0.35);
+  transition: background 150ms ease, transform 100ms ease;
+  white-space: nowrap;
+}
+
+.prdButton:hover {
+  background: rgba(16, 185, 129, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(1, 205, 21, 0.4);
+}
+
+.prdButton:active {
+  transform: translateY(0);
+}
+
 .inviteButton {
   color: #3b82f6;
 }

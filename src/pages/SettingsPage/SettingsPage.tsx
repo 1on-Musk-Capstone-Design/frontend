@@ -116,14 +116,13 @@ export default function SettingsPage() {
         />
       )}
       
-      {/* Sidebar */}
-      <div className="w-64 flex-shrink-0 h-full">
-        <Sidebar activeMenu="settings" />
-      </div>
+      {/* Sidebar — always in DOM (fixed position); spacer div provides the layout offset */}
+      <Sidebar activeMenu="settings" />
+      <div className="hidden md:block w-[200px] lg:w-64 flex-shrink-0 h-full" aria-hidden="true" />
       {/* Main */}
       <div className="flex-1 flex flex-col h-full min-w-0">
         {/* Header (fixed within main column) */}
-        <div className="bg-white border-b border-gray-200 px-6 md:px-8 lg:px-10 py-8">
+        <div className="bg-white border-b border-gray-200 px-6 md:px-8 lg:px-10 pt-[72px] md:pt-8 pb-8">
           <h1 className="text-3xl font-bold text-gray-900">설정</h1>
           <p className="mt-2 text-gray-500">프로필 정보와 계정 설정을 관리하세요.</p>
         </div>

@@ -10,6 +10,8 @@ import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
 import Toast from './components/Toast';
 import Modal from '../../components/Modal/Modal';
+import PRDModal from '../../components/PRDModal/PRDModal';
+import { usePRDGeneration } from '../../hooks/usePRDGeneration';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
@@ -86,6 +88,7 @@ const InfiniteCanvasPage = () => {
   const canvas = useCanvas();
   const textFields = useTextFields();
   const session = useSession();
+  const { state: prdState, close: closePRD, generateFromTexts } = usePRDGeneration();
 
   // 윈도우 크기 추적
   useEffect(() => {
@@ -2967,6 +2970,18 @@ const InfiniteCanvasPage = () => {
         </div>
       </Modal>
       
+      {/* PRD 생성 모달 */}
+      <PRDModal
+        isOpen={prdState.isOpen}
+        status={prdState.status}
+        steps={prdState.steps}
+        deployedUrl={prdState.deployedUrl}
+        errorMessage={prdState.errorMessage}
+        projectName={workspaceName}
+        onClose={closePRD}
+        onRetry={() => generateFromTexts(workspaceId, workspaceName, textFields.texts)}
+      />
+
       {/* 상단 툴바 */}
       <TopToolbar
         projectName={workspaceName}
@@ -2979,6 +2994,7 @@ const InfiniteCanvasPage = () => {
         onGenerateInviteLink={handleGenerateInviteLink}
         isNuiEnabled={isNuiEnabled}
         onToggleNui={handleNuiToggle}
+        onGeneratePRD={() => generateFromTexts(workspaceId, workspaceName, textFields.texts)}
       />
       
       {/* 채팅창 */}

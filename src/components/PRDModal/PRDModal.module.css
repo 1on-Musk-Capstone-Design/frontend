@@ -1,0 +1,272 @@
+/* ─── Overlay ────────────────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Card ───────────────────────────────────────────────────────────────── */
+.card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 36px 40px;
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  position: relative;
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.18);
+  animation: slideUp 0.22s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: all 0.12s;
+}
+.closeBtn:hover { background: #e5e7eb; color: #111827; }
+
+/* ─── Loading ────────────────────────────────────────────────────────────── */
+.loadingBody,
+.successBody,
+.errorBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.loadingIconWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(1, 205, 21, 0.07);
+  border: 1px solid rgba(1, 205, 21, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spin { animation: spin 0.9s linear infinite; }
+
+.loadingTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+  text-align: center;
+}
+
+.loadingSubtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+  text-align: center;
+}
+
+.stepList {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.855rem;
+  transition: color 0.2s;
+}
+
+.stepDone   { color: #01CD15; font-weight: 500; }
+.stepActive { color: #111827; font-weight: 700; }
+.stepWait   { color: #9ca3af; }
+
+.stepIconWrap {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.stepDone   .stepIconWrap { background: rgba(1,205,21,0.1); color: #01CD15; }
+.stepActive .stepIconWrap { background: rgba(1,205,21,0.06); color: #01CD15; }
+.stepWait   .stepIconWrap { background: #f3f4f6; }
+
+.stepDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d1d5db;
+}
+
+/* ─── Success ────────────────────────────────────────────────────────────── */
+.successIconWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(1, 205, 21, 0.07);
+  border: 1px solid rgba(1, 205, 21, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.successTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+}
+
+.successSubtitle {
+  font-size: 0.855rem;
+  color: #6b7280;
+  margin: 0;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.urlRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 2px;
+}
+
+.urlText {
+  flex: 1;
+  font-size: 0.78rem;
+  color: #374151;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  cursor: pointer;
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+.copyBtn:hover { border-color: #01CD15; color: #01CD15; }
+
+/* ─── Error ──────────────────────────────────────────────────────────────── */
+.errorIconWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(239, 68, 68, 0.07);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.errorTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+}
+
+.errorMsg {
+  font-size: 0.855rem;
+  color: #6b7280;
+  margin: 0;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ─── Actions ────────────────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.btnGhost {
+  flex: 1;
+  padding: 12px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+}
+.btnGhost:hover { background: #e5e7eb; }
+
+.btnPrimary {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px;
+  background: #01CD15;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 14px rgba(1,205,21,0.28);
+  transition: all 0.12s;
+}
+.btnPrimary:hover { background: #10b981; }

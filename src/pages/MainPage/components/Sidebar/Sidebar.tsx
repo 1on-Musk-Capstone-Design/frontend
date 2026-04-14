@@ -8,7 +8,10 @@ import {
   Star,
   Trash2,
   Settings,
-  LogOut
+  LogOut,
+  FileText,
+  Menu,
+  X
 } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
@@ -41,6 +44,8 @@ function getInitials(name: string): string {
 }
 
 export default function Sidebar({ activeMenu = 'home', unreadNotifications = false }: SidebarProps) {
+  const [mobileOpen, setMobileOpen] = useState(false)
+
   // 초기 상태를 localStorage에서 먼저 읽어오기 (즉시 표시)
   const getInitialState = () => {
     if (typeof window === 'undefined') {
@@ -165,6 +170,7 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
   // 메뉴 정의 (상단)
   const topMenus = [
     { key: 'home', label: '홈', icon: LayoutDashboard, href: '/' },
+    { key: 'prd', label: 'PRD 생성기', icon: FileText, href: '/prd' },
     { key: 'notifications', label: '알림', icon: Bell, href: '/notifications', badge: unreadNotifications },
     { key: 'starred', label: '즐겨찾기', icon: Star, href: '/starred' },
   ]
@@ -181,7 +187,39 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
   }
 
   return (
-    <aside className={styles.sidebar} aria-label="사이드바">
+    <>
+      {/* 모바일 햄버거 버튼 */}
+      <button
+        className={styles.hamburger}
+        onClick={() => setMobileOpen(true)}
+        aria-label="메뉴 열기"
+        type="button"
+      >
+        <Menu size={22} />
+      </button>
+
+      {/* 모바일 오버레이 */}
+      {mobileOpen && (
+        <div
+          className={styles.overlay}
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}
+        aria-label="사이드바"
+      >
+        {/* 모바일 닫기 버튼 */}
+        <button
+          className={styles.closeBtn}
+          onClick={() => setMobileOpen(false)}
+          aria-label="메뉴 닫기"
+          type="button"
+        >
+          <X size={20} />
+        </button>
       {/* 프로필 영역 */}
       <div className={styles.profile}>
         <div className={styles.avatar}>
@@ -262,6 +300,7 @@ export default function Sidebar({ activeMenu = 'home', unreadNotifications = fal
         </div>
       </nav>
     </aside>
+    </>
   )
 }
 

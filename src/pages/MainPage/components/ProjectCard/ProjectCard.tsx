@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Star } from 'lucide-react'
+import { Star, Sparkles } from 'lucide-react'
 import styles from './ProjectCard.module.css'
 
 export interface ProjectCardProps {
@@ -20,9 +20,10 @@ export interface ProjectCardProps {
   isTrash?: boolean
   onRestore?: (id: string) => void
   onPermanentDelete?: (id: string) => void
+  onGeneratePRD?: (id: string, title: string) => void
 }
 
-export default function ProjectCard({ id, thumbnailUrl, previewItems, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite, isTrash = false, onRestore, onPermanentDelete }: ProjectCardProps) {
+export default function ProjectCard({ id, thumbnailUrl, previewItems, title, lastModified, ownerName, ownerProfileImage, isOwner, onDelete, onLeave, onInvite, isFavorite = false, onToggleFavorite, isTrash = false, onRestore, onPermanentDelete, onGeneratePRD }: ProjectCardProps) {
   // Pastel palette (UI/UX guided selection)
   const PASTEL_PALETTE = [
     '#FFD1DC', // pastel pink
@@ -88,6 +89,12 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
     e.preventDefault()
     e.stopPropagation()
     if (onPermanentDelete) onPermanentDelete(id)
+  }
+
+  const handleGeneratePRDClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onGeneratePRD) onGeneratePRD(id, title)
   }
 
   return (
@@ -201,6 +208,19 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
         </article>
       </Link>
       <div className={styles.actionButtons}>
+        {/* PRD 생성 버튼 — 휴지통이 아닌 경우 항상 표시 */}
+        {!isTrash && onGeneratePRD && (
+          <button
+            className={styles.prdButton}
+            onClick={handleGeneratePRDClick}
+            aria-label={`${title} PRD 생성`}
+            type="button"
+            title="PRD 생성"
+          >
+            <Sparkles size={13} />
+            <span>PRD</span>
+          </button>
+        )}
         {isTrash ? (
           <>
             {onRestore && (

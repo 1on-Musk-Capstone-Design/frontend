@@ -6,6 +6,8 @@ import Sidebar from './components/Sidebar/Sidebar'
 import styles from './MainPage.module.css'
 import { Project } from './types'
 import Modal from '../../components/Modal/Modal'
+import PRDModal from '../../components/PRDModal/PRDModal'
+import { usePRDGeneration } from '../../hooks/usePRDGeneration'
 import axios from 'axios'
 import { API_BASE_URL, normalizeThumbnailUrl } from '../../config/api'
 
@@ -23,6 +25,8 @@ interface WorkspaceListItem {
 
 export default function MainPage(): JSX.Element {
   const navigate = useNavigate()
+  const { state: prdState, close: closePRD, generateFromWorkspace } = usePRDGeneration()
+  const [prdProjectName, setPrdProjectName] = useState<string>('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState<NewProjectForm>({ name: '', description: '' })
   const [projects, setProjects] = useState<Project[]>([])
@@ -49,6 +53,34 @@ export default function MainPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'shared'>('all')
 
   // localStorage에서 즐겨찾기 로드
+  // 메인페이지에서 스크롤 활성화 (index.css의 overflow:hidden 전역 설정 override)
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const root = document.getElementById('root')
+
+    const prevHtmlOverflow = html.style.overflow
+    const prevBodyOverflow = body.style.overflow
+    const prevHtmlHeight   = html.style.height
+    const prevBodyHeight   = body.style.height
+    const prevRootHeight   = root ? root.style.height   : ''
+    const prevRootOverflow = root ? root.style.overflow : ''
+
+    html.style.overflow = 'auto'
+    body.style.overflow = 'auto'
+    html.style.height   = 'auto'
+    body.style.height   = 'auto'
+    if (root) { root.style.height = 'auto'; root.style.overflow = 'auto' }
+
+    return () => {
+      html.style.overflow = prevHtmlOverflow
+      body.style.overflow = prevBodyOverflow
+      html.style.height   = prevHtmlHeight
+      body.style.height   = prevBodyHeight
+      if (root) { root.style.height = prevRootHeight; root.style.overflow = prevRootOverflow }
+    }
+  }, [])
+
   useEffect(() => {
     const savedFavorites = localStorage.getItem('favorites')
     if (savedFavorites) {
@@ -774,6 +806,20 @@ export default function MainPage(): JSX.Element {
 
   return (
     <div className={styles.pageRoot}>
+      {/* PRD 생성 모달 */}
+      <PRDModal
+        isOpen={prdState.isOpen}
+        status={prdState.status}
+        steps={prdState.steps}
+        deployedUrl={prdState.deployedUrl}
+        errorMessage={prdState.errorMessage}
+        projectName={prdProjectName}
+        onClose={closePRD}
+        onRetry={() => generateFromWorkspace(
+          prdState.deployedUrl?.split('ws_')[1] || '',
+          prdProjectName
+        )}
+      />
       <div className={styles.container}>
         <Sidebar activeMenu="home" />
 
@@ -876,6 +922,10 @@ export default function MainPage(): JSX.Element {
             onDelete={handleDeleteClick}
             onInvite={handleInviteClick}
             onLeave={handleLeaveClick}
+            onGeneratePRD={(id: string, title: string) => {
+              setPrdProjectName(title)
+              generateFromWorkspace(id, title)
+            }}
             loading={loading}
             loadError={loadError}
           />
