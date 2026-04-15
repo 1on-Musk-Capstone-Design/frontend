@@ -992,3 +992,46 @@
   .techGrid { grid-template-columns: 1fr 1fr; }
   .metricsGrid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Capstone 파이프라인 PRD 원문 */
+.prototypeHint {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.markdownSource {
+  margin: 0;
+  padding: 20px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid #1e293b;
+}
+
+.prototypeLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.prototypeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #059669;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.prototypeLink:hover {
+  text-decoration: underline;
+}

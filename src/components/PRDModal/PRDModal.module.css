@@ -28,6 +28,12 @@
   animation: slideUp 0.22s ease;
 }
 
+/* 배포 URL iframe 미리보기가 있을 때 넓은 팝업 */
+.cardWithPreview {
+  width: min(92vw, 560px);
+  max-width: 560px;
+}
+
 @keyframes slideUp {
   from { transform: translateY(14px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
@@ -161,6 +167,29 @@
   margin: 0;
   text-align: center;
   line-height: 1.6;
+}
+
+.previewWrap {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.previewFrame {
+  display: block;
+  width: 100%;
+  height: min(42vh, 420px);
+  min-height: 260px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.previewHint {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin: 8px 0 0;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .urlRow {

@@ -12,6 +12,7 @@ import Toast from './components/Toast';
 import Modal from '../../components/Modal/Modal';
 import PRDModal from '../../components/PRDModal/PRDModal';
 import { usePRDGeneration } from '../../hooks/usePRDGeneration';
+import { isPrdPipelineIdeaContent } from '../../constants/prd';
 import { useCanvas } from './hooks/useCanvas';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useTextFields } from './hooks/useTextFields';
@@ -51,6 +52,10 @@ const InfiniteCanvasPage = () => {
   const [draggingCluster, setDraggingCluster] = useState(null); // 드래그 중인 클러스터 정보
   const [clusterDragStart, setClusterDragStart] = useState({ x: 0, y: 0 }); // 클러스터 드래그 시작 위치
   const [savedIdeaIds, setSavedIdeaIds] = useState(new Map()); // 로컬 텍스트 ID와 서버 아이디어 ID 매핑
+  const savedIdeaIdsRef = useRef(savedIdeaIds);
+  useEffect(() => {
+    savedIdeaIdsRef.current = savedIdeaIds;
+  }, [savedIdeaIds]);
   const [draggingTextIds, setDraggingTextIds] = useState(new Set()); // 드래그 중인 텍스트 ID들
   const [resizingTextIds, setResizingTextIds] = useState(new Set()); // 리사이즈 중인 텍스트 ID들
   const [pendingUpdates, setPendingUpdates] = useState(new Map()); // 드래그/리사이즈 종료 후 저장할 업데이트들
@@ -239,6 +244,8 @@ const InfiniteCanvasPage = () => {
 
   // 페이지 로드 시 기존 메모와 채팅 불러오기
   useEffect(() => {
+    let cancelled = false;
+
     const loadWorkspaceData = async () => {
       if (!workspaceId) return;
 
@@ -377,10 +384,12 @@ const InfiniteCanvasPage = () => {
           ideasRes = { data: [] };
         }
 
+        if (cancelled) return;
+
         console.log('불러온 메모 목록:', ideasRes.data);
 
-        // 기존 서버 ID 매핑 확인 (중복 방지)
-        const existingServerIds = new Set(Array.from(savedIdeaIds.values()));
+        // 기존 서버 ID 매핑 확인 (클로저 stale 방지: ref 사용 — StrictMode 이중 실행 시 중복 완화)
+        const existingServerIds = new Set(Array.from(savedIdeaIdsRef.current.values()));
         
         // 메모를 텍스트 필드로 변환 (중복 제외)
         const loadedTexts = [];
@@ -391,6 +400,10 @@ const InfiniteCanvasPage = () => {
         const newMappings = new Map();
         
         ideasRes.data.forEach((idea) => {
+          // PRD 파이프라인 전용 행(통합 본문) — 캔버스 카드로 표시하지 않음
+          if (isPrdPipelineIdeaContent(idea.content)) {
+            return;
+          }
           // 이미 같은 서버 ID를 가진 메모가 있는지 확인
           if (existingServerIds.has(idea.id)) {
             console.log('이미 존재하는 서버 ID, 스킵:', idea.id);
@@ -440,18 +453,18 @@ const InfiniteCanvasPage = () => {
           });
         });
 
+        if (cancelled) return;
+
         // 새 매핑 일괄 적용
         if (newMappings.size > 0) {
           setSavedIdeaIds(prev => {
             const newMap = new Map(prev);
             newMappings.forEach((serverId, localId) => {
-              // 중복 체크: 같은 서버 ID가 이미 매핑되어 있는지 확인
               const existingEntry = Array.from(newMap.entries()).find(([_, sid]) => sid === serverId);
               if (!existingEntry) {
                 newMap.set(localId, serverId);
-              } else {
-                console.warn('서버 ID가 이미 매핑되어 있음, 스킵:', serverId, existingEntry[0]);
               }
+              // 이미 매핑됨: 조용히 스킵 (React StrictMode·재호출 시 정상)
             });
             return newMap;
           });
@@ -519,6 +532,8 @@ const InfiniteCanvasPage = () => {
           };
         });
 
+        if (cancelled) return;
+
         setChatMessages(loadedMessages);
       } catch (err) {
         console.error('워크스페이스 데이터 불러오기 실패', err);
@@ -526,6 +541,9 @@ const InfiniteCanvasPage = () => {
     };
 
     loadWorkspaceData();
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceId]);
 
   // 채팅 메시지 수신 핸들러
@@ -809,6 +827,15 @@ const InfiniteCanvasPage = () => {
         // data 필드에서 실제 아이디어 정보 추출
         const ideaData = data.data || data;
         const action = data.action || (ideaData.id ? 'updated' : 'created');
+
+        // PRD 파이프라인 전용 아이디어 — 생성/수정 시 캔버스에 반영하지 않음(삭제는 id로 처리)
+        if (
+          action !== 'deleted' &&
+          action !== 'delete' &&
+          isPrdPipelineIdeaContent(ideaData.content)
+        ) {
+          return;
+        }
         
         // 드래그 중인 메모는 원격 업데이트 무시 (로컬 업데이트 우선)
         const ideaId = ideaData.id || ideaData.ideaId;
@@ -964,8 +991,7 @@ const InfiniteCanvasPage = () => {
               // 중복 체크: 같은 서버 ID가 이미 매핑되어 있는지 확인
               const existingEntry = Array.from(prev.entries()).find(([_, sid]) => sid === ideaId);
               if (existingEntry) {
-                console.warn('서버 ID가 이미 매핑되어 있음:', ideaId, existingEntry[0]);
-                return prev; // 기존 매핑 유지
+                return prev; // 기존 매핑 유지 (중복 브로드캐스트)
               }
               return new Map(prev).set(newId, ideaId);
             });
@@ -2976,6 +3002,7 @@ const InfiniteCanvasPage = () => {
         status={prdState.status}
         steps={prdState.steps}
         deployedUrl={prdState.deployedUrl}
+        usingFallbackUrl={prdState.usingFallbackUrl}
         errorMessage={prdState.errorMessage}
         projectName={workspaceName}
         onClose={closePRD}
@@ -3079,7 +3106,6 @@ const InfiniteCanvasPage = () => {
         className={`canvas-container canvas-grid ${canvas.isScrolling ? 'scrolling' : ''}`}
         onClick={handleCanvasClick}
         onMouseDown={canvas.handleCanvasMouseDown}
-        onWheel={canvas.handleWheel}
         style={{
           backgroundSize: `${20 * canvas.canvasTransform.scale}px ${20 * canvas.canvasTransform.scale}px`,
           backgroundPosition: `${canvas.canvasTransform.x}px ${canvas.canvasTransform.y}px`,

@@ -4,6 +4,14 @@ import App from './App.jsx'
 import './index.css'
 import packageJson from '../package.json'
 import { API_BASE_URL } from './config/api'
+import { fetchAndApplyDevBootstrap, isLocalDevBrowser } from './lib/devBootstrap.js'
+
+/** Vite 개발 + localhost에서만: 백엔드 부트스트랩으로 accessToken 없을 때 자동 로그인 */
+async function tryDevAutoLogin() {
+  if (!isLocalDevBrowser()) return
+  if (localStorage.getItem('accessToken')) return
+  await fetchAndApplyDevBootstrap()
+}
 
 // 앱/백엔드 버전 콘솔 출력 (CI/CD 확인용)
 // 빌드 시점에 주입된 버전 또는 package.json 버전 사용
@@ -26,10 +34,14 @@ const logVersions = async () => {
   }
 }
 
-logVersions()
+async function main() {
+  await tryDevAutoLogin()
+  logVersions()
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  )
+}
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
+main()

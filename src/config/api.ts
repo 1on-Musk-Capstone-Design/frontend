@@ -1,19 +1,24 @@
 /**
  * API 설정
- * 모든 API 기본 URL을 여기서 관리합니다.
- * 환경에 따라 HTTP/HTTPS 자동 선택
- * 
- * - 로컬 개발: http://localhost:3000 → http://51.20.106.74:8080/api
- * - 프로덕션: https://on-it.kro.kr → /api (Nginx 프록시)
+ * - VITE_API_BASE_URL: 우선 (예: `http://localhost:8080/api` 또는 프록시 사용 시 `/api`)
+ * - 로컬: 기본 `http://localhost:8080/api` (Capstone context-path `/api`)
+ * - 프로덕션: 동일 오리진 `/api` (리버스 프록시로 백엔드 연결)
  */
 
+const trimTrailingSlashes = (url: string): string => url.replace(/\/+$/, '')
+
 export const getApiBaseUrl = (): string => {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL
+  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
+    return trimTrailingSlashes(fromEnv.trim())
+  }
+
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 환경 (localhost:3000)
+  // 로컬 개발 (Vite dev 서버)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://51.20.106.74:8080/api';
+    return 'http://localhost:8080/api';
   }
   
   // 프로덕션 환경 (on-it.kro.kr): 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
@@ -33,15 +38,16 @@ export const API_BASE_URL = getApiBaseUrl();
  * SockJS는 http:// 또는 https:// 프로토콜을 받아서 자동으로 ws/wss로 변환합니다.
  */
 export const getSocketServerUrl = (): string => {
+  const fromEnv = import.meta.env.VITE_SOCKET_SERVER_URL
+  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
+    return trimTrailingSlashes(fromEnv.trim())
+  }
+
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 환경 (localhost:3000): 백엔드 서버 직접 사용
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // 로컬에서는 백엔드 WebSocket 서버 직접 사용
-    // 백엔드 context-path가 /api이므로 /api 포함
-    // SockJS가 /ws를 추가하므로 최종 경로는 /api/ws가 됨
-    return 'http://51.20.106.74:8080/api';
+    return 'http://localhost:8080/api';
   }
   
   // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
@@ -63,21 +69,8 @@ export const normalizeThumbnailUrl = (url: string | null | undefined): string =>
   const hostname = window.location.hostname;
   const isProduction = hostname === 'on-it.kro.kr' || hostname.includes('on-it.kro.kr');
   
-  // 로컬 개발 환경: localhost:8080을 원격 서버로 치환
-  if ((hostname === 'localhost' || hostname === '127.0.0.1') && url.includes('localhost:8080')) {
-    return url.replace('http://localhost:8080/api', 'http://51.20.106.74:8080/api');
-  }
-  
   // 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환 (Nginx 프록시 사용)
   if (isProduction) {
-    // http://51.20.106.74:8080/api/uploads/... → /api/uploads/...
-    if (url.includes('http://51.20.106.74:8080/api')) {
-      return url.replace('http://51.20.106.74:8080/api', '/api');
-    }
-    // https://51.20.106.74:8080/api/uploads/... → /api/uploads/...
-    if (url.includes('https://51.20.106.74:8080/api')) {
-      return url.replace('https://51.20.106.74:8080/api', '/api');
-    }
     // http://localhost:8080/api/uploads/... → /api/uploads/...
     if (url.includes('http://localhost:8080/api')) {
       return url.replace('http://localhost:8080/api', '/api');

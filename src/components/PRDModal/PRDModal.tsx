@@ -11,6 +11,15 @@ import {
 } from 'lucide-react'
 import styles from './PRDModal.module.css'
 
+function canPreviewInIframe(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export type PRDModalStatus = 'loading' | 'success' | 'error' | 'idle'
 
 export interface PRDModalStep {
@@ -24,6 +33,7 @@ interface PRDModalProps {
   status: PRDModalStatus
   steps: PRDModalStep[]
   deployedUrl?: string
+  usingFallbackUrl?: boolean
   errorMessage?: string
   projectName?: string
   onClose: () => void
@@ -35,6 +45,7 @@ export default function PRDModal({
   status,
   steps,
   deployedUrl,
+  usingFallbackUrl,
   errorMessage,
   projectName,
   onClose,
@@ -43,6 +54,8 @@ export default function PRDModal({
   const [copied, setCopied] = useState(false)
 
   if (!isOpen) return null
+
+  const showDeployPreview = status === 'success' && Boolean(deployedUrl && canPreviewInIframe(deployedUrl))
 
   function copyUrl() {
     if (!deployedUrl) return
@@ -58,7 +71,10 @@ export default function PRDModal({
 
   return (
     <div className={styles.overlay} onClick={status !== 'loading' ? onClose : undefined}>
-      <div className={styles.card} onClick={e => e.stopPropagation()}>
+      <div
+        className={`${styles.card}${showDeployPreview ? ` ${styles.cardWithPreview}` : ''}`}
+        onClick={e => e.stopPropagation()}
+      >
 
         {/* ── 닫기 버튼 ── */}
         {status !== 'loading' && (
@@ -104,11 +120,41 @@ export default function PRDModal({
             <h3 className={styles.successTitle}>PRD 생성 완료!</h3>
             <p className={styles.successSubtitle}>
               {projectName
-                ? `"${projectName}"의 PRD 문서가 생성되었습니다.`
-                : 'PRD 문서가 생성 및 배포되었습니다.'}
-              <br />
-              아래 링크로 바로 확인하세요.
+                ? `"${projectName}" PRD가 생성되었습니다.`
+                : 'PRD가 생성되었습니다.'}
+              {usingFallbackUrl ? (
+                <>
+                  <br />
+                  배포 URL이 준비되지 않아 결과 페이지 링크를 제공합니다.
+                </>
+              ) : null}
+              {showDeployPreview ? (
+                <>
+                  <br />
+                  아래에서 배포 미리보기를 확인하세요.
+                </>
+              ) : (
+                <>
+                  <br />
+                  아래 링크로 확인하세요.
+                </>
+              )}
             </p>
+
+            {showDeployPreview && deployedUrl && (
+              <div className={styles.previewWrap}>
+                <iframe
+                  title="배포 미리보기"
+                  src={deployedUrl}
+                  className={styles.previewFrame}
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                />
+                <p className={styles.previewHint}>
+                  일부 배포 URL은 보안 정책(X-Frame-Options)으로 미리보기가 비어 보일 수 있습니다. 새 탭에서 열기를
+                  이용하세요.
+                </p>
+              </div>
+            )}
 
             <div className={styles.urlRow}>
               <span className={styles.urlText}>{deployedUrl}</span>
@@ -121,7 +167,7 @@ export default function PRDModal({
               <button className={styles.btnGhost} onClick={onClose}>닫기</button>
               <button className={styles.btnPrimary} onClick={openUrl}>
                 <ExternalLink size={15} />
-                PRD 보러가기
+                새 탭에서 열기
                 <ArrowRight size={15} />
               </button>
             </div>

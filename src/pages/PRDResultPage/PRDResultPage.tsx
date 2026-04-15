@@ -20,6 +20,13 @@ interface PRDData {
   timeline: string
   template: 'minimal' | 'standard' | 'detailed'
   generatedAt?: string
+  /** Capstone 프로토타입 파이프라인에서 받은 마크다운 PRD */
+  prdMarkdown?: string
+  vercelPreviewUrl?: string
+  vercelProductionUrl?: string
+  githubRepoUrl?: string
+  prototypeMessage?: string
+  simulated?: boolean
 }
 
 // ─── Mock PRD content generator ────────────────────────────────────────────
@@ -194,9 +201,23 @@ export default function PRDResultPage() {
           timeline: raw.timeline || '',
           template: raw.template || 'standard',
           generatedAt: raw.generatedAt,
+          prdMarkdown: typeof raw.prdMarkdown === 'string' ? raw.prdMarkdown : undefined,
+          vercelPreviewUrl: typeof raw.vercelPreviewUrl === 'string' ? raw.vercelPreviewUrl : undefined,
+          vercelProductionUrl: typeof raw.vercelProductionUrl === 'string' ? raw.vercelProductionUrl : undefined,
+          githubRepoUrl: typeof raw.githubRepoUrl === 'string' ? raw.githubRepoUrl : undefined,
+          prototypeMessage: typeof raw.prototypeMessage === 'string' ? raw.prototypeMessage : undefined,
+          simulated: typeof raw.simulated === 'boolean' ? raw.simulated : undefined,
         })
       } else {
-        setData(raw)
+        setData({
+          ...raw,
+          prdMarkdown: typeof raw.prdMarkdown === 'string' ? raw.prdMarkdown : undefined,
+          vercelPreviewUrl: typeof raw.vercelPreviewUrl === 'string' ? raw.vercelPreviewUrl : undefined,
+          vercelProductionUrl: typeof raw.vercelProductionUrl === 'string' ? raw.vercelProductionUrl : undefined,
+          githubRepoUrl: typeof raw.githubRepoUrl === 'string' ? raw.githubRepoUrl : undefined,
+          prototypeMessage: typeof raw.prototypeMessage === 'string' ? raw.prototypeMessage : undefined,
+          simulated: typeof raw.simulated === 'boolean' ? raw.simulated : undefined,
+        })
       }
     } else {
       // Demo fallback
@@ -389,6 +410,36 @@ export default function PRDResultPage() {
               </div>
             </div>
           </section>
+
+          {data.prdMarkdown && data.prdMarkdown.trim().length > 0 && (
+            <section className={styles.section} id="ai-prd-md">
+              <SectionHeader icon={BookOpen} title="백엔드 생성 PRD (원문)" id="ai-prd-md-h" />
+              {data.prototypeMessage && (
+                <p className={styles.prototypeHint}>{data.prototypeMessage}</p>
+              )}
+              <pre className={styles.markdownSource}>{data.prdMarkdown}</pre>
+              <div className={styles.prototypeLinks}>
+                {data.vercelPreviewUrl && (
+                  <a className={styles.prototypeLink} href={data.vercelPreviewUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink size={14} />
+                    Vercel 프리뷰
+                  </a>
+                )}
+                {data.vercelProductionUrl && (
+                  <a className={styles.prototypeLink} href={data.vercelProductionUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink size={14} />
+                    프로덕션
+                  </a>
+                )}
+                {data.githubRepoUrl && (
+                  <a className={styles.prototypeLink} href={data.githubRepoUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink size={14} />
+                    GitHub 저장소
+                  </a>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ── Problem ── */}
           <section className={styles.section} id="problem">
