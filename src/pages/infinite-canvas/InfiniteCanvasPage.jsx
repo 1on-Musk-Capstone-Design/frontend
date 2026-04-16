@@ -5,6 +5,7 @@ import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import TopToolbar from './components/TopToolbar';
+import VoiceCallTestPanel from './components/VoiceCallTestPanel';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
@@ -86,6 +87,10 @@ const InfiniteCanvasPage = () => {
   const canvas = useCanvas();
   const textFields = useTextFields();
   const session = useSession();
+  const voicePeerCandidates = workspaceParticipants.filter(
+    (participant) => String(participant.id) !== String(currentUserId)
+  );
+  const showVoiceTestPanel = import.meta.env.DEV || import.meta.env.VITE_ENABLE_VOICE_TEST_PANEL === 'true';
 
   // 윈도우 크기 추적
   useEffect(() => {
@@ -241,6 +246,7 @@ const InfiniteCanvasPage = () => {
 
       try {
         const accessToken = localStorage.getItem('accessToken');
+
         if (!accessToken) {
           setAuthExpiredModalOpen(true);
           return;
@@ -263,6 +269,14 @@ const InfiniteCanvasPage = () => {
           }
           if (userRes.data.email) {
             localStorage.setItem('userEmail', userRes.data.email);
+          }
+          if (userRes.data.profileImage) {
+            const url = userRes.data.profileImage;
+            let normalized = url;
+            if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+              normalized = url.startsWith('/') ? `${API_BASE_URL}${url}` : `${API_BASE_URL}/${url}`;
+            }
+            localStorage.setItem('userPhotoURL', normalized);
           }
         } catch (err) {
           console.error('사용자 정보 불러오기 실패', err);
@@ -325,12 +339,23 @@ const InfiniteCanvasPage = () => {
           usersRes.data.forEach((user) => {
             const userId = String(user.id);
             const userName = user.name || user.email || '알 수 없음';
+            const rawProfileImage = user.profileImage;
+            let profileImage = '';
+            if (rawProfileImage) {
+              profileImage = rawProfileImage;
+              if (!rawProfileImage.startsWith('http://') && !rawProfileImage.startsWith('https://')) {
+                profileImage = rawProfileImage.startsWith('/')
+                  ? `${API_BASE_URL}${rawProfileImage}`
+                  : `${API_BASE_URL}/${rawProfileImage}`;
+              }
+            }
             userMap.set(userId, userName);
             
             // 참가자 목록에 추가 (isCurrentUser는 나중에 TopToolbar에서 설정)
             participantsList.push({
               id: userId,
-              name: userName
+              name: userName,
+              profileImage
             });
           });
           setWorkspaceUsers(userMap);
@@ -2986,9 +3011,27 @@ const InfiniteCanvasPage = () => {
         messages={chatMessages}
         onLocationClick={handleLocationClick}
         onVisibilityChange={setIsChatPanelOpen}
-        participants={session.participants}
+        participants={workspaceParticipants}
+        currentUserId={currentUserId}
+        currentUserName={
+          (currentUserId ? workspaceUsers.get(String(currentUserId)) : null) ||
+          localStorage.getItem('userName') ||
+          '사용자'
+        }
+        currentUserImage={localStorage.getItem('userPhotoURL') || ''}
+        workspaceId={workspaceId}
+        projectName={workspaceName}
         onSendMessage={sendChatMessage}
       />
+
+      {showVoiceTestPanel && workspaceId && currentUserId && (
+        <VoiceCallTestPanel
+          workspaceId={workspaceId}
+          currentWorkspaceUserId={currentUserId}
+          peerWorkspaceUserId={voicePeerCandidates[0]?.id || null}
+          candidatePeers={voicePeerCandidates}
+        />
+      )}
       
       {/* 클러스터링 패널 */}
       <ClusteringPanel 

@@ -6,176 +6,194 @@ export default function AuthPage() {
     <div 
       style={{ 
         display:"flex", 
-        flexDirection:"column", 
+        flexDirection:"column",
         alignItems:"center", 
         justifyContent:"center", 
         minHeight:"100vh", 
-        background: '#f5f5f5',
-        backgroundImage: `
-          linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px)
-        `,
-        backgroundSize: '30px 30px',
+        background:'linear-gradient(135deg, #fafafa 0%, #ffffff 100%)',
+        fontFamily: 'inherit',
         position: 'relative',
         overflow: 'hidden'
       }}
     >
-      {/* 배경 장식 메모들 */}
+      {/* 배경 그라데이션 원형 요소들 */}
+      <div style={{
+        position: 'absolute',
+        top: '-15%',
+        right: '-8%',
+        width: '700px',
+        height: '700px',
+        background: 'radial-gradient(circle, rgba(1,205,21,0.08) 0%, rgba(1,205,21,0.03) 40%, rgba(1,205,21,0) 70%)',
+        borderRadius: '50%',
+        pointerEvents: 'none'
+      }}
+/>
+      
+      <div style={{
+        position: 'absolute',
+        bottom: '-18%',
+        left: '-12%',
+        width: '750px',
+        height: '750px',
+        background: 'radial-gradient(circle, rgba(1,205,21,0.07) 0%, rgba(1,205,21,0.02) 40%, rgba(1,205,21,0) 70%)',
+        borderRadius: '50%',
+        pointerEvents: 'none'
+      }} />
+
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '900px',
+        height: '900px',
+        background: 'radial-gradient(circle, rgba(1,205,21,0.03) 0%, rgba(1,205,21,0.01) 50%, rgba(1,205,21,0) 70%)',
+        borderRadius: '50%',
+        pointerEvents: 'none',
+        zIndex: 0
+      }} />
+
+      {/* 기하학적 장식 요소들 */}
       <div style={{
         position: 'absolute',
         top: '12%',
         left: '8%',
-        width: '250px',
-        height: '180px',
-        background: 'linear-gradient(135deg, #fff9c4 0%, #fff59d 100%)',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08)',
-        transform: 'rotate(-8deg)',
-        padding: '20px',
-        fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
-        fontSize: '15px',
-        color: '#333',
-        opacity: 0.6,
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
-        cursor: 'default'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "rotate(-4deg) scale(1.05)";
-        e.currentTarget.style.opacity = "0.85";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "rotate(-8deg) scale(1)";
-        e.currentTarget.style.opacity = "0.6";
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '18px' }}>🤖 AI Clustering</div>
-        <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-          AI가 자동으로<br/>
-          아이디어를 분류해요
-        </div>
-      </div>
+        width: '100px',
+        height: '100px',
+        borderRadius: '24px',
+        background: 'linear-gradient(135deg, rgba(1,205,21,0.1) 0%, rgba(1,205,21,0.06) 100%)',
+        transform: 'rotate(15deg)',
+        pointerEvents: 'none'
+      }} />
 
       <div style={{
         position: 'absolute',
-        top: '55%',
+        bottom: '15%',
         right: '10%',
-        width: '250px',
-        height: '180px',
-        background: 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08)',
-        transform: 'rotate(-5deg)',
-        padding: '20px',
-        fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
-        fontSize: '15px',
-        color: '#333',
-        opacity: 0.6,
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
-        cursor: 'default'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "rotate(-2deg) scale(1.05)";
-        e.currentTarget.style.opacity = "0.85";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "rotate(-5deg) scale(1)";
-        e.currentTarget.style.opacity = "0.6";
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '18px' }}>✨ Collaborate</div>
-        <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-          팀원들과 실시간으로<br/>
-          함께 작업해요
-        </div>
-      </div>
+        width: '120px',
+        height: '120px',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, rgba(1,205,21,0.09) 0%, rgba(1,205,21,0.05) 100%)',
+        pointerEvents: 'none'
+      }} />
 
       <div style={{
         position: 'absolute',
-        bottom: '12%',
-        left: '15%',
-        width: '250px',
-        height: '180px',
-        background: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08)',
-        transform: 'rotate(12deg)',
-        padding: '20px',
-        fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
-        fontSize: '15px',
-        color: '#333',
-        opacity: 0.6,
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
-        cursor: 'default'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "rotate(8deg) scale(1.05)";
-        e.currentTarget.style.opacity = "0.85";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "rotate(12deg) scale(1)";
-        e.currentTarget.style.opacity = "0.6";
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '18px' }}>📝 Infinite-Canvas</div>
-        <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-          끝없이 펼쳐지는 <br/>
-          무한한 작업 공간
-        </div>
-      </div>
+        top: '32%',
+        left: '6%',
+        width: '80px',
+        height: '80px',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, rgba(1,205,21,0.07) 0%, rgba(1,205,21,0.04) 100%)',
+        pointerEvents: 'none'
+      }} />
 
-      {/* 메인 로고 */}
-      <h1 style={{ 
-        fontSize:48, 
-        fontWeight:900, 
-        color:'#111827', 
-        marginBottom:8,
-        textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
-        zIndex: 10
+      <div style={{
+        position: 'absolute',
+        top: '22%',
+        right: '8%',
+        width: '95px',
+        height: '95px',
+        borderRadius: '20px',
+        background: 'linear-gradient(135deg, rgba(1,205,21,0.08) 0%, rgba(1,205,21,0.05) 100%)',
+        transform: 'rotate(-20deg)',
+        pointerEvents: 'none'
+      }} />
+
+      <div style={{
+        position: 'absolute',
+        top: '62%',
+        left: '10%',
+        width: '90px',
+        height: '90px',
+        borderRadius: '22px',
+        background: 'linear-gradient(135deg, rgba(1,205,21,0.07) 0%, rgba(1,205,21,0.04) 100%)',
+        transform: 'rotate(-15deg)',
+        pointerEvents: 'none'
+      }} />
+
+      <div style={{
+        position: 'absolute',
+        top: '38%',
+        right: '18%',
+        width: '75px',
+        height: '75px',
+        borderRadius: '18px',
+        background: 'linear-gradient(135deg, rgba(1,205,21,0.06) 0%, rgba(1,205,21,0.03) 100%)',
+        transform: 'rotate(30deg)',
+        pointerEvents: 'none'
+      }} />
+
+      <h1 style={{
+        fontSize: '2.4rem',
+        fontWeight: 700,
+        color: '#111827',
+        marginBottom: 6,
+        letterSpacing: '-0.5px',
+        position: 'relative',
+        zIndex: 1
       }}>
         ONit
       </h1>
 
-      <p style={{ 
-        color:"#6b7280", 
-        marginBottom:32,
-        fontSize: 16,
-        zIndex: 10
+      <p style={{
+        color: "#9ca3af",
+        marginBottom: 36,
+        fontSize: '0.9rem',
+        fontWeight: 400,
+        position: 'relative',
+        zIndex: 1
       }}>
-        무한캔버스에 아이디어를 자유롭게 펼쳐보세요
+        무한한 아이디어를 하나로
       </p>
 
-      {/* 포스트잇 스타일 로그인 박스 */}
-      <div 
-        style={{ 
-          width: 420,
+      {/* 로그인 카드 */}
+      <div
+        style={{
+          width: 460,
           maxWidth: "90%",
-          background: "linear-gradient(135deg, #fffde7 0%, #fff9c4 100%)",
-          borderRadius: 6,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)",
-          padding: 40,
-          border: "1px solid rgba(251, 192, 45, 0.2)",
-          transform: "rotate(-1deg)",
+          background: "rgba(255,255,255,0.98)",
+          borderRadius: 16,
+          boxShadow: "0 30px 60px -15px rgba(0,0,0,0.2), 0 0 0 1px rgba(1,205,21,0.1)",
+          padding: 48,
+          border: "1px solid rgba(1,205,21,0.15)",
+          boxSizing: 'border-box',
           position: 'relative',
-          zIndex: 10,
-          transition: 'transform 0.3s ease'
+          zIndex: 1,
+          backdropFilter: 'blur(16px)',
+          transition: 'transform 0.3s ease, box-shadow 0.3s ease'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "rotate(0deg) scale(1.02)";
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 35px 70px -15px rgba(0,0,0,0.25), 0 0 0 1px rgba(1,205,21,0.2)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "rotate(-1deg) scale(1)";
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "0 30px 60px -15px rgba(0,0,0,0.2), 0 0 0 1px rgba(1,205,21,0.1)";
         }}
       >
-        {/* 포스트잇 상단 테이프 효과 */}
+        {/* 상단 그라데이션 라인 */}
         <div style={{
           position: 'absolute',
-          top: -8,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 80,
-          height: 20,
-          background: 'rgba(255,255,255,0.4)',
-          borderRadius: '2px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '4px',
+          background: 'linear-gradient(90deg, transparent 0%, #01CD15 20%, #10b981 50%, #01CD15 80%, transparent 100%)',
+          borderRadius: '16px 16px 0 0'
         }} />
-        
+
+        {/* 우측 상단 데코 점 */}
+        <div style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          width: '6px',
+          height: '6px',
+          borderRadius: '50%',
+          background: 'rgba(1,205,21,0.3)'
+        }} />
+
         <LoginForm />
       </div>
     </div>

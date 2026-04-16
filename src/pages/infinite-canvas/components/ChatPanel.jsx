@@ -1,22 +1,82 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ChatMenu from './ChatMenu';
+import ChatView from './ChatView';
 
 const ChatPanel = ({ 
   messages = [], 
   onLocationClick, 
   onVisibilityChange,
-  onSendMessage
+  onSendMessage,
+  participants = [],
+  currentUserId = null,
+  currentUserName = '',
+  currentUserImage = '',
+  workspaceId = null,
+  projectName = '프로젝트'
 }) => {
-  const [localMessages, setLocalMessages] = useState([
-    { id: 1, text: "안녕하세요! 무한 캔버스에 오신 것을 환영합니다.", sender: "system", time: "10:30" },
-    { id: 2, text: "텍스트 필드를 생성하고 편집해보세요.", sender: "system", time: "10:31" },
-    { id: 3, text: "드래그로 캔버스를 이동할 수 있습니다.", sender: "system", time: "10:32" }
-  ]);
+  const legacyStorageKey = 'infinite-canvas-chat-state';
+  const storageKey = workspaceId ? `infinite-canvas-chat-state-${workspaceId}` : legacyStorageKey;
+  const initialChatChannels = [{ id: 'chat-1', name: '채팅방1' }];
+  const initialVoiceChannels = [{ id: 'voice-1', name: '음성채널1' }];
+  const initialLocalMessages = [
+    { id: 1, text: "안녕하세요! 무한 캔버스에 오신 것을 환영합니다.", sender: "system", time: "10:30", channelId: initialChatChannels[0].id },
+    { id: 2, text: "텍스트 필드를 생성하고 편집해보세요.", sender: "system", time: "10:31", channelId: initialChatChannels[0].id },
+    { id: 3, text: "드래그로 캔버스를 이동할 수 있습니다.", sender: "system", time: "10:32", channelId: initialChatChannels[0].id }
+  ];
+
+  const loadPersistedState = () => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (err) {
+      console.warn('채팅 상태 복원 실패', err);
+      return null;
+    }
+  };
+
+  const persisted = loadPersistedState();
+
+  const [chatChannels, setChatChannels] = useState(
+    persisted?.chatChannels?.length ? persisted.chatChannels : initialChatChannels
+  );
+  const [voiceChannels, setVoiceChannels] = useState(
+    persisted?.voiceChannels?.length ? persisted.voiceChannels : initialVoiceChannels
+  );
+  const [activeChatChannelId, setActiveChatChannelId] = useState(
+    persisted?.activeChatChannelId || initialChatChannels[0].id
+  );
+  const [editingChannel, setEditingChannel] = useState(null);
+  const [view, setView] = useState(persisted?.view || 'menu');
+  const [activeVoiceChannelId, setActiveVoiceChannelId] = useState(
+    persisted?.activeVoiceChannelId || initialVoiceChannels[0].id
+  );
+  const [localMessages, setLocalMessages] = useState(
+    persisted?.localMessages?.length ? persisted.localMessages : initialLocalMessages
+  );
   const [newMessage, setNewMessage] = useState("");
   const [isHidden, setIsHidden] = useState(false);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [voiceMembersByChannel, setVoiceMembersByChannel] = useState(new Map());
+  const [isCurrentUserSpeaking, setIsCurrentUserSpeaking] = useState(false);
+  const [voiceControls, setVoiceControls] = useState({
+    muted: false,
+    deafened: false,
+    settingsOpen: false,
+    inputSettingsOpen: false,
+    outputSettingsOpen: false
+  });
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const scrollTimeoutRef = useRef(null);
+  const speakingAudioContextRef = useRef(null);
+  const speakingAnalyserRef = useRef(null);
+  const speakingDataRef = useRef(null);
+  const speakingStreamRef = useRef(null);
+  const speakingSourceRef = useRef(null);
+  const speakingAnimationRef = useRef(null);
+  const lastSpeakingAtRef = useRef(0);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -25,24 +85,188 @@ const ChatPanel = ({
     }
   }, [isHidden, onVisibilityChange]);
 
+  // 상태 저장
+  useEffect(() => {
+    try {
+      const payload = {
+        chatChannels,
+        voiceChannels,
+        localMessages,
+        activeChatChannelId,
+        activeVoiceChannelId,
+        view
+      };
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('채팅 상태 저장 실패', err);
+    }
+  }, [chatChannels, voiceChannels, localMessages, activeChatChannelId, view]);
+
+  useEffect(() => {
+    if (!chatChannels.find((channel) => channel.id === activeChatChannelId)) {
+      setActiveChatChannelId(chatChannels[0]?.id || initialChatChannels[0].id);
+    }
+  }, [chatChannels, activeChatChannelId, initialChatChannels]);
+
+  useEffect(() => {
+    if (!voiceChannels.find((channel) => channel.id === activeVoiceChannelId)) {
+      setActiveVoiceChannelId(voiceChannels[0]?.id || initialVoiceChannels[0].id);
+    }
+  }, [voiceChannels, activeVoiceChannelId, initialVoiceChannels]);
+
+  useEffect(() => {
+    const shouldDetectSpeaking = isVoiceActive && !voiceControls.muted && !voiceControls.deafened;
+
+    const cleanupSpeakingDetection = async () => {
+      if (speakingAnimationRef.current) {
+        cancelAnimationFrame(speakingAnimationRef.current);
+        speakingAnimationRef.current = null;
+      }
+      if (speakingSourceRef.current) {
+        try {
+          speakingSourceRef.current.disconnect();
+        } catch (error) {
+          console.warn('마이크 소스 정리 실패', error);
+        }
+        speakingSourceRef.current = null;
+      }
+      if (speakingStreamRef.current) {
+        speakingStreamRef.current.getTracks().forEach((track) => track.stop());
+        speakingStreamRef.current = null;
+      }
+      if (speakingAudioContextRef.current) {
+        try {
+          await speakingAudioContextRef.current.close();
+        } catch (error) {
+          console.warn('오디오 컨텍스트 종료 실패', error);
+        }
+        speakingAudioContextRef.current = null;
+      }
+      speakingAnalyserRef.current = null;
+      speakingDataRef.current = null;
+      lastSpeakingAtRef.current = 0;
+      setIsCurrentUserSpeaking(false);
+    };
+
+    if (!shouldDetectSpeaking) {
+      cleanupSpeakingDetection();
+      return undefined;
+    }
+
+    let isDisposed = false;
+
+    const startSpeakingDetection = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+
+        if (isDisposed) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const audioContext = new AudioContextClass();
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.86;
+
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.fftSize);
+        speakingAudioContextRef.current = audioContext;
+        speakingAnalyserRef.current = analyser;
+        speakingDataRef.current = dataArray;
+        speakingStreamRef.current = stream;
+        speakingSourceRef.current = source;
+
+        const detectSpeaking = () => {
+          if (isDisposed || !speakingAnalyserRef.current || !speakingDataRef.current) {
+            return;
+          }
+
+          speakingAnalyserRef.current.getByteTimeDomainData(speakingDataRef.current);
+          let total = 0;
+          for (let index = 0; index < speakingDataRef.current.length; index += 1) {
+            const normalized = (speakingDataRef.current[index] - 128) / 128;
+            total += normalized * normalized;
+          }
+
+          const rms = Math.sqrt(total / speakingDataRef.current.length);
+          const now = performance.now();
+          const speakingNow = rms > 0.035;
+
+          if (speakingNow) {
+            lastSpeakingAtRef.current = now;
+          }
+
+          const isActive = speakingNow || now - lastSpeakingAtRef.current < 260;
+          setIsCurrentUserSpeaking((prev) => (prev === isActive ? prev : isActive));
+
+          speakingAnimationRef.current = requestAnimationFrame(detectSpeaking);
+        };
+
+        speakingAnimationRef.current = requestAnimationFrame(detectSpeaking);
+      } catch (error) {
+        console.warn('마이크 음성 감지 초기화 실패', error);
+      }
+    };
+
+    startSpeakingDetection();
+
+    return () => {
+      isDisposed = true;
+      cleanupSpeakingDetection();
+    };
+  }, [isVoiceActive, voiceControls.muted, voiceControls.deafened]);
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (newMessage.trim()) {
       // API로 채팅 메시지 전송 (서버에서 메시지 목록을 새로고침하므로 로컬에 추가하지 않음)
       if (onSendMessage) {
         try {
-          await onSendMessage(newMessage);
+          await onSendMessage(newMessage, activeChatChannelId);
         } catch (err) {
           console.error('채팅 메시지 전송 실패', err);
         }
       }
+
+      setLocalMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: newMessage,
+          sender: 'me',
+          time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+          channelId: activeChatChannelId
+        }
+      ]);
       
       setNewMessage("");
     }
   };
 
-  // 모든 메시지 합치기 (로컬 메시지 + 외부 메시지) 및 시간순 정렬
-  const allMessages = [...localMessages, ...messages].sort((a, b) => {
+  // 활성 채널 메시지만 표시 (channelId 없는 외부 메시지는 제외)
+  const resolvedActiveChannelId = activeChatChannelId || chatChannels[0]?.id || initialChatChannels[0].id;
+  const channelMessages = [
+    ...localMessages,
+    ...messages.filter((message) => message.channelId)
+  ].filter((message) => message.channelId === resolvedActiveChannelId);
+
+  const allMessages = channelMessages.sort((a, b) => {
     // 타임스탬프가 있으면 타임스탬프로, 없으면 시간 문자열로 정렬
     const timeA = a.timestamp || new Date(a.time).getTime();
     const timeB = b.timestamp || new Date(b.time).getTime();
@@ -107,6 +331,120 @@ const ChatPanel = ({
     scrollToBottom();
   }, [allMessages, isUserScrolling]);
 
+  const activeChatChannel = chatChannels.find((channel) => channel.id === activeChatChannelId) || chatChannels[0] || initialChatChannels[0];
+  const activeVoiceChannel = voiceChannels.find((channel) => channel.id === activeVoiceChannelId) || voiceChannels[0] || initialVoiceChannels[0];
+
+  const updateVoiceMembership = (channelId, member, remove = false) => {
+    if (!channelId || !member) return;
+    setVoiceMembersByChannel((prev) => {
+      const next = new Map(prev);
+      const current = next.get(channelId) || [];
+      const filtered = current.filter((item) => String(item.id) !== String(member.id));
+      next.set(channelId, remove ? filtered : [...filtered, member]);
+      return next;
+    });
+  };
+
+  const toggleVoiceControl = (key) => {
+    setVoiceControls((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleInputSettings = () => {
+    setVoiceControls((prev) => ({
+      ...prev,
+      inputSettingsOpen: !prev.inputSettingsOpen,
+      outputSettingsOpen: false
+    }));
+  };
+
+  const toggleOutputSettings = () => {
+    setVoiceControls((prev) => ({
+      ...prev,
+      outputSettingsOpen: !prev.outputSettingsOpen,
+      inputSettingsOpen: false
+    }));
+  };
+
+
+  const handleJoinVoice = (channelId = activeVoiceChannelId) => {
+    if (!channelId) return;
+    setIsVoiceActive(true);
+    if (currentUserId) {
+      updateVoiceMembership(channelId, {
+        id: currentUserId,
+        name: currentUserName,
+        profileImage: currentUserImage
+      });
+    }
+  };
+
+  const handleLeaveVoice = () => {
+    setIsVoiceActive(false);
+    if (currentUserId) {
+      updateVoiceMembership(activeVoiceChannelId, {
+        id: currentUserId
+      }, true);
+    }
+  };
+
+  const activeVoiceMembers = voiceMembersByChannel.get(activeVoiceChannelId) || [];
+  const speakingUserIds = [];
+  participants.forEach((participant) => {
+    if (!participant?.id) return;
+    const speakingFlag = Boolean(participant.isSpeaking ?? participant.speaking);
+    const audioLevel = Number(participant.audioLevel ?? participant.voiceLevel ?? 0);
+    if (speakingFlag || (Number.isFinite(audioLevel) && audioLevel > 0.12)) {
+      speakingUserIds.push(String(participant.id));
+    }
+  });
+  if (isCurrentUserSpeaking && currentUserId) {
+    speakingUserIds.push(String(currentUserId));
+  }
+
+  const createChannel = (type) => {
+    const id = `${type}-${Date.now()}`;
+    const name = type === 'chat' ? `채팅방${chatChannels.length + 1}` : `음성채널${voiceChannels.length + 1}`;
+    if (type === 'chat') {
+      setChatChannels((prev) => [...prev, { id, name }]);
+    } else {
+      setVoiceChannels((prev) => [...prev, { id, name }]);
+    }
+  };
+
+  const removeChannel = (type, id) => {
+    if (type === 'chat') {
+      if (chatChannels.length <= 1) return;
+      const nextChannels = chatChannels.filter((channel) => channel.id !== id);
+      setChatChannels(nextChannels);
+      if (activeChatChannelId === id) {
+        setActiveChatChannelId(nextChannels[0]?.id || 'chat-1');
+        setView('menu');
+      }
+    } else {
+      if (voiceChannels.length <= 1) return;
+      setVoiceChannels((prev) => prev.filter((channel) => channel.id !== id));
+    }
+  };
+
+  const startEditChannel = (type, channel) => {
+    setEditingChannel({ type, id: channel.id, name: channel.name });
+  };
+
+  const applyEditChannel = () => {
+    if (!editingChannel) return;
+    const trimmedName = editingChannel.name.trim();
+    if (!trimmedName) {
+      setEditingChannel(null);
+      return;
+    }
+    if (editingChannel.type === 'chat') {
+      setChatChannels((prev) => prev.map((channel) => channel.id === editingChannel.id ? { ...channel, name: trimmedName } : channel));
+    } else {
+      setVoiceChannels((prev) => prev.map((channel) => channel.id === editingChannel.id ? { ...channel, name: trimmedName } : channel));
+    }
+    setEditingChannel(null);
+  };
+
   return (
     <>
       {/* 채팅 패널 토글 버튼 */}
@@ -141,9 +479,19 @@ const ChatPanel = ({
                 minWidth: 0
               }}
             >
-              채팅
+              {view === 'menu' && '채널 선택'}
+              {view === 'chat' && `${activeChatChannel?.name || '채팅방'}`}
             </span>
           </div>
+          {view === 'chat' && (
+            <button
+              className="chatBackButton"
+              onClick={() => setView('menu')}
+              title="메뉴로"
+            >
+              −
+            </button>
+          )}
           <button
             className="chatCloseButton"
             onClick={() => setIsHidden(true)}
@@ -155,69 +503,60 @@ const ChatPanel = ({
 
         {/* 메시지 목록 */}
         <div className="chatContent">
-          <div className="chatMessages" ref={messagesContainerRef}>
-            {allMessages.map((message, index) => {
-              const showName = shouldShowName(message, index);
-              return (
-                <div
-                  key={message.id}
-                  className={`chatMessage ${message.sender === 'me' ? 'user' : message.sender}`}
-                >
-                  {showName && message.userName && (
-                    <div className="chatMessageName">{message.userName}</div>
-                  )}
-                  <div className={`chatMessageBubble ${message.sender === 'me' ? 'user' : message.sender}`}>
-                    {message.isLocation ? (
-                      <>
-                        <p>{message.text}</p>
-                        <button
-                          onClick={() => onLocationClick && onLocationClick(message.location)}
-                          style={{ 
-                            color: message.sender === 'me' ? 'rgba(255, 255, 255, 0.9)' : 'var(--chat-send-button-bg)', 
-                            textDecoration: 'underline', 
-                            marginTop: '4px', 
-                            display: 'block',
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            cursor: 'pointer',
-                            fontSize: 'var(--chat-message-font-size)',
-                            textAlign: 'left'
-                          }}
-                        >
-                          📍 이 위치로 이동하기
-                        </button>
-                        <p className="chatMessageTime">{message.time}</p>
-                      </>
-                    ) : (
-                      <>
-                        <p>{message.text}</p>
-                        <p className="chatMessageTime">{message.time}</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            {/* 자동 스크롤을 위한 더미 요소 */}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* 메시지 입력 */}
-          <div className="chatInputArea">
-            <form onSubmit={handleSendMessage} className="chatInputForm">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="메시지를 입력하세요..."
-                className="chatInput"
-              />
-              <button type="submit" className="chatSendButton">
-                전송
-              </button>
-            </form>
-          </div>
+          {view === 'menu' ? (
+            <ChatMenu
+              chatChannels={chatChannels}
+              voiceChannels={voiceChannels}
+              editingChannel={editingChannel}
+              onSelectChatChannel={(channelId) => {
+                setActiveChatChannelId(channelId);
+                setView('chat');
+              }}
+              onSelectVoiceChannel={(channelId) => {
+                setActiveVoiceChannelId(channelId);
+                setView('menu');
+                handleJoinVoice(channelId);
+              }}
+              onAddChannel={createChannel}
+              onRemoveChannel={removeChannel}
+              onStartEditChannel={startEditChannel}
+              onEditChannelName={(name) => setEditingChannel((prev) => prev ? { ...prev, name } : prev)}
+              onApplyEditChannel={applyEditChannel}
+              activeVoiceChannelId={activeVoiceChannelId}
+              participants={activeVoiceMembers}
+              currentUserId={currentUserId}
+              projectName={projectName}
+              voiceState={{
+                isVoiceActive,
+                connectionStatus: isVoiceActive ? 'connected' : 'idle',
+                muted: voiceControls.muted,
+                deafened: voiceControls.deafened,
+                settingsOpen: voiceControls.settingsOpen,
+                speakingUserIds,
+                isCurrentUserSpeaking
+              }}
+              currentUserName={currentUserName}
+              currentUserImage={currentUserImage}
+              onToggleMute={() => toggleVoiceControl('muted')}
+              onToggleDeafen={() => toggleVoiceControl('deafened')}
+              onToggleInputSettings={toggleInputSettings}
+              onToggleOutputSettings={toggleOutputSettings}
+              inputSettingsOpen={voiceControls.inputSettingsOpen}
+              outputSettingsOpen={voiceControls.outputSettingsOpen}
+              onLeaveVoice={handleLeaveVoice}
+            />
+          ) : (
+            <ChatView
+              messages={allMessages}
+              messagesContainerRef={messagesContainerRef}
+              messagesEndRef={messagesEndRef}
+              shouldShowName={shouldShowName}
+              onLocationClick={onLocationClick}
+              newMessage={newMessage}
+              onChangeMessage={setNewMessage}
+              onSendMessage={handleSendMessage}
+            />
+          )}
         </div>
       </div>
     </>

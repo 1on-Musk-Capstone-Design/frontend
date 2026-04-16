@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import InfiniteCanvasPage from './pages/infinite-canvas/InfiniteCanvasPage'
+import VoicePreviewPage from './pages/infinite-canvas/VoicePreviewPage'
 import MainPage from './pages/MainPage/MainPage'
 import AuthPage from './pages/auth/authpage'
 import CallbackPage from './pages/auth/components/CallbackPage'
@@ -14,6 +15,8 @@ import './index.css'
 import Login from './pages/login/Login'
 
 function App() {
+  const showVoicePreview = import.meta.env.DEV || import.meta.env.VITE_ENABLE_VOICE_TEST_PANEL === 'true'
+
   return (
     <BrowserRouter>
       <Routes>
@@ -25,6 +28,7 @@ function App() {
         <Route path="/auth/callback" element={<CallbackPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<Login />} />
+        {showVoicePreview && <Route path="/voice-preview" element={<VoicePreviewPage />} />}
         <Route path="/canvas/:projectId" element={<InfiniteCanvasPage />} />
         <Route path="/canvas" element={<InfiniteCanvasPage />} />
         <Route path="/trash" element={<TrashPage />} />

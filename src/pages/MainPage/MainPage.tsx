@@ -378,6 +378,7 @@ export default function MainPage(): JSX.Element {
     
     try {
       const accessToken = localStorage.getItem('accessToken')
+
       if (!accessToken) {
         throw new Error('로그인이 필요합니다.')
       }
@@ -703,6 +704,7 @@ export default function MainPage(): JSX.Element {
 
     try {
       const accessToken = localStorage.getItem('accessToken')
+
       if (!accessToken) {
         throw new Error('로그인이 필요합니다.')
       }

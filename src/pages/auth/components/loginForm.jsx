@@ -55,7 +55,7 @@ export default function LoginForm() {
         }
       } else if (err.request) {
         // 요청은 보냈지만 응답을 받지 못함 (네트워크 오류, CORS 등)
-        errorMessage = "서버에 연결할 수 없습니다.\n\n가능한 원인:\n- 서버가 실행 중이 아닙니다\n- 네트워크 연결 문제\n- CORS 설정 문제\n\n서버 주소: http://51.20.106.74:8080";
+        errorMessage = `서버에 연결할 수 없습니다.\n\n가능한 원인:\n- 서버가 실행 중이 아닙니다\n- 네트워크 연결 문제\n- CORS 설정 문제\n\n서버 주소: ${API_BASE_URL}`;
       } else {
         // 요청 설정 중 오류
         errorMessage = err.message || errorMessage;
@@ -135,8 +135,8 @@ const buttonStyle = {
         style={buttonStyle}
          onMouseEnter={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "#34495e"; 
-            e.currentTarget.style.color = "#ffffff";
+            e.currentTarget.style.background = "#e9ecef"; 
+            e.currentTarget.style.color = "#2c3e50";
             e.currentTarget.style.transform = "translateY(-2px)";
             e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)"; 
           }

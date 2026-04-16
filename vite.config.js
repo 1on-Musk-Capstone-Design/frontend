@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const websocketProxyTarget = process.env.VITE_WS_PROXY_TARGET || 'http://localhost:8080';
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -11,7 +13,7 @@ export default defineConfig({
     // SockJS가 /ws/info, /ws/websocket 등의 경로를 사용하므로 모두 프록시
     proxy: {
       '/ws': {
-        target: 'http://51.20.106.74:8080',
+        target: websocketProxyTarget,
         ws: true, // WebSocket 업그레이드 지원
         changeOrigin: true,
         secure: false,
