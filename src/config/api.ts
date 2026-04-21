@@ -16,9 +16,9 @@ export const getApiBaseUrl = (): string => {
   // 현재 호스트 확인
   const hostname = window.location.hostname;
   
-  // 로컬 개발 (Vite dev 서버)
+  // 로컬 개발 (Vite dev 서버): Vite 프록시를 통해 원격 서버로 연결
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8080/api';
+    return '/api';
   }
   
   // 프로덕션 환경 (on-it.kro.kr): 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)

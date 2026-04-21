@@ -6,8 +6,6 @@ import Sidebar from './components/Sidebar/Sidebar'
 import styles from './MainPage.module.css'
 import { Project } from './types'
 import Modal from '../../components/Modal/Modal'
-import PRDModal from '../../components/PRDModal/PRDModal'
-import { usePRDGeneration } from '../../hooks/usePRDGeneration'
 import axios from 'axios'
 import { API_BASE_URL, normalizeThumbnailUrl } from '../../config/api'
 
@@ -25,8 +23,6 @@ interface WorkspaceListItem {
 
 export default function MainPage(): JSX.Element {
   const navigate = useNavigate()
-  const { state: prdState, close: closePRD, generateFromWorkspace } = usePRDGeneration()
-  const [prdProjectName, setPrdProjectName] = useState<string>('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState<NewProjectForm>({ name: '', description: '' })
   const [projects, setProjects] = useState<Project[]>([])
@@ -379,6 +375,10 @@ export default function MainPage(): JSX.Element {
       window.removeEventListener('user-profile-updated', handleProfileUpdate)
     }
   }, [fetchWorkspaces])
+
+  const handleGeneratePRD = (id: string, title: string) => {
+    window.open(`/prd?workspaceId=${id}&projectName=${encodeURIComponent(title)}`, '_blank')
+  }
 
   // 로그인 핸들러
   const handleLogin = () => {
@@ -806,20 +806,6 @@ export default function MainPage(): JSX.Element {
 
   return (
     <div className={styles.pageRoot}>
-      {/* PRD 생성 모달 */}
-      <PRDModal
-        isOpen={prdState.isOpen}
-        status={prdState.status}
-        steps={prdState.steps}
-        deployedUrl={prdState.deployedUrl}
-        errorMessage={prdState.errorMessage}
-        projectName={prdProjectName}
-        onClose={closePRD}
-        onRetry={() => generateFromWorkspace(
-          prdState.deployedUrl?.split('ws_')[1] || '',
-          prdProjectName
-        )}
-      />
       <div className={styles.container}>
         <Sidebar activeMenu="home" />
 
@@ -922,10 +908,7 @@ export default function MainPage(): JSX.Element {
             onDelete={handleDeleteClick}
             onInvite={handleInviteClick}
             onLeave={handleLeaveClick}
-            onGeneratePRD={(id: string, title: string) => {
-              setPrdProjectName(title)
-              generateFromWorkspace(id, title)
-            }}
+            onGeneratePRD={handleGeneratePRD}
             loading={loading}
             loadError={loadError}
           />
