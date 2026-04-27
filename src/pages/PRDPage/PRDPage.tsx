@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import Sidebar from '../MainPage/components/Sidebar/Sidebar'
+import { PrdCompletionPanel } from '../../components/prd/PrdCompletionPanel'
+import { PrdMarkdownBody } from '../../components/prd/PrdMarkdownBody'
 import { API_BASE_URL } from '../../config/api'
 import styles from './PRDPage.module.css'
 
@@ -29,6 +31,14 @@ interface PRDResult {
   cards: string[]
   generatedAt: string
   prdMarkdown?: string
+  vercelPreviewUrl?: string
+  vercelProductionUrl?: string
+  githubRepoUrl?: string
+  ideaId?: number
+  jobId?: number
+  workspaceId?: number
+  prdViewUrl?: string
+  prdViewPath?: string
 }
 
 // ─── Loading steps ────────────────────────────────────────────────────────────
@@ -179,7 +189,9 @@ function PRDTab({ result }: { result: PRDResult }) {
   if (result.prdMarkdown) {
     return (
       <div className={styles.tabContent}>
-        <pre className={styles.markdownBlock}>{result.prdMarkdown}</pre>
+        <div className={styles.prdMarkdownDoc}>
+          <PrdMarkdownBody markdown={result.prdMarkdown} />
+        </div>
       </div>
     )
   }
@@ -343,7 +355,9 @@ const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
 
 export default function PRDPage() {
   const [searchParams] = useSearchParams()
-  const workspaceId = searchParams.get('workspaceId')
+  const workspaceIdRaw = searchParams.get('workspaceId')
+  const workspaceIdNum = workspaceIdRaw ? Number(workspaceIdRaw) : NaN
+  const workspaceId = Number.isFinite(workspaceIdNum) && workspaceIdNum > 0 ? workspaceIdNum : null
   const projectName = searchParams.get('projectName') || '내 프로젝트'
 
   const [cards, setCards] = useState<IdeaCard[]>([])
@@ -370,7 +384,7 @@ export default function PRDPage() {
 
   useEffect(() => {
     async function load() {
-      if (!workspaceId) {
+      if (workspaceId == null) {
         setCards(DEMO_CARDS.map(c => ({ ...c, selected: true })))
         return
       }
@@ -435,7 +449,7 @@ export default function PRDPage() {
     }, 900)
 
     try {
-      if (workspaceId) {
+      if (workspaceId != null) {
         // Real API flow
         const token = localStorage.getItem('accessToken')
         const headers = token ? { Authorization: `Bearer ${token}` } : {}
@@ -444,7 +458,7 @@ export default function PRDPage() {
         const body = selected.map((c, i) => `### 카드 ${i + 1}\n${c.text}`).join('\n\n---\n\n')
         const ideaRes = await axios.post(
           `${API_BASE_URL}/v1/ideas`,
-          { workspaceId: Number(workspaceId), content: `[PRD_PIPELINE]\n${body}` },
+          { workspaceId, content: `[PRD_PIPELINE]\n${body}` },
           { headers: { ...headers, 'Content-Type': 'application/json' } }
         )
         const ideaId = ideaRes.data.id
@@ -465,16 +479,54 @@ export default function PRDPage() {
             { headers }
           )
           if (poll.data.status === 'FAILED') throw new Error(poll.data.message || 'PRD 생성 실패')
-          if (['DEPLOYED', 'PRD_GENERATED', 'UI_GENERATED', 'CODE_GENERATED', 'GITHUB_PUSHED'].includes(poll.data.status)) {
+          const isDeployed = poll.data.status === 'DEPLOYED'
+          const fallbackReady =
+            i >= 60 &&
+            ['PRD_GENERATED', 'UI_GENERATED', 'CODE_GENERATED', 'GITHUB_PUSHED'].includes(
+              poll.data.status
+            ) &&
+            Boolean((poll.data.prdMarkdown || '').trim())
+          if (isDeployed || fallbackReady) {
             clearInterval(stepTimer)
             setGenStep(STEPS.length - 1)
+            const p = poll.data as {
+              prdMarkdown?: string
+              prdViewUrl?: string
+              prdViewPath?: string
+              workspaceId?: number
+              ideaId?: number
+              jobId?: number
+              vercelPreviewUrl?: string
+              vercelProductionUrl?: string
+              githubRepoUrl?: string
+            }
+            const ws = p.workspaceId ?? workspaceId
+            const jid = p.jobId ?? jobId
             setResult({
               projectName,
               cards: selected.map(c => c.text),
               generatedAt: new Date().toLocaleDateString('ko-KR'),
-              prdMarkdown: poll.data.prdMarkdown || undefined,
+              prdMarkdown: p.prdMarkdown || undefined,
+              prdViewUrl: p.prdViewUrl || undefined,
+              prdViewPath: p.prdViewPath || undefined,
+              ideaId: p.ideaId ?? ideaId,
+              jobId: jid,
+              workspaceId: ws ?? undefined,
+              vercelPreviewUrl: p.vercelPreviewUrl || undefined,
+              vercelProductionUrl: p.vercelProductionUrl || undefined,
+              githubRepoUrl: p.githubRepoUrl || undefined,
             })
             setGenState('done')
+            const toOpen =
+              (typeof p.prdViewUrl === 'string' && p.prdViewUrl.trim()) ||
+              (p.prdViewPath &&
+                `${window.location.origin}${p.prdViewPath.startsWith('/') ? '' : '/'}${p.prdViewPath}`) ||
+              (ws != null && jid != null
+                ? `${window.location.origin}/prd/workspaces/${ws}/prds/${jid}`
+                : '')
+            if (toOpen) {
+              window.open(toOpen, '_blank', 'noopener,noreferrer')
+            }
             return
           }
         }
@@ -616,6 +668,17 @@ export default function PRDPage() {
             )}
             {genState === 'done' && result && (
               <div className={styles.resultWrap} ref={resultRef}>
+                {((result.workspaceId != null && result.jobId != null) || result.prdViewUrl) && (
+                  <PrdCompletionPanel
+                    info={{
+                      workspaceId: result.workspaceId,
+                      jobId: result.jobId,
+                      ideaId: result.ideaId,
+                      prdViewUrl: result.prdViewUrl,
+                      prdViewPath: result.prdViewPath,
+                    }}
+                  />
+                )}
                 {/* Tab bar */}
                 <div className={styles.tabBar}>
                   {TABS.map(tab => {

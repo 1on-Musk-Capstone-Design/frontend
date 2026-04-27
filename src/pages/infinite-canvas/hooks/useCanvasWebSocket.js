@@ -89,6 +89,20 @@ export const useCanvasWebSocket = (workspaceId, currentUserId, callbacks = {}) =
           }
         });
 
+        // PRD/프로토타입 파이프라인 완료 (같은 워크스페이스 팀 전원)
+        const prototypePath = `/topic/workspace/${workspaceId}/prototype`;
+        console.log('[캔버스 웹소켓] 프로토타입 구독:', prototypePath);
+        stompClient.subscribe(prototypePath, (message) => {
+          try {
+            const payload = JSON.parse(message.body);
+            if (callbacksRef.current.onPrototypeReady) {
+              callbacksRef.current.onPrototypeReady(payload);
+            }
+          } catch (e) {
+            console.error('[캔버스 웹소켓] prototype 메시지 파싱 오류:', e, message.body);
+          }
+        });
+
         // 캔버스 변경 구독 (백엔드: /topic/workspace/{workspaceId}/canvas)
         // 백엔드 형식: {"action": "created|updated|deleted", "data": {...}}
         const canvasSubscriptionPath = `/topic/workspace/${workspaceId}/canvas`;

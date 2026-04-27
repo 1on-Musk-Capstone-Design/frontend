@@ -1076,6 +1076,28 @@ const InfiniteCanvasPage = () => {
       } catch (error) {
         console.error('아이디어 업데이트 처리 오류:', error);
       }
+    },
+    onPrototypeReady: (payload) => {
+      const p = payload || {};
+      const fromApi = typeof p.prdViewUrl === 'string' && p.prdViewUrl.trim() ? p.prdViewUrl.trim() : '';
+      const rel =
+        p.prdViewPath ||
+        (p.ideaId != null && p.jobId != null
+          ? `/prd/workspaces/${p.workspaceId ?? workspaceId}/prds/${p.jobId}`
+          : null);
+      if (!fromApi && !rel) return;
+      const url = fromApi
+        || (rel.startsWith('http') ? rel : `${window.location.origin}${rel.startsWith('/') ? '' : '/'}${rel}`);
+      setToast({
+        message: 'PRD·프로토타입이 준비되었습니다. 새 탭에서 열었습니다.',
+        type: 'success',
+        isVisible: true
+      });
+      try {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } catch (e) {
+        console.warn('PRD 뷰어 새 탭 열기 실패', e);
+      }
     }
   });
 

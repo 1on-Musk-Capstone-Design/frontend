@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
+import axios from 'axios'
+import { API_BASE_URL } from '../../config/api'
 import {
   Sparkles, ExternalLink, Copy, Check, Menu, X,
-  FileText, Target, Lightbulb, Users, Code2, Calendar,
+  FileText, Target, Users, Code2, Calendar,
   TrendingUp, AlertTriangle, BookOpen, ChevronRight,
   Clock, Zap, Shield, Globe, ArrowUpRight, Download,
   CheckCircle2, Circle, Hash
 } from 'lucide-react'
 import styles from './PRDResultPage.module.css'
+import { PrdMarkdownBody } from '../../components/prd/PrdMarkdownBody'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -20,13 +23,80 @@ interface PRDData {
   timeline: string
   template: 'minimal' | 'standard' | 'detailed'
   generatedAt?: string
-  /** Capstone 프로토타입 파이프라인에서 받은 마크다운 PRD */
+  /** API에서 받은 PRD 본문(마크다운) */
   prdMarkdown?: string
   vercelPreviewUrl?: string
   vercelProductionUrl?: string
   githubRepoUrl?: string
   prototypeMessage?: string
   simulated?: boolean
+  sourceFiles?: { path: string; content: string }[]
+}
+
+type DebugAuthInfo = {
+  userId?: number
+  userEmail?: string
+  userName?: string
+  workspaceIds?: number[]
+  targetWorkspaceId?: number
+  targetPrdId?: number
+  tokenExists: boolean
+  lastErrorStatus?: number
+  lastErrorMessage?: string
+}
+
+function isLocalDevBrowser() {
+  if (typeof window === 'undefined') return false
+  const h = window.location.hostname
+  return h === 'localhost' || h === '127.0.0.1'
+}
+
+async function tryDevBootstrapLogin(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/v1/auth/dev/bootstrap`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    if (data?.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken)
+      if (data?.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken)
+      }
+      return true
+    }
+  } catch {
+    // noop
+  }
+  return false
+}
+
+function isVercelRelatedUrl(url: string | undefined): boolean {
+  if (!url) return false
+  const u = url.toLowerCase()
+  return u.includes('vercel') || u.includes('vercel.app') || u.includes('now.sh')
+}
+
+function markdownPlainExcerpt(md: string, maxLen: number): string {
+  const stripped = md
+    .replace(/^#+\s+.*/gm, '')
+    .replace(/[*_`#[\]]/g, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+  if (stripped.length <= maxLen) return stripped
+  return `${stripped.slice(0, maxLen).trim()}…`
+}
+
+/** PRD 본문 대략 읽기 시간(한·영 혼합, 약 800자/분) */
+function estimateReadingMinutes(md: string): number {
+  const t = md.replace(/\s+/g, ' ').trim()
+  if (t.length === 0) return 1
+  return Math.max(1, Math.ceil(t.length / 800))
+}
+
+function countMarkdownH2Sections(md: string): number {
+  return (md.match(/^##\s+[^\n#]+/gm) || []).length
 }
 
 // ─── Mock PRD content generator ────────────────────────────────────────────
@@ -74,7 +144,7 @@ function generatePRD(data: PRDData) {
       frontend: techList.slice(0, 2).length > 0 ? techList.slice(0, 2) : ['React', 'TypeScript'],
       backend: techList.slice(2, 4).length > 0 ? techList.slice(2, 4) : ['Node.js', 'Express'],
       database: techList.slice(4, 5).length > 0 ? techList.slice(4, 5) : ['PostgreSQL'],
-      infra: ['Vercel', 'AWS S3', 'GitHub Actions'],
+      infra: ['클라우드', 'CI/CD', '모니터링'],
     },
     timeline: {
       duration: data.timeline || '3개월',
@@ -126,7 +196,7 @@ const RISK_STYLE: Record<string, string> = {
 
 // ─── TOC ──────────────────────────────────────────────────────────────────
 
-const TOC_ITEMS = [
+const DEFAULT_TOC_ITEMS = [
   { id: 'overview', label: '개요', icon: FileText },
   { id: 'problem', label: '문제 정의', icon: AlertTriangle },
   { id: 'goals', label: '목표', icon: Target },
@@ -140,11 +210,22 @@ const TOC_ITEMS = [
 // ─── Main ─────────────────────────────────────────────────────────────────
 
 export default function PRDResultPage() {
-  const { id } = useParams<{ id: string }>()
+  const { id, workspaceId: wsPath, prdId: prdPath } = useParams<{
+    id?: string
+    workspaceId?: string
+    prdId?: string
+  }>()
+  const [searchParams] = useSearchParams()
+  const jobIdParam = searchParams.get('jobId')
   const [data, setData] = useState<PRDData | null>(null)
   const [activeSection, setActiveSection] = useState('overview')
   const [tocOpen, setTocOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [selectedSourcePath, setSelectedSourcePath] = useState<string | null>(null)
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [debugAuth, setDebugAuth] = useState<DebugAuthInfo | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
   // PRD 결과 페이지에서 스크롤 활성화
@@ -178,11 +259,227 @@ export default function PRDResultPage() {
   }, [])
 
   useEffect(() => {
-    // 실제 구현: API로 PRD 데이터 fetch
-    // const res = await axios.get(`${API_BASE_URL}/v1/prd/${id}`)
-    // setData(res.data)
+    const load = async () => {
+      setLoadError(null)
+      setDebugAuth(null)
+      // 워크스페이스 공유 URL: /prd/workspaces/:workspaceId/prds/:prdId
+      if (wsPath && prdPath) {
+        let token = localStorage.getItem('accessToken')
+        const ws = parseInt(wsPath, 10)
+        const prd = parseInt(prdPath, 10)
+        if (!token && isLocalDevBrowser()) {
+          const ok = await tryDevBootstrapLogin()
+          if (ok) token = localStorage.getItem('accessToken')
+        }
+        if (token && !Number.isNaN(ws) && !Number.isNaN(prd)) {
+          try {
+            const headers = { Authorization: `Bearer ${token}` }
+            try {
+              const [meRes, wsRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/v1/users/me`, { headers }),
+                axios.get(`${API_BASE_URL}/v1/workspaces`, { headers }),
+              ])
+              const wsData = Array.isArray(wsRes.data) ? wsRes.data : []
+              const wsIds = wsData
+                .map((w: any) => Number(w?.workspaceId ?? w?.id))
+                .filter((id: number) => Number.isFinite(id))
+              setDebugAuth({
+                tokenExists: true,
+                userId: Number(meRes.data?.id),
+                userEmail: meRes.data?.email,
+                userName: meRes.data?.name,
+                workspaceIds: wsIds,
+                targetWorkspaceId: ws,
+                targetPrdId: prd,
+              })
+            } catch {
+              setDebugAuth({
+                tokenExists: true,
+                targetWorkspaceId: ws,
+                targetPrdId: prd,
+              })
+            }
+            setPreviewError(null)
+            const [jobRes, filesRes] = await Promise.all([
+              axios.get(`${API_BASE_URL}/v1/workspaces/${ws}/prds/${prd}`, { headers }),
+              axios
+                .get(`${API_BASE_URL}/v1/workspaces/${ws}/prds/${prd}/source-files`, { headers })
+                .catch(() => ({ data: [] as { path: string; content: string }[] })),
+            ])
+            try {
+              const previewRes = await axios.get(
+                `${API_BASE_URL}/v1/workspaces/${ws}/prds/${prd}/preview`,
+                { headers, responseType: 'text' }
+              )
+              setPreviewHtml(typeof previewRes.data === 'string' ? previewRes.data : null)
+            } catch {
+              setPreviewHtml(null)
+              setPreviewError('미리보기를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
+            }
+            const j = jobRes.data as {
+              prdMarkdown?: string
+              vercelPreviewUrl?: string
+              vercelProductionUrl?: string
+              githubRepoUrl?: string
+              message?: string
+              simulated?: boolean
+            }
+            const fileList = Array.isArray(filesRes.data) ? filesRes.data : []
+            const sourceFiles = fileList.map(
+              (f: { path: string; content: string }) => ({ path: f.path, content: f.content })
+            )
+            if (sourceFiles.length > 0) setSelectedSourcePath(sourceFiles[0].path)
+            const firstLine = (j.prdMarkdown || '').split('\n').find((l) => l.trim().length > 0) || 'PRD'
+            const projectName = firstLine.replace(/^#+\s*/, '').slice(0, 80) || `Workspace ${ws} PRD`
+            setData({
+              projectName,
+              idea: (j.prdMarkdown || '').slice(0, 500) || '팀 PRD',
+              targetUsers: '서비스 사용자',
+              features: ['AI 생성 PRD', '팀 협업', '서버 배포 URL'],
+              techStack: 'React, Spring Boot (Capstone API)',
+              timeline: '—',
+              template: 'standard',
+              generatedAt: new Date().toLocaleDateString('ko-KR'),
+              prdMarkdown: j.prdMarkdown,
+              vercelPreviewUrl: j.vercelPreviewUrl,
+              vercelProductionUrl: j.vercelProductionUrl,
+              githubRepoUrl: j.githubRepoUrl,
+              prototypeMessage: j.message,
+              simulated: j.simulated,
+              sourceFiles,
+            })
+            return
+          } catch (e: any) {
+            console.error('[PRDResultPage] workspace PRD API 로드 실패', e)
+            setPreviewHtml(null)
+            const status = e?.response?.status
+            if (status === 401 || status === 403) {
+              setPreviewError('권한이 없어 PRD를 불러오지 못했습니다. 해당 워크스페이스 멤버 계정으로 다시 로그인해 주세요.')
+              setLoadError('접근 권한이 없습니다 (401/403). 워크스페이스 멤버 권한을 확인해 주세요.')
+              setDebugAuth(prev => ({
+                tokenExists: Boolean(token),
+                targetWorkspaceId: ws,
+                targetPrdId: prd,
+                ...(prev || {}),
+                lastErrorStatus: status,
+                lastErrorMessage: e?.response?.data?.message || e?.message,
+              }))
+            } else {
+              setPreviewError('문서를 불러오는 중 문제가 있어 미리보기를 표시하지 못했습니다.')
+              setLoadError('문서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
+              setDebugAuth(prev => ({
+                tokenExists: Boolean(token),
+                targetWorkspaceId: ws,
+                targetPrdId: prd,
+                ...(prev || {}),
+                lastErrorStatus: status,
+                lastErrorMessage: e?.response?.data?.message || e?.message,
+              }))
+            }
+            return
+          }
+        }
+        setLoadError('로그인이 필요합니다. 로그인 후 PRD URL을 다시 열어주세요.')
+        setPreviewError('로그인 후에만 미리보기를 볼 수 있습니다.')
+        return
+      }
 
-    // Mock: sessionStorage에서 로드 (일반 id 또는 ws_{workspaceId} 형식 모두 지원)
+      // 기존 URL: /prd/result/:ideaId?jobId=...
+      if (id && jobIdParam) {
+        let token = localStorage.getItem('accessToken')
+        const ideaId = parseInt(id, 10)
+        const jId = parseInt(jobIdParam, 10)
+        if (!token && isLocalDevBrowser()) {
+          const ok = await tryDevBootstrapLogin()
+          if (ok) token = localStorage.getItem('accessToken')
+        }
+        if (token && !Number.isNaN(ideaId) && !Number.isNaN(jId)) {
+          try {
+            const headers = { Authorization: `Bearer ${token}` }
+            setPreviewError(null)
+            const [jobRes, filesRes] = await Promise.all([
+              axios.get(`${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jId}`, { headers }),
+              axios
+                .get(
+                  `${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jId}/source-files`,
+                  { headers }
+                )
+                .catch(() => ({ data: [] as { path: string; content: string }[] })),
+            ])
+            const jMeta = jobRes.data as { workspaceId?: number }
+            const wsFromQuery = parseInt(searchParams.get('workspaceId') || '', 10)
+            const wsIdForPreview =
+              !Number.isNaN(wsFromQuery)
+                ? wsFromQuery
+                : (typeof jMeta.workspaceId === 'number' ? jMeta.workspaceId : NaN)
+            if (!Number.isNaN(wsIdForPreview)) {
+              try {
+                const previewRes = await axios.get(
+                  `${API_BASE_URL}/v1/workspaces/${wsIdForPreview}/prds/${jId}/preview`,
+                  { headers, responseType: 'text' }
+                )
+                setPreviewHtml(typeof previewRes.data === 'string' ? previewRes.data : null)
+              } catch {
+                setPreviewHtml(null)
+                setPreviewError('미리보기를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
+              }
+            } else {
+              setPreviewHtml(null)
+              setPreviewError('이 주소만으로는 미리보기를 열 수 없습니다. 팀이 공유한 PRD 링크로 다시 열어 주세요.')
+            }
+            const j = jobRes.data as {
+              prdMarkdown?: string
+              vercelPreviewUrl?: string
+              vercelProductionUrl?: string
+              githubRepoUrl?: string
+              message?: string
+              simulated?: boolean
+            }
+            const fileList = Array.isArray(filesRes.data) ? filesRes.data : []
+            const sourceFiles = fileList.map(
+              (f: { path: string; content: string }) => ({
+                path: f.path,
+                content: f.content,
+              })
+            )
+            if (sourceFiles.length > 0) {
+              setSelectedSourcePath(sourceFiles[0].path)
+            }
+            const firstLine = (j.prdMarkdown || '').split('\n').find((l) => l.trim().length > 0) || 'PRD'
+            const projectName = firstLine.replace(/^#+\s*/, '').slice(0, 80) || '프로젝트 PRD'
+            setData({
+              projectName,
+              idea: (j.prdMarkdown || '').slice(0, 500) || '팀 PRD',
+              targetUsers: '서비스 사용자',
+              features: ['AI 생성 PRD', '팀 협업', 'API 연동'],
+              techStack: 'React, Spring Boot (Capstone API)',
+              timeline: '—',
+              template: 'standard',
+              generatedAt: new Date().toLocaleDateString('ko-KR'),
+              prdMarkdown: j.prdMarkdown,
+              vercelPreviewUrl: j.vercelPreviewUrl,
+              vercelProductionUrl: j.vercelProductionUrl,
+              githubRepoUrl: j.githubRepoUrl,
+              prototypeMessage: j.message,
+              simulated: j.simulated,
+              sourceFiles,
+            })
+            return
+          } catch (e: any) {
+            console.error('[PRDResultPage] API 로드 실패, sessionStorage로 대체', e)
+            setPreviewHtml(null)
+            const status = e?.response?.status
+            if (status === 401 || status === 403) {
+              setPreviewError('권한이 없어 PRD를 불러오지 못했습니다. 다시 로그인하거나 워크스페이스 권한을 확인해 주세요.')
+              setLoadError('접근 권한이 없습니다 (401/403).')
+            } else {
+              setPreviewError('문서를 불러오는 중 문제가 있어 미리보기를 표시하지 못했습니다.')
+            }
+          }
+        }
+      }
+
+      // sessionStorage (일반 id 또는 ws_{workspaceId} 형식 모두 지원)
     const key1 = id ? `prd_${id}` : null
     const key2 = id ? `prd_ws_${id?.replace('ws_', '')}` : null
     const stored = (key1 && sessionStorage.getItem(key1))
@@ -231,26 +528,50 @@ export default function PRDResultPage() {
         template: 'detailed',
         generatedAt: new Date().toLocaleDateString('ko-KR'),
       })
+      setPreviewHtml(null)
+      setPreviewError('이 페이지만으로는 미리보기를 준비할 수 없습니다. PRD를 다시 연 뒤 시도해 주세요.')
     }
-  }, [id])
+    }
+    void load()
+  }, [id, jobIdParam, wsPath, prdPath])
 
   // Scroll-based active section
+  const hasRealPrd = Boolean(data?.prdMarkdown && data.prdMarkdown.trim().length > 0)
+  const showDevExtras = isLocalDevBrowser()
+  const tocItems = hasRealPrd
+    ? [
+        { id: 'ai-prd-md', label: '문서', icon: FileText },
+        ...(showDevExtras && data?.sourceFiles && data.sourceFiles.length > 0
+          ? [{ id: 'ai-source', label: '소스 (개발)', icon: Code2 }]
+          : []),
+        ...(previewHtml || previewError
+          ? [{ id: 'ai-preview', label: '미리보기', icon: Globe }]
+          : []),
+      ]
+    : DEFAULT_TOC_ITEMS
+
+  useEffect(() => {
+    if (hasRealPrd) {
+      setActiveSection('ai-prd-md')
+    }
+  }, [hasRealPrd])
+
   useEffect(() => {
     const handleScroll = () => {
-      const sections = TOC_ITEMS.map(item => document.getElementById(item.id))
+      const sections = tocItems.map(item => document.getElementById(item.id))
       const scrollY = window.scrollY + 120
 
       for (let i = sections.length - 1; i >= 0; i--) {
         const el = sections[i]
         if (el && el.offsetTop <= scrollY) {
-          setActiveSection(TOC_ITEMS[i].id)
+          setActiveSection(tocItems[i].id)
           break
         }
       }
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [tocItems])
 
   function scrollTo(id: string) {
     const el = document.getElementById(id)
@@ -285,15 +606,31 @@ export default function PRDResultPage() {
     return (
       <div className={styles.loadingPage}>
         <div className={styles.loadingSpinner} />
-        <p>PRD 문서를 불러오는 중...</p>
+        <p>{loadError || 'PRD 문서를 불러오는 중...'}</p>
+        {isLocalDevBrowser() && debugAuth && (
+          <div style={{ marginTop: 14, maxWidth: 760, textAlign: 'left', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>권한 디버그 정보</div>
+            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.7 }}>
+              <div>tokenExists: {String(debugAuth.tokenExists)}</div>
+              <div>user: {debugAuth.userName || '-'} ({debugAuth.userEmail || '-'}) / id={String(debugAuth.userId ?? '-')}</div>
+              <div>target: workspace={String(debugAuth.targetWorkspaceId ?? '-')}, prd={String(debugAuth.targetPrdId ?? '-')}</div>
+              <div>myWorkspaces: {(debugAuth.workspaceIds || []).join(', ') || '-'}</div>
+              <div>lastError: {String(debugAuth.lastErrorStatus ?? '-')} / {debugAuth.lastErrorMessage || '-'}</div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
   const prd = generatePRD(data)
+  const prdH2SectionCount =
+    data.prdMarkdown && data.prdMarkdown.trim().length > 0
+      ? countMarkdownH2Sections(data.prdMarkdown)
+      : 0
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${hasRealPrd ? styles.pageDocument : ''}`}>
       {/* ── Top Nav ── */}
       <header className={styles.nav}>
         <div className={styles.navLeft}>
@@ -302,14 +639,16 @@ export default function PRDResultPage() {
           </div>
           <div className={styles.navMeta}>
             <span className={styles.navTitle}>{data.projectName}</span>
-            <span className={styles.navBadge}>PRD v{prd.overview.version}</span>
+            <span className={styles.navBadge}>
+              {hasRealPrd ? 'PRD' : `v${prd.overview.version}`}
+            </span>
           </div>
         </div>
 
         <div className={styles.navRight}>
           <span className={styles.navDate}>
             <Clock size={13} />
-            {prd.overview.createdAt}
+            {data.generatedAt || prd.overview.createdAt}
           </span>
           <button className={styles.navBtn} onClick={copyUrl}>
             {copied ? <Check size={15} /> : <Copy size={15} />}
@@ -334,7 +673,7 @@ export default function PRDResultPage() {
           <div className={styles.tocInner}>
             <div className={styles.tocHeader}>목차</div>
             <nav>
-              {TOC_ITEMS.map(item => {
+              {tocItems.map(item => {
                 const Icon = item.icon
                 const active = activeSection === item.id
                 return (
@@ -353,7 +692,7 @@ export default function PRDResultPage() {
 
             <div className={styles.tocFooter}>
               <div className={styles.tocStatusDot} />
-              <span>{prd.overview.status}</span>
+              <span>{hasRealPrd ? '팀 공유 문서' : prd.overview.status}</span>
             </div>
           </div>
         </aside>
@@ -362,30 +701,38 @@ export default function PRDResultPage() {
         <main className={styles.content} ref={contentRef}>
 
           {/* Hero */}
-          <div className={styles.hero}>
-            <div className={styles.heroBadge}>
+          <div className={hasRealPrd ? styles.heroDocument : styles.hero}>
+            <div className={hasRealPrd ? styles.heroBadgeMuted : styles.heroBadge}>
               <Sparkles size={13} />
-              AI Generated PRD
+              {hasRealPrd ? '제품 요구사항' : 'AI Generated PRD'}
             </div>
             <h1 className={styles.heroTitle}>{data.projectName}</h1>
-            <p className={styles.heroSubtitle}>{prd.overview.description.slice(0, 120)}...</p>
+            <p className={styles.heroSubtitle}>
+              {hasRealPrd && data.prdMarkdown
+                ? markdownPlainExcerpt(data.prdMarkdown, 200)
+                : `${prd.overview.description.slice(0, 120)}...`}
+            </p>
             <div className={styles.heroMeta}>
               <span className={styles.heroMetaItem}>
-                <Users size={14} />
-                {data.targetUsers}
-              </span>
-              <span className={styles.heroMetaItem}>
                 <Calendar size={14} />
-                {prd.timeline.duration}
+                {data.generatedAt || prd.overview.createdAt}
               </span>
-              <span className={styles.heroMetaItem}>
-                <Globe size={14} />
-                배포 완료
-              </span>
+              {!hasRealPrd && (
+                <>
+                  <span className={styles.heroMetaItem}>
+                    <Users size={14} />
+                    {data.targetUsers}
+                  </span>
+                  <span className={styles.heroMetaItem}>
+                    <Clock size={14} />
+                    {prd.timeline.duration}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* ── Overview ── */}
+          {!hasRealPrd && (
           <section className={styles.section} id="overview">
             <SectionHeader icon={FileText} title="개요" id="overview-h" />
             <div className={styles.overviewGrid}>
@@ -410,37 +757,116 @@ export default function PRDResultPage() {
               </div>
             </div>
           </section>
+          )}
 
           {data.prdMarkdown && data.prdMarkdown.trim().length > 0 && (
-            <section className={styles.section} id="ai-prd-md">
-              <SectionHeader icon={BookOpen} title="백엔드 생성 PRD (원문)" id="ai-prd-md-h" />
-              {data.prototypeMessage && (
-                <p className={styles.prototypeHint}>{data.prototypeMessage}</p>
-              )}
-              <pre className={styles.markdownSource}>{data.prdMarkdown}</pre>
-              <div className={styles.prototypeLinks}>
-                {data.vercelPreviewUrl && (
-                  <a className={styles.prototypeLink} href={data.vercelPreviewUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink size={14} />
-                    Vercel 프리뷰
-                  </a>
-                )}
-                {data.vercelProductionUrl && (
-                  <a className={styles.prototypeLink} href={data.vercelProductionUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink size={14} />
-                    프로덕션
-                  </a>
-                )}
-                {data.githubRepoUrl && (
-                  <a className={styles.prototypeLink} href={data.githubRepoUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink size={14} />
-                    GitHub 저장소
-                  </a>
-                )}
+            <section className={`${styles.section} ${hasRealPrd ? styles.prdDocumentSection : ''}`} id="ai-prd-md">
+              <SectionHeader icon={BookOpen} title="PRD" id="ai-prd-md-h" />
+              <div className={styles.prdMarkdownShell}>
+                <div className={styles.prdMdMeta} aria-label="문서 정보">
+                  <span>
+                    본문 <strong>{data.prdMarkdown.length.toLocaleString('ko-KR')}</strong>자
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span>
+                    읽는 시간 약 <strong>{estimateReadingMinutes(data.prdMarkdown)}</strong>분
+                  </span>
+                  {prdH2SectionCount > 0 && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span>
+                        <strong>{prdH2SectionCount}</strong>개 섹션(##)
+                      </span>
+                    </>
+                  )}
+                </div>
+                <PrdMarkdownBody markdown={data.prdMarkdown} />
               </div>
+              {(
+                (data.vercelPreviewUrl && !isVercelRelatedUrl(data.vercelPreviewUrl)) ||
+                (data.vercelProductionUrl && !isVercelRelatedUrl(data.vercelProductionUrl)) ||
+                (showDevExtras && data.githubRepoUrl)
+              ) && (
+                <div className={styles.prototypeLinks}>
+                  {data.vercelPreviewUrl && !isVercelRelatedUrl(data.vercelPreviewUrl) && (
+                    <a className={styles.prototypeLink} href={data.vercelPreviewUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink size={14} />
+                      외부 미리보기
+                    </a>
+                  )}
+                  {data.vercelProductionUrl && !isVercelRelatedUrl(data.vercelProductionUrl) && (
+                    <a className={styles.prototypeLink} href={data.vercelProductionUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink size={14} />
+                      서비스 열기
+                    </a>
+                  )}
+                  {showDevExtras && data.githubRepoUrl && (
+                    <a className={styles.prototypeLink} href={data.githubRepoUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink size={14} />
+                      GitHub
+                    </a>
+                  )}
+                </div>
+              )}
             </section>
           )}
 
+          {showDevExtras && data.sourceFiles && data.sourceFiles.length > 0 && (
+            <section className={styles.section} id="ai-source">
+              <SectionHeader icon={Code2} title="생성된 코드 (개발용)" id="ai-source-h" />
+              <p className={styles.prototypeHint} style={{ marginBottom: 12 }}>
+                로컬에서만 표시됩니다. 실제 팀·고객 공유 화면에는 포함되지 않습니다.
+              </p>
+              <div style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: '#64748b' }}>파일:</span>
+                {data.sourceFiles.map((f) => (
+                  <button
+                    key={f.path}
+                    type="button"
+                    onClick={() => setSelectedSourcePath(f.path)}
+                    style={{
+                      fontSize: 12,
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      border: '1px solid #e2e8f0',
+                      background: selectedSourcePath === f.path ? '#eef2ff' : '#fff',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {f.path}
+                  </button>
+                ))}
+              </div>
+              <pre className={styles.markdownSource} style={{ maxHeight: 480, overflow: 'auto' }}>
+                {(
+                  data.sourceFiles.find((f) => f.path === selectedSourcePath) || data.sourceFiles[0]
+                )?.content ?? ''}
+              </pre>
+            </section>
+          )}
+
+          {(previewHtml || previewError) && (
+            <section className={`${styles.section} ${hasRealPrd ? styles.previewFrameSection : ''}`} id="ai-preview">
+              <SectionHeader icon={Globe} title="화면 미리보기" id="ai-preview-h" />
+              {previewHtml ? (
+                <div className={styles.previewFrame}>
+                  <iframe
+                    title="prototype-preview"
+                    srcDoc={previewHtml}
+                    sandbox="allow-scripts allow-same-origin"
+                    className={styles.previewIframe}
+                  />
+                </div>
+              ) : (
+                <div className={styles.previewErrorBox}>
+                  {previewError || '미리보기를 불러오지 못했습니다.'}
+                </div>
+              )}
+            </section>
+          )}
+
+          {!hasRealPrd && (
+            <>
           {/* ── Problem ── */}
           <section className={styles.section} id="problem">
             <SectionHeader icon={AlertTriangle} title="문제 정의" id="problem-h" />
@@ -598,15 +1024,19 @@ export default function PRDResultPage() {
               ))}
             </div>
           </section>
+            </>
+          )}
 
           {/* Footer */}
           <footer className={styles.docFooter}>
             <div className={styles.docFooterLogo}>
               <Sparkles size={16} />
-              AI PRD Generator
+              {hasRealPrd ? '팀 PRD' : 'AI PRD Generator'}
             </div>
             <p className={styles.docFooterText}>
-              이 문서는 AI에 의해 자동 생성되었습니다. 실제 개발 전 팀 리뷰를 권장합니다.
+              {hasRealPrd
+                ? '팀·이해관계자 검토를 위해 공유될 수 있는 요약 문서입니다. 실행 환경에 따라 미리보기는 달라질 수 있습니다.'
+                : '이 문서는 AI에 의해 자동 생성되었습니다. 실제 개발 전 팀 리뷰를 권장합니다.'}
             </p>
           </footer>
         </main>

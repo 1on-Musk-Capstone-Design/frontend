@@ -10,7 +10,14 @@ import { useState, useCallback } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '../config/api'
 import { PRD_PIPELINE_IDEA_PREFIX, isPrdPipelineIdeaContent } from '../constants/prd'
-import type { PRDModalStatus, PRDModalStep } from '../components/PRDModal/PRDModal'
+
+type PRDModalStatus = 'idle' | 'loading' | 'success' | 'error'
+
+interface PRDModalStep {
+  label: string
+  done: boolean
+  active: boolean
+}
 
 const BASE_STEPS: string[] = [
   '카드 아이디어 수집 중...',
@@ -31,6 +38,10 @@ type PrototypeJobStatus =
   | 'FAILED'
 
 interface PrototypePipelineResponse {
+  workspaceId?: number
+  prdViewPath?: string | null
+  /** 백엔드가 설정한 SPA 풀 URL (app.prd-public-base-url) */
+  prdViewUrl?: string | null
   jobId: number
   ideaId: number
   status: PrototypeJobStatus
@@ -224,8 +235,9 @@ async function runPrototypePipeline(
     if (data.status === 'DEPLOYED') {
       return data
     }
-    // 배포 단계가 길거나 교착일 때: PRD Markdown 이 채워졌으면 여기서 완료 (무한 로딩 방지)
+    // 너무 오래 걸릴 때만 PRD만으로 우선 완료 처리 (링크 누락 방지 위해 충분히 기다림)
     if (
+      attempt >= 60 &&
       hasRenderablePrd(data) &&
       (data.status === 'PRD_GENERATED' ||
         data.status === 'UI_GENERATED' ||
@@ -342,7 +354,17 @@ export function usePRDGeneration() {
         }))
       })
 
-      const resultPageUrl = `${window.location.origin}/prd/result/ws_${workspaceId}`
+      const fromApi =
+        typeof result.prdViewUrl === 'string' && result.prdViewUrl.trim().length > 0
+          ? result.prdViewUrl.trim()
+          : ''
+      const resultPagePath =
+        result.prdViewPath ||
+        `/prd/workspaces/${workspaceId}/prds/${result.jobId}`
+      const resultPageUrl = fromApi
+        || (resultPagePath.startsWith('http')
+          ? resultPagePath
+          : `${window.location.origin}${resultPagePath.startsWith('/') ? '' : '/'}${resultPagePath}`)
       const { url: deployedUrl, usingFallback } = pickDeployedUrl(result, resultPageUrl)
 
       const prdKey = `prd_ws_${workspaceId}`

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import { usePRDModal } from '../../context/PRDModalContext'
+import { PrdCompletionPanel } from '../prd/PrdCompletionPanel'
+import { PrdMarkdownBody } from '../prd/PrdMarkdownBody'
 import { API_BASE_URL } from '../../config/api'
 import styles from './PRDModal.module.css'
 
@@ -27,6 +29,14 @@ interface PRDResult {
   cards: string[]
   generatedAt: string
   prdMarkdown?: string
+  vercelPreviewUrl?: string
+  vercelProductionUrl?: string
+  githubRepoUrl?: string
+  ideaId?: number
+  jobId?: number
+  workspaceId?: number
+  prdViewUrl?: string
+  prdViewPath?: string
 }
 
 const STEPS = [
@@ -133,7 +143,13 @@ const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
 
 function PRDTab({ result }: { result: PRDResult }) {
   if (result.prdMarkdown) {
-    return <div className={styles.tabContent}><pre className={styles.markdownBlock}>{result.prdMarkdown}</pre></div>
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.prdMarkdownDoc}>
+          <PrdMarkdownBody markdown={result.prdMarkdown} />
+        </div>
+      </div>
+    )
   }
   const { features } = makePRD(result.projectName, result.cards)
   return (
@@ -340,11 +356,55 @@ export default function PRDModal() {
           await new Promise(r => setTimeout(r, 2000))
           const poll = await axios.get(`${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jobId}`, { headers })
           if (poll.data.status === 'FAILED') throw new Error(poll.data.message || 'PRD 생성 실패')
-          if (['DEPLOYED', 'PRD_GENERATED', 'UI_GENERATED', 'CODE_GENERATED', 'GITHUB_PUSHED'].includes(poll.data.status)) {
+          const isDeployed = poll.data.status === 'DEPLOYED'
+          const fallbackReady =
+            i >= 60 &&
+            ['PRD_GENERATED', 'UI_GENERATED', 'CODE_GENERATED', 'GITHUB_PUSHED'].includes(
+              poll.data.status
+            ) &&
+            Boolean((poll.data.prdMarkdown || '').trim())
+          if (isDeployed || fallbackReady) {
             clearInterval(stepTimer)
             setGenStep(STEPS.length - 1)
-            setResult({ projectName, cards: selected.map(c => c.text), generatedAt: new Date().toLocaleDateString('ko-KR'), prdMarkdown: poll.data.prdMarkdown || undefined })
+            const p = poll.data as {
+              prdMarkdown?: string
+              prdViewUrl?: string
+              prdViewPath?: string
+              workspaceId?: number
+              ideaId?: number
+              jobId?: number
+              vercelPreviewUrl?: string
+              vercelProductionUrl?: string
+              githubRepoUrl?: string
+            }
+            const wsNum = Number(workspaceId)
+            const ws = p.workspaceId ?? (Number.isFinite(wsNum) ? wsNum : undefined)
+            const jid = p.jobId ?? jobId
+            setResult({
+              projectName,
+              cards: selected.map(c => c.text),
+              generatedAt: new Date().toLocaleDateString('ko-KR'),
+              prdMarkdown: p.prdMarkdown || undefined,
+              prdViewUrl: p.prdViewUrl || undefined,
+              prdViewPath: p.prdViewPath || undefined,
+              ideaId: p.ideaId ?? ideaId,
+              jobId: jid,
+              workspaceId: ws,
+              vercelPreviewUrl: p.vercelPreviewUrl || undefined,
+              vercelProductionUrl: p.vercelProductionUrl || undefined,
+              githubRepoUrl: p.githubRepoUrl || undefined,
+            })
             setGenState('done')
+            const toOpen =
+              (typeof p.prdViewUrl === 'string' && p.prdViewUrl.trim()) ||
+              (p.prdViewPath &&
+                `${window.location.origin}${p.prdViewPath.startsWith('/') ? '' : '/'}${p.prdViewPath}`) ||
+              (ws != null && jid != null
+                ? `${window.location.origin}/prd/workspaces/${ws}/prds/${jid}`
+                : '')
+            if (toOpen) {
+              window.open(toOpen, '_blank', 'noopener,noreferrer')
+            }
             return
           }
         }
@@ -445,6 +505,17 @@ export default function PRDModal() {
             )}
             {genState === 'done' && result && (
               <div className={styles.resultWrap} ref={resultRef}>
+                {((result.workspaceId != null && result.jobId != null) || result.prdViewUrl) && (
+                  <PrdCompletionPanel
+                    info={{
+                      workspaceId: result.workspaceId,
+                      jobId: result.jobId,
+                      ideaId: result.ideaId,
+                      prdViewUrl: result.prdViewUrl,
+                      prdViewPath: result.prdViewPath,
+                    }}
+                  />
+                )}
                 <div className={styles.tabBar}>
                   {TABS.map(tab => {
                     const Icon = tab.icon
