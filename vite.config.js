@@ -12,11 +12,11 @@ export default defineConfig({
     proxy: {
       // 로컬 Spring Boot (Capstone) — VITE_API_BASE_URL=/api 일 때 CORS 없이 사용
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://51.20.106.74:8080',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: 'http://51.20.106.74:8080',
         ws: true, // WebSocket 업그레이드 지원
         changeOrigin: true,
         secure: false,
