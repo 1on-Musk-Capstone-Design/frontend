@@ -252,7 +252,42 @@ const InfiniteCanvasPage = () => {
           return;
         }
 
-        // 현재 사용자 정보 불러오기 (메인페이지와 동일하게)
+        // 개발 모드 토큰인지 확인
+        const isDevToken = accessToken.startsWith('dev_token_');
+
+        // 현재 사용자 ID 추출 (개발 모드 지원)
+        let userId;
+        
+        // localStorage에서 미리 저장된 userId 확인 (개발 모드)
+        const savedUserId = localStorage.getItem('userId');
+        if (savedUserId) {
+          userId = String(savedUserId);
+        } else {
+          // 실제 JWT 토큰에서 추출
+          try {
+            const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+            userId = String(tokenPayload.user_id || tokenPayload.sub);
+          } catch (err) {
+            console.warn('JWT 파싱 실패 (개발 토큰일 수 있음):', err);
+            // 개발 토큰이거나 유효하지 않은 토큰인 경우 임시 ID 사용
+            userId = 'dev_user_' + Date.now();
+            localStorage.setItem('userId', userId);
+          }
+        }
+        
+        setCurrentUserId(userId);
+
+        // 개발 토큰이면 API 호출 스킵하고 기본값으로 설정
+        if (isDevToken) {
+          console.log('🔓 개발 토큰 감지: 워크스페이스 정보 로딩 스킵');
+          localStorage.setItem('userName', '개발자');
+          setWorkspaceName(`워크스페이스-${workspaceId}`);
+          setWorkspaceUsers(new Map([[userId, '개발자']]));
+          setWorkspaceParticipants([{ id: userId, name: '개발자' }]);
+          return;
+        }
+
+        // 현재 사용자 정보 불러오기 (실제 토큰일 때만)
         try {
           const userRes = await axios.get(
             `${API_BASE_URL}/v1/users/me`,
@@ -290,11 +325,6 @@ const InfiniteCanvasPage = () => {
             return;
           }
         }
-
-        // 현재 사용자 ID 추출
-        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-        const userId = String(tokenPayload.user_id || tokenPayload.sub);
-        setCurrentUserId(userId);
 
         // 워크스페이스 정보 불러오기
         try {

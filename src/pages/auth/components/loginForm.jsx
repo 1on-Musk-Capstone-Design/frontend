@@ -13,6 +13,9 @@ export default function LoginForm() {
     try {
       // 현재 환경에 맞는 리다이렉트 URI 생성
       const redirectUri = getOAuthRedirectUri();
+      const params = new URLSearchParams(window.location.search);
+      const devEmail = params.get('dev_email');
+      const devName = params.get('dev_name');
       
       // 디버깅: 콜백 URL 확인
       console.log('OAuth 리다이렉트 URI:', redirectUri);
@@ -22,7 +25,9 @@ export default function LoginForm() {
         `${API_BASE_URL}/v1/auth-google/login-uri`,
         {
           params: {
-            redirect_uri: redirectUri
+            redirect_uri: redirectUri,
+            ...(devEmail ? { dev_email: devEmail } : {}),
+            ...(devName ? { dev_name: devName } : {})
           },
           timeout: 10000
         }

@@ -7,7 +7,7 @@
  * - 프로덕션: https://on-it.kro.kr → /api (Nginx 프록시)
  */
 
-const LOCAL_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const LOCAL_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const getApiBaseUrl = (): string => {
   // 현재 호스트 확인
@@ -47,10 +47,13 @@ export const getSocketServerUrl = (): string => {
   // Nginx가 /ws 경로를 백엔드 WebSocket으로 프록시하므로 상대 경로 사용
   // SockJS는 현재 프로토콜(http/https)에 맞춰 자동으로 ws/wss로 변환
   // window.location.origin을 사용하여 현재 프로토콜과 호스트 포함
-  return `${window.location.origin}/api`;
+  /* return `${window.location.origin}/api`;*/
+    return window.location.origin;
 };
 
-export const SOCKET_SERVER_URL = getSocketServerUrl();
+/* export const SOCKET_SERVER_URL = getSocketServerUrl();*/
+export const SOCKET_SERVER_URL = window.location.origin;
+
 
 /**
  * 썸네일 URL 정규화
