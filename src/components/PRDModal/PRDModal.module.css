@@ -485,6 +485,15 @@
   margin: 0;
 }
 
+/* API PRD 마크다운(렌더된 본문) */
+.prdMarkdownDoc {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px 16px;
+  max-width: 100%;
+}
+
 /* spec table */
 .specTable { display: flex; flex-direction: column; gap: 0; border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden; }
 .specTableHead {

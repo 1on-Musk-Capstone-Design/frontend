@@ -7,6 +7,8 @@ import {
   Code2, TrendingUp, Shield, Clock
 } from 'lucide-react'
 import axios from 'axios'
+import { PrdCompletionPanel } from '../prd/PrdCompletionPanel'
+import { PrdMarkdownBody } from '../prd/PrdMarkdownBody'
 import { API_BASE_URL } from '../../config/api'
 import styles from './PRDGeneratorModal.module.css'
 
@@ -15,7 +17,20 @@ import styles from './PRDGeneratorModal.module.css'
 interface IdeaCard { id: string | number; text: string; selected: boolean }
 type TabId = 'prd' | 'spec' | 'flow'
 type GenState = 'idle' | 'loading' | 'done' | 'error'
-interface PRDResult { projectName: string; cards: string[]; generatedAt: string; prdMarkdown?: string }
+interface PRDResult {
+  projectName: string
+  cards: string[]
+  generatedAt: string
+  prdMarkdown?: string
+  vercelPreviewUrl?: string
+  vercelProductionUrl?: string
+  githubRepoUrl?: string
+  ideaId?: number
+  jobId?: number
+  workspaceId?: number
+  prdViewUrl?: string
+  prdViewPath?: string
+}
 
 const STEPS = ['아이디어 카드 분석 중...', 'AI가 내용을 이해하는 중...', 'PRD 구조 설계 중...', '문서 작성 중...', '완료']
 
@@ -101,7 +116,15 @@ function EmptyPanel() {
 }
 
 function PRDTab({ result }: { result: PRDResult }) {
-  if (result.prdMarkdown) return <div className={styles.tabContent}><pre className={styles.markdownBlock}>{result.prdMarkdown}</pre></div>
+  if (result.prdMarkdown) {
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.prdMarkdownDoc}>
+          <PrdMarkdownBody markdown={result.prdMarkdown} />
+        </div>
+      </div>
+    )
+  }
   const { features } = makePRD(result.projectName, result.cards)
   return (
     <div className={styles.tabContent}>
@@ -289,10 +312,55 @@ export default function PRDGeneratorModal({ isOpen, workspaceId, projectName, on
           await new Promise(r => setTimeout(r, 2000))
           const poll = await axios.get(`${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jobId}`, { headers })
           if (poll.data.status === 'FAILED') throw new Error(poll.data.message || 'PRD 생성 실패')
-          if (['DEPLOYED', 'PRD_GENERATED', 'UI_GENERATED', 'CODE_GENERATED', 'GITHUB_PUSHED'].includes(poll.data.status)) {
+          const isDeployed = poll.data.status === 'DEPLOYED'
+          const fallbackReady =
+            i >= 60 &&
+            ['PRD_GENERATED', 'UI_GENERATED', 'CODE_GENERATED', 'GITHUB_PUSHED'].includes(
+              poll.data.status
+            ) &&
+            Boolean((poll.data.prdMarkdown || '').trim())
+          if (isDeployed || fallbackReady) {
             clearInterval(timer); setGenStep(STEPS.length - 1)
-            setResult({ projectName, cards: selected.map(c => c.text), generatedAt: new Date().toLocaleDateString('ko-KR'), prdMarkdown: poll.data.prdMarkdown || undefined })
-            setGenState('done'); return
+            const p = poll.data as {
+              prdMarkdown?: string
+              prdViewUrl?: string
+              prdViewPath?: string
+              workspaceId?: number
+              ideaId?: number
+              jobId?: number
+              vercelPreviewUrl?: string
+              vercelProductionUrl?: string
+              githubRepoUrl?: string
+            }
+            const wsNum = Number(workspaceId)
+            const ws = p.workspaceId ?? (Number.isFinite(wsNum) ? wsNum : undefined)
+            const jid = p.jobId ?? jobId
+            setResult({
+              projectName,
+              cards: selected.map(c => c.text),
+              generatedAt: new Date().toLocaleDateString('ko-KR'),
+              prdMarkdown: p.prdMarkdown || undefined,
+              prdViewUrl: p.prdViewUrl || undefined,
+              prdViewPath: p.prdViewPath || undefined,
+              ideaId: p.ideaId ?? ideaId,
+              jobId: jid,
+              workspaceId: ws,
+              vercelPreviewUrl: p.vercelPreviewUrl || undefined,
+              vercelProductionUrl: p.vercelProductionUrl || undefined,
+              githubRepoUrl: p.githubRepoUrl || undefined,
+            })
+            setGenState('done')
+            const toOpen =
+              (typeof p.prdViewUrl === 'string' && p.prdViewUrl.trim()) ||
+              (p.prdViewPath &&
+                `${window.location.origin}${p.prdViewPath.startsWith('/') ? '' : '/'}${p.prdViewPath}`) ||
+              (ws != null && jid != null
+                ? `${window.location.origin}/prd/workspaces/${ws}/prds/${jid}`
+                : '')
+            if (toOpen) {
+              window.open(toOpen, '_blank', 'noopener,noreferrer')
+            }
+            return
           }
         }
         throw new Error('시간 초과: 잠시 후 다시 시도해주세요')
@@ -376,6 +444,17 @@ export default function PRDGeneratorModal({ isOpen, workspaceId, projectName, on
             )}
             {genState === 'done' && result && (
               <div className={styles.resultWrap}>
+                {((result.workspaceId != null && result.jobId != null) || result.prdViewUrl) && (
+                  <PrdCompletionPanel
+                    info={{
+                      workspaceId: result.workspaceId,
+                      jobId: result.jobId,
+                      ideaId: result.ideaId,
+                      prdViewUrl: result.prdViewUrl,
+                      prdViewPath: result.prdViewPath,
+                    }}
+                  />
+                )}
                 <div className={styles.tabBar}>
                   {TABS.map(tab => {
                     const Icon = tab.icon

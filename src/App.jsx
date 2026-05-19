@@ -35,6 +35,7 @@ function App() {
         <Route path="/canvas" element={<InfiniteCanvasPage />} />
         <Route path="/prd" element={<PRDPage />} />
         <Route path="/prd/result/:id" element={<PRDResultPage />} />
+        <Route path="/prd/workspaces/:workspaceId/prds/:prdId" element={<PRDResultPage />} />
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/notifications" element={<NotificationPage />} />

@@ -1,0 +1,52 @@
+import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
+import styles from './PrdMarkdownBody.module.css'
+
+type Props = {
+  markdown: string
+  className?: string
+}
+
+const mdComponents: Partial<Components> = {
+  a: (props) => {
+    const { href, children, node: _n, ...rest } = props
+    const h = href ?? ''
+    const isExternal = /^https?:\/\//i.test(h)
+    return (
+      <a
+        href={h}
+        {...rest}
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noopener noreferrer' : undefined}
+      >
+        {children}
+      </a>
+    )
+  },
+  table: (props) => {
+    const { children, node: _n, ...rest } = props
+    return (
+      <div className={styles.tableScroll}>
+        <table {...rest}>{children}</table>
+      </div>
+    )
+  },
+}
+
+/**
+ * API에서 내려온 PRD 마크다운 — 표·체크리스트·코드 등 GFM을 문서형으로 렌더링
+ */
+export function PrdMarkdownBody({ markdown, className }: Props) {
+  return (
+    <article className={`${styles.root} ${className || ''}`.trim()}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeSanitize]}
+        components={mdComponents}
+      >
+        {markdown}
+      </ReactMarkdown>
+    </article>
+  )
+}
