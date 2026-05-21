@@ -10,7 +10,7 @@ import {
   CheckCircle2, Circle, Hash
 } from 'lucide-react'
 import styles from './PRDResultPage.module.css'
-import { PrdMarkdownBody } from '../../components/prd/PrdMarkdownBody'
+import { createPrdHeadingId, PrdMarkdownBody } from '../../components/prd/PrdMarkdownBody'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -97,6 +97,68 @@ function estimateReadingMinutes(md: string): number {
 
 function countMarkdownH2Sections(md: string): number {
   return (md.match(/^##\s+[^\n#]+/gm) || []).length
+}
+
+function extractMarkdownH2Sections(md: string) {
+  return (md.match(/^##\s+[^\n#]+/gm) || [])
+    .map(line => line.replace(/^##\s+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 18)
+    .map(title => ({
+      id: createPrdHeadingId(title),
+      label: title.replace(/\([^)]*\)/g, '').replace(/^\d+\)\s*/, '').trim(),
+      icon: FileText,
+    }))
+}
+
+function countMatches(md: string, pattern: RegExp): number {
+  return (md.match(pattern) || []).length
+}
+
+function getPrdDocumentInsights(md: string) {
+  const requiredHeadings = [
+    '문서 메타',
+    'Executive summary',
+    '문제 정의',
+    '제품 비전',
+    '대상 사용자',
+    '사용자 스토리',
+    '기능 요구사항',
+    '비기능 요구사항',
+    '엣지 케이스',
+    'MVP 정의 완료',
+    '리스크',
+    '열린 질문',
+  ]
+  const presentRequired = requiredHeadings.filter(label => md.includes(label)).length
+  const tableCount = countMatches(md, /^\|.+\|$/gm)
+  const checklistCount = countMatches(md, /^\s*-\s+\[[ xX]\]/gm)
+  const acceptanceMentions = countMatches(md, /수용 기준|검수|DoD|정의 완료|Given|When|Then/g)
+  const score = Math.min(
+    100,
+    Math.round(
+      (presentRequired / requiredHeadings.length) * 58
+      + Math.min(countMarkdownH2Sections(md), 18) * 1.4
+      + Math.min(tableCount, 18) * 1.1
+      + Math.min(checklistCount, 10) * 1.2
+      + Math.min(acceptanceMentions, 14) * 0.9
+    )
+  )
+  const level =
+    score >= 85 ? '공유 가능' :
+    score >= 70 ? '검토 가능' :
+    score >= 55 ? '보완 필요' :
+    '초안'
+
+  return {
+    score,
+    level,
+    presentRequired,
+    totalRequired: requiredHeadings.length,
+    tableCount,
+    checklistCount,
+    acceptanceMentions,
+  }
 }
 
 // ─── Mock PRD content generator ────────────────────────────────────────────
@@ -540,7 +602,8 @@ export default function PRDResultPage() {
   const showDevExtras = isLocalDevBrowser()
   const tocItems = hasRealPrd
     ? [
-        { id: 'ai-prd-md', label: '문서', icon: FileText },
+        { id: 'document-overview', label: '문서 요약', icon: BookOpen },
+        ...extractMarkdownH2Sections(data?.prdMarkdown ?? ''),
         ...(showDevExtras && data?.sourceFiles && data.sourceFiles.length > 0
           ? [{ id: 'ai-source', label: '소스 (개발)', icon: Code2 }]
           : []),
@@ -602,6 +665,10 @@ export default function PRDResultPage() {
     })
   }
 
+  function printDocument() {
+    window.print()
+  }
+
   if (!data) {
     return (
       <div className={styles.loadingPage}>
@@ -624,6 +691,14 @@ export default function PRDResultPage() {
   }
 
   const prd = generatePRD(data)
+  const prdSectionItems =
+    hasRealPrd && data.prdMarkdown
+      ? extractMarkdownH2Sections(data.prdMarkdown)
+      : []
+  const prdInsights =
+    hasRealPrd && data.prdMarkdown
+      ? getPrdDocumentInsights(data.prdMarkdown)
+      : null
   const prdH2SectionCount =
     data.prdMarkdown && data.prdMarkdown.trim().length > 0
       ? countMarkdownH2Sections(data.prdMarkdown)
@@ -654,7 +729,7 @@ export default function PRDResultPage() {
             {copied ? <Check size={15} /> : <Copy size={15} />}
             {copied ? '복사됨' : '링크 복사'}
           </button>
-          <button className={styles.navBtnPrimary}>
+          <button className={styles.navBtnPrimary} onClick={printDocument}>
             <Download size={15} />
             PDF 저장
           </button>
@@ -703,8 +778,8 @@ export default function PRDResultPage() {
           {/* Hero */}
           <div className={hasRealPrd ? styles.heroDocument : styles.hero}>
             <div className={hasRealPrd ? styles.heroBadgeMuted : styles.heroBadge}>
-              <Sparkles size={13} />
-              {hasRealPrd ? '제품 요구사항' : 'AI Generated PRD'}
+              {hasRealPrd ? <FileText size={13} /> : <Sparkles size={13} />}
+              {hasRealPrd ? '공유 가능한 제품 요구사항 문서' : 'AI Generated PRD'}
             </div>
             <h1 className={styles.heroTitle}>{data.projectName}</h1>
             <p className={styles.heroSubtitle}>
@@ -730,6 +805,24 @@ export default function PRDResultPage() {
                 </>
               )}
             </div>
+            {hasRealPrd && data.prdMarkdown && prdInsights && (
+              <div className={styles.heroDocumentActions}>
+                <button type="button" className={styles.heroPrimaryAction} onClick={() => scrollTo('ai-prd-md')}>
+                  문서 읽기
+                  <ChevronRight size={15} />
+                </button>
+                <button type="button" className={styles.heroSecondaryAction} onClick={copyUrl}>
+                  {copied ? <Check size={15} /> : <Copy size={15} />}
+                  {copied ? '링크 복사됨' : '공유 링크 복사'}
+                </button>
+                {(previewHtml || previewError) && (
+                  <button type="button" className={styles.heroSecondaryAction} onClick={() => scrollTo('ai-preview')}>
+                    <Globe size={15} />
+                    화면 미리보기
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {!hasRealPrd && (
@@ -757,6 +850,54 @@ export default function PRDResultPage() {
               </div>
             </div>
           </section>
+          )}
+
+          {hasRealPrd && data.prdMarkdown && prdInsights && (
+            <section className={`${styles.section} ${styles.documentOverviewSection}`} id="document-overview">
+              <div className={styles.documentOverviewHead}>
+                <div>
+                  <p className={styles.kicker}>Document Readiness</p>
+                  <h2>실무 검토용 PRD로 정리되었습니다</h2>
+                  <p>
+                    생성된 문서는 팀 공유, 이해관계자 리뷰, 개발 착수 논의를 바로 진행할 수 있도록
+                    목차·수용 기준·표 기반 요구사항을 중심으로 렌더링됩니다.
+                  </p>
+                </div>
+                <div className={styles.readinessBadge} data-level={prdInsights.level}>
+                  <strong>{prdInsights.score}</strong>
+                  <span>{prdInsights.level}</span>
+                </div>
+              </div>
+
+              <div className={styles.documentStatsGrid}>
+                <div className={styles.documentStatCard}>
+                  <span>예상 읽기 시간</span>
+                  <strong>{estimateReadingMinutes(data.prdMarkdown)}분</strong>
+                </div>
+                <div className={styles.documentStatCard}>
+                  <span>문서 섹션</span>
+                  <strong>{prdH2SectionCount}개</strong>
+                </div>
+                <div className={styles.documentStatCard}>
+                  <span>실무 필수 항목</span>
+                  <strong>{prdInsights.presentRequired}/{prdInsights.totalRequired}</strong>
+                </div>
+                <div className={styles.documentStatCard}>
+                  <span>표/체크리스트</span>
+                  <strong>{prdInsights.tableCount + prdInsights.checklistCount}개</strong>
+                </div>
+              </div>
+
+              {prdSectionItems.length > 0 && (
+                <div className={styles.sectionChipList} aria-label="PRD 주요 섹션">
+                  {prdSectionItems.slice(0, 10).map(section => (
+                    <button key={section.id} type="button" onClick={() => scrollTo(section.id)}>
+                      {section.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
 
           {data.prdMarkdown && data.prdMarkdown.trim().length > 0 && (

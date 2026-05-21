@@ -9,7 +9,9 @@
 
 /* 실 PRD 문서 모드: 조금 더 잡지·문서 느낌 */
 .pageDocument {
-  background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 32%, #f8fafc 100%);
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 34rem),
+    linear-gradient(180deg, #f1f5f9 0%, #f8fafc 32%, #f8fafc 100%);
 }
 
 /* ─── Nav ────────────────────────────────────────────────────────────────── */
@@ -362,6 +364,52 @@
   margin-bottom: 14px;
 }
 
+.heroDocumentActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.heroPrimaryAction,
+.heroSecondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.heroPrimaryAction {
+  border: none;
+  background: #059669;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(5, 150, 105, 0.2);
+}
+
+.heroPrimaryAction:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.heroSecondaryAction {
+  border: 1px solid #d1d5db;
+  background: rgba(255, 255, 255, 0.74);
+  color: #334155;
+}
+
+.heroSecondaryAction:hover {
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
 /* ─── Section ────────────────────────────────────────────────────────────── */
 
 .section {
@@ -407,6 +455,149 @@
   color: #374151;
   line-height: 1.7;
   margin: 0;
+}
+
+/* ─── Production PRD Summary ─────────────────────────────────────────────── */
+
+.documentOverviewSection {
+  padding: 0;
+  overflow: hidden;
+  border-color: #dbeafe;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.06);
+}
+
+.documentOverviewHead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 32px;
+  background:
+    linear-gradient(135deg, rgba(239, 246, 255, 0.86), rgba(236, 253, 245, 0.72)),
+    #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.documentOverviewHead h2 {
+  margin: 4px 0 8px;
+  font-size: 1.35rem;
+  line-height: 1.32;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.documentOverviewHead p {
+  margin: 0;
+  max-width: 690px;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.kicker {
+  display: inline-flex;
+  margin: 0 !important;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #047857 !important;
+}
+
+.readinessBadge {
+  width: 110px;
+  height: 110px;
+  border-radius: 28px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  color: #064e3b;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.readinessBadge strong {
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.readinessBadge span {
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.readinessBadge[data-level='초안'],
+.readinessBadge[data-level='보완 필요'] {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.readinessBadge[data-level='검토 가능'] {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.documentStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.documentStatCard {
+  padding: 18px 22px;
+  border-right: 1px solid #eef2f7;
+  background: #fff;
+}
+
+.documentStatCard:last-child {
+  border-right: none;
+}
+
+.documentStatCard span {
+  display: block;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.documentStatCard strong {
+  color: #0f172a;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.sectionChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 22px 22px;
+  background: #fff;
+}
+
+.sectionChipList button {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.sectionChipList button:hover {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #047857;
 }
 
 /* ─── Overview ───────────────────────────────────────────────────────────── */
@@ -1005,6 +1196,25 @@
     font-size: 1.8rem;
   }
 
+  .documentOverviewHead {
+    grid-template-columns: 1fr;
+  }
+
+  .readinessBadge {
+    width: 100%;
+    height: auto;
+    min-height: 78px;
+    border-radius: 16px;
+  }
+
+  .documentStatsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .documentStatCard:nth-child(2) {
+    border-right: none;
+  }
+
   .section {
     padding: 24px 20px;
   }
@@ -1019,6 +1229,10 @@
   .featureGrid { grid-template-columns: 1fr; }
   .techGrid { grid-template-columns: 1fr 1fr; }
   .metricsGrid { grid-template-columns: 1fr 1fr; }
+  .documentOverviewHead { padding: 22px 18px; }
+  .documentStatsGrid { grid-template-columns: 1fr; }
+  .documentStatCard { border-right: none; }
+  .sectionChipList { padding: 16px 18px 18px; }
 }
 
 /* PRD 본문 래퍼(마크다운 렌더) */
@@ -1152,4 +1366,44 @@
 
 .prototypeLink:hover {
   text-decoration: underline;
+}
+
+@media print {
+  .nav,
+  .toc,
+  .heroDocumentActions,
+  .prototypeLinks,
+  .previewFrameSection,
+  #ai-source {
+    display: none !important;
+  }
+
+  .page,
+  .pageDocument,
+  .layout,
+  .content,
+  .section,
+  .prdDocumentSection,
+  .prdMarkdownShell {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .heroDocument {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 0 16px !important;
+    margin: 0 0 18px !important;
+    background: #fff !important;
+  }
+
+  .documentOverviewSection {
+    margin-bottom: 20px !important;
+  }
 }

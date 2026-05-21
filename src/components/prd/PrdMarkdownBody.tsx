@@ -8,6 +8,28 @@ type Props = {
   className?: string
 }
 
+function childrenToText(children: unknown): string {
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children)
+  }
+  if (Array.isArray(children)) {
+    return children.map(childrenToText).join('')
+  }
+  if (children && typeof children === 'object' && 'props' in children) {
+    return childrenToText((children as { props?: { children?: unknown } }).props?.children)
+  }
+  return ''
+}
+
+export function createPrdHeadingId(text: string): string {
+  const normalized = text
+    .toLowerCase()
+    .replace(/^\d+\)\s*/, '')
+    .replace(/[^\w가-힣]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `prd-${normalized || 'section'}`
+}
+
 const mdComponents: Partial<Components> = {
   a: (props) => {
     const { href, children, node: _n, ...rest } = props
@@ -22,6 +44,22 @@ const mdComponents: Partial<Components> = {
       >
         {children}
       </a>
+    )
+  },
+  h2: (props) => {
+    const { children, node: _n, ...rest } = props
+    return (
+      <h2 id={createPrdHeadingId(childrenToText(children))} {...rest}>
+        {children}
+      </h2>
+    )
+  },
+  h3: (props) => {
+    const { children, node: _n, ...rest } = props
+    return (
+      <h3 id={createPrdHeadingId(childrenToText(children))} {...rest}>
+        {children}
+      </h3>
     )
   },
   table: (props) => {
