@@ -3,14 +3,12 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { API_BASE_URL } from '../../config/api'
 import {
-  Sparkles, ExternalLink, Copy, Check, Menu, X,
-  FileText, Target, Users, Code2, Calendar,
-  TrendingUp, AlertTriangle, BookOpen, ChevronRight,
-  Clock, Zap, Shield, Globe, ArrowUpRight, Download,
-  CheckCircle2, Circle, Hash
+  Sparkles, FileText, Layers, GitBranch,
+  Check, Copy, Download,
+  Users, Zap, Target, Code2, TrendingUp, Shield,
+  ArrowRight, AlertCircle, Loader2
 } from 'lucide-react'
 import styles from './PRDResultPage.module.css'
-import { createPrdHeadingId, PrdMarkdownBody } from '../../components/prd/PrdMarkdownBody'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -23,7 +21,6 @@ interface PRDData {
   timeline: string
   template: 'minimal' | 'standard' | 'detailed'
   generatedAt?: string
-  /** API에서 받은 PRD 본문(마크다운) */
   prdMarkdown?: string
   vercelPreviewUrl?: string
   vercelProductionUrl?: string
@@ -33,17 +30,9 @@ interface PRDData {
   sourceFiles?: { path: string; content: string }[]
 }
 
-type DebugAuthInfo = {
-  userId?: number
-  userEmail?: string
-  userName?: string
-  workspaceIds?: number[]
-  targetWorkspaceId?: number
-  targetPrdId?: number
-  tokenExists: boolean
-  lastErrorStatus?: number
-  lastErrorMessage?: string
-}
+type TabId = 'prd' | 'spec' | 'flow'
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 function isLocalDevBrowser() {
   if (typeof window === 'undefined') return false
@@ -61,215 +50,214 @@ async function tryDevBootstrapLogin(): Promise<boolean> {
     const data = await res.json()
     if (data?.accessToken) {
       localStorage.setItem('accessToken', data.accessToken)
-      if (data?.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken)
-      }
+      if (data?.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
       return true
     }
-  } catch {
-    // noop
-  }
+  } catch { /* noop */ }
   return false
 }
 
-function isVercelRelatedUrl(url: string | undefined): boolean {
-  if (!url) return false
-  const u = url.toLowerCase()
-  return u.includes('vercel') || u.includes('vercel.app') || u.includes('now.sh')
-}
-
-function markdownPlainExcerpt(md: string, maxLen: number): string {
-  const stripped = md
-    .replace(/^#+\s+.*/gm, '')
-    .replace(/[*_`#[\]]/g, '')
-    .replace(/\n+/g, ' ')
-    .trim()
-  if (stripped.length <= maxLen) return stripped
-  return `${stripped.slice(0, maxLen).trim()}…`
-}
-
-/** PRD 본문 대략 읽기 시간(한·영 혼합, 약 800자/분) */
-function estimateReadingMinutes(md: string): number {
-  const t = md.replace(/\s+/g, ' ').trim()
-  if (t.length === 0) return 1
-  return Math.max(1, Math.ceil(t.length / 800))
-}
-
-function countMarkdownH2Sections(md: string): number {
-  return (md.match(/^##\s+[^\n#]+/gm) || []).length
-}
-
-function extractMarkdownH2Sections(md: string) {
-  return (md.match(/^##\s+[^\n#]+/gm) || [])
-    .map(line => line.replace(/^##\s+/, '').trim())
-    .filter(Boolean)
-    .slice(0, 18)
-    .map(title => ({
-      id: createPrdHeadingId(title),
-      label: title.replace(/\([^)]*\)/g, '').replace(/^\d+\)\s*/, '').trim(),
-      icon: FileText,
-    }))
-}
-
-function countMatches(md: string, pattern: RegExp): number {
-  return (md.match(pattern) || []).length
-}
-
-function getPrdDocumentInsights(md: string) {
-  const requiredHeadings = [
-    '문서 메타',
-    'Executive summary',
-    '문제 정의',
-    '제품 비전',
-    '대상 사용자',
-    '사용자 스토리',
-    '기능 요구사항',
-    '비기능 요구사항',
-    '엣지 케이스',
-    'MVP 정의 완료',
-    '리스크',
-    '열린 질문',
-  ]
-  const presentRequired = requiredHeadings.filter(label => md.includes(label)).length
-  const tableCount = countMatches(md, /^\|.+\|$/gm)
-  const checklistCount = countMatches(md, /^\s*-\s+\[[ xX]\]/gm)
-  const acceptanceMentions = countMatches(md, /수용 기준|검수|DoD|정의 완료|Given|When|Then/g)
-  const score = Math.min(
-    100,
-    Math.round(
-      (presentRequired / requiredHeadings.length) * 58
-      + Math.min(countMarkdownH2Sections(md), 18) * 1.4
-      + Math.min(tableCount, 18) * 1.1
-      + Math.min(checklistCount, 10) * 1.2
-      + Math.min(acceptanceMentions, 14) * 0.9
-    )
-  )
-  const level =
-    score >= 85 ? '공유 가능' :
-    score >= 70 ? '검토 가능' :
-    score >= 55 ? '보완 필요' :
-    '초안'
-
-  return {
-    score,
-    level,
-    presentRequired,
-    totalRequired: requiredHeadings.length,
-    tableCount,
-    checklistCount,
-    acceptanceMentions,
+function extractCardsFromMarkdown(markdown: string): string[] {
+  const unique: string[] = []
+  const seen = new Set<string>()
+  for (const line of markdown.split('\n')) {
+    const t = line.trim()
+    if (!t || t.startsWith('[PRD_PIPELINE]') || t.startsWith('#') || /^카드\s*\d+$/.test(t)) continue
+    if (t.length < 16 || t.includes('|') || t.startsWith('-') || t.startsWith('*')) continue
+    if (!seen.has(t)) { seen.add(t); unique.push(t) }
+    if (unique.length >= 6) break
   }
+  return unique
 }
 
-// ─── Mock PRD content generator ────────────────────────────────────────────
-// 실제 구현 시 API 응답으로 교체
-
-function generatePRD(data: PRDData) {
-  const features = data.features.length > 0
+function makeSpec(data: PRDData) {
+  const extracted = data.prdMarkdown ? extractCardsFromMarkdown(data.prdMarkdown) : []
+  const featureNames = extracted.length > 0
+    ? extracted
+    : data.features.length > 0
     ? data.features
     : ['사용자 인증', '핵심 기능 구현', '실시간 데이터 처리', '반응형 UI', '알림 시스템']
 
-  const techList = data.techStack
-    ? data.techStack.split(/[,，、]/).map(t => t.trim()).filter(Boolean)
-    : ['React', 'TypeScript', 'Node.js', 'PostgreSQL']
+  const features = featureNames.slice(0, 6).map((f, i) => ({
+    name: f,
+    priority: i < 2 ? 'Must Have' : i < 4 ? 'Should Have' : 'Could Have',
+    desc: `${f} 관련 상세 기능 구현`,
+    acceptance: [`${f} 정상 동작 확인`, '응답 시간 200ms 이내', '에러 없이 완료'],
+  }))
 
-  return {
-    overview: {
-      description: data.idea,
-      vision: `${data.projectName}은(는) ${data.targetUsers}를 위해 설계된 혁신적인 솔루션으로, 기존의 복잡하고 비효율적인 프로세스를 단순화하여 생산성을 극대화합니다.`,
-      status: 'In Development',
-      version: '1.0.0',
-      createdAt: data.generatedAt || new Date().toLocaleDateString('ko-KR'),
-    },
-    problem: {
-      statement: `${data.targetUsers}는 현재 효율적인 도구의 부재로 인해 여러 어려움을 겪고 있습니다. 기존 솔루션들은 학습 곡선이 높거나 협업 기능이 부족하여 팀 생산성을 저하시키고 있습니다.`,
-      painPoints: [
-        '기존 도구의 복잡한 인터페이스로 인한 낮은 접근성',
-        '실시간 협업 기능 부재로 인한 커뮤니케이션 병목',
-        '데이터 파편화로 인한 의사결정 지연',
-        '온보딩 시간이 길어 초기 진입 장벽이 높음',
-      ],
-    },
-    goals: [
-      { type: 'primary', text: `${data.targetUsers}의 핵심 워크플로우 효율 40% 개선` },
-      { type: 'primary', text: '사용자 온보딩 시간 10분 이내 달성' },
-      { type: 'secondary', text: '월간 활성 사용자 1,000명 확보 (6개월 내)' },
-      { type: 'secondary', text: 'NPS(순 추천 지수) 50 이상 유지' },
-    ],
-    features: features.map((f, i) => ({
-      name: f,
-      priority: i < 2 ? 'Must Have' : i < 4 ? 'Should Have' : 'Could Have',
-      description: `${f} 기능을 통해 사용자는 더 빠르고 직관적인 방식으로 작업을 완료할 수 있습니다.`,
-      acceptance: [`${f} 화면이 정상적으로 렌더링됨`, `에러 없이 동작 완료`, `응답 시간 200ms 이내`],
+  const flowSteps = [
+    { step: 1, actor: '사용자', action: '서비스 접속 및 로그인', result: '메인 화면 진입' },
+    { step: 2, actor: '사용자', action: '핵심 기능 탐색', result: '기능 목록 확인' },
+    ...featureNames.slice(0, 3).map((f, i) => ({
+      step: i + 3, actor: '사용자',
+      action: f.slice(0, 40) || `작업 ${i + 3}`,
+      result: '성공적으로 완료',
     })),
-    techStack: {
-      frontend: techList.slice(0, 2).length > 0 ? techList.slice(0, 2) : ['React', 'TypeScript'],
-      backend: techList.slice(2, 4).length > 0 ? techList.slice(2, 4) : ['Node.js', 'Express'],
-      database: techList.slice(4, 5).length > 0 ? techList.slice(4, 5) : ['PostgreSQL'],
-      infra: ['클라우드', 'CI/CD', '모니터링'],
-    },
-    timeline: {
-      duration: data.timeline || '3개월',
-      phases: [
-        { phase: 'Phase 1', name: '설계 & 프로토타입', duration: '2주', tasks: ['요구사항 분석', 'UI/UX 와이어프레임', '기술 스택 확정', 'DB 스키마 설계'] },
-        { phase: 'Phase 2', name: '핵심 기능 개발', duration: '6주', tasks: ['사용자 인증 시스템', '핵심 기능 구현', 'API 개발', '단위 테스트'] },
-        { phase: 'Phase 3', name: '통합 & 테스트', duration: '2주', tasks: ['통합 테스트', '성능 최적화', '보안 검토', '버그 수정'] },
-        { phase: 'Phase 4', name: '배포 & 런칭', duration: '2주', tasks: ['프로덕션 배포', 'CI/CD 설정', '모니터링 설정', '초기 사용자 온보딩'] },
-      ],
-    },
-    metrics: [
-      { name: '월간 활성 사용자', target: '1,000명+', timeframe: '6개월' },
-      { name: '사용자 유지율', target: '70%+', timeframe: '30일' },
-      { name: '페이지 로드 시간', target: '< 2초', timeframe: '측정 지속' },
-      { name: 'API 가동률', target: '99.9%', timeframe: '월간' },
-    ],
-    risks: [
-      { level: 'high', title: '기술 부채 누적', mitigation: '코드 리뷰 프로세스 강화 및 리팩토링 스프린트 정기 시행' },
-      { level: 'medium', title: '일정 지연 위험', mitigation: 'MVP 범위 명확히 정의하고 이터레이티브 개발 방식 채택' },
-      { level: 'low', title: '사용자 채택률 저조', mitigation: '초기 베타 사용자 확보 및 지속적인 피드백 수집' },
-    ],
-  }
+    { step: featureNames.length + 3, actor: '시스템', action: '결과 저장 및 알림', result: '완료 상태 반영' },
+  ]
+
+  return { features, flowSteps }
 }
 
-// ─── Section Components ────────────────────────────────────────────────────
+// ─── Sub components ─────────────────────────────────────────────────────────
 
-function SectionHeader({ icon: Icon, title, id }: { icon: typeof FileText; title: string; id: string }) {
+function Section({ id, icon: Icon, title, children }: { id?: string; icon: typeof FileText; title: string; children: React.ReactNode }) {
   return (
-    <div className={styles.sectionHeader} id={id}>
-      <div className={styles.sectionIconWrap}>
-        <Icon size={18} />
-      </div>
-      <h2 className={styles.sectionTitle}>{title}</h2>
+    <div id={id} className={styles.prdSection}>
+      <div className={styles.prdSectionHead}><Icon size={16} /><span>{title}</span></div>
+      {children}
     </div>
   )
 }
 
-const PRIORITY_STYLE: Record<string, string> = {
-  'Must Have': styles.priorityMust,
-  'Should Have': styles.priorityShould,
-  'Could Have': styles.priorityCould,
+function PriorityBadge({ p }: { p: string }) {
+  return (
+    <span className={`${styles.priorityBadge} ${p === 'Must Have' ? styles.must : p === 'Should Have' ? styles.should : styles.could}`}>
+      {p}
+    </span>
+  )
 }
 
-const RISK_STYLE: Record<string, string> = {
-  high: styles.riskHigh,
-  medium: styles.riskMedium,
-  low: styles.riskLow,
+function SubRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={styles.subSection}>
+      <span className={styles.subLabel}>{label}</span>
+      <p className={styles.subValue}>{value}</p>
+    </div>
+  )
 }
 
-// ─── TOC ──────────────────────────────────────────────────────────────────
+function PRDTabContent({ data }: { data: PRDData }) {
+  const { features } = makeSpec(data)
+  const cards = data.prdMarkdown ? extractCardsFromMarkdown(data.prdMarkdown) : []
+  const oneLiner = cards[0] || (data.idea ? data.idea.split(/[.。\n]/)[0].replace(/^#+\s*/, '').trim().slice(0, 80) : '')
 
-const DEFAULT_TOC_ITEMS = [
-  { id: 'overview', label: '개요', icon: FileText },
-  { id: 'problem', label: '문제 정의', icon: AlertTriangle },
-  { id: 'goals', label: '목표', icon: Target },
-  { id: 'features', label: '핵심 기능', icon: Zap },
-  { id: 'tech', label: '기술 스택', icon: Code2 },
-  { id: 'timeline', label: '타임라인', icon: Calendar },
-  { id: 'metrics', label: '성공 지표', icon: TrendingUp },
-  { id: 'risks', label: '리스크', icon: Shield },
+  return (
+    <div className={styles.tabContent}>
+
+      <Section id="sec-overview" icon={Target} title="프로젝트 개요">
+        <SubRow label="한 줄 정의" value={oneLiner || `${data.projectName} — 사용자를 위한 제품`} />
+        <SubRow label="제품 목표" value={`${data.targetUsers || '사용자'}가 효율적으로 핵심 문제를 해결할 수 있도록 돕는 제품을 만드는 것`} />
+        <SubRow label="배경" value={cards.length > 1 ? cards[1] : data.idea ? data.idea.replace(/\[PRD_PIPELINE\]/g, '').replace(/#+/g, '').trim().slice(0, 120) : `${data.projectName}의 필요성에 따라 기획되었습니다.`} />
+      </Section>
+
+      <Section id="sec-problem" icon={Zap} title="문제 및 해결 방안">
+        <SubRow label="사용자 문제" value={`${data.targetUsers || '사용자'}가 기존 방식으로는 원하는 결과를 빠르고 정확하게 얻기 어렵습니다.`} />
+        <SubRow label="해결 방안" value={`${data.projectName}은(는) ${features.slice(0, 2).map(f => f.name).join(', ')} 등의 핵심 기능을 통해 문제를 해결합니다.`} />
+        <SubRow label="차별점" value={`${data.techStack ? `${data.techStack} 기반의 ` : ''}빠른 실행과 직관적인 UX로 기존 솔루션과 차별화됩니다.`} />
+      </Section>
+
+      <Section id="sec-features" icon={Code2} title="핵심 기능 요약">
+        <div className={styles.featureSummaryList}>
+          {features.map((f, i) => (
+            <div key={i} className={styles.featureSummaryItem}>
+              <PriorityBadge p={f.priority} />
+              <span className={styles.featureSummaryName}>{f.name}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="sec-users" icon={Users} title="목표 사용자">
+        <SubRow label="타겟 사용자" value={data.targetUsers || '프로젝트 팀원 및 이해관계자'} />
+        <SubRow label="사용자 시나리오" value={`사용자가 서비스에 접속하여 ${features[0]?.name || '핵심 기능'}을 활용하고, 목표를 달성하는 흐름을 경험합니다.`} />
+      </Section>
+
+      <Section id="sec-success" icon={TrendingUp} title="성공, 위험 요소">
+        <SubRow label="핵심 지표" value={`Must Have 기능 ${features.filter(f => f.priority === 'Must Have').length}개 완료율, 개발 기간 ${data.timeline || '미정'} 준수, 초기 사용자 피드백 긍정률`} />
+        <SubRow label="리스크" value="개발 일정 지연, 핵심 기능 완성도 미흡, 초기 사용자 유입 부족 등의 리스크가 존재하며 단계별 검증으로 대응합니다." />
+      </Section>
+
+    </div>
+  )
+}
+
+function SpecTabContent({ data }: { data: PRDData }) {
+  const { features } = makeSpec(data)
+  return (
+    <div className={styles.tabContent}>
+      <Section id="sec-spec" icon={Code2} title="기능 명세서">
+        <div className={styles.specTable}>
+          <div className={styles.specTableHead}>
+            <span>기능명</span><span>우선순위</span><span>설명</span>
+          </div>
+          {features.map((f, i) => (
+            <div key={i} className={styles.specTableRow}>
+              <span className={styles.specName}>{f.name}</span>
+              <PriorityBadge p={f.priority} />
+              <span className={styles.specDesc}>{f.desc || '-'}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="sec-acceptance" icon={Shield} title="인수 조건">
+        {features.slice(0, 3).map((f, i) => (
+          <div key={i} className={styles.acceptanceBlock}>
+            <div className={styles.acceptanceName}>{f.name}</div>
+            {f.acceptance.map((a, j) => (
+              <div key={j} className={styles.acceptanceItem}>
+                <Check size={12} className={styles.checkOn} /><span>{a}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </Section>
+    </div>
+  )
+}
+
+function FlowTabContent({ data }: { data: PRDData }) {
+  const { flowSteps } = makeSpec(data)
+  return (
+    <div className={styles.tabContent}>
+      <Section id="sec-flow" icon={GitBranch} title="유저플로우">
+        <div className={styles.flowList}>
+          {flowSteps.map((s, i) => (
+            <div key={i} className={styles.flowItem}>
+              <div className={styles.flowLeft}>
+                <div className={styles.flowNode}>{s.step}</div>
+                {i < flowSteps.length - 1 && <div className={styles.flowLine} />}
+              </div>
+              <div className={styles.flowContent}>
+                <div className={styles.flowActor}><Users size={11} />{s.actor}</div>
+                <div className={styles.flowAction}>{s.action}</div>
+                <div className={styles.flowResult}><ArrowRight size={11} />{s.result}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </div>
+  )
+}
+
+// ─── Tabs & Sidebar config ──────────────────────────────────────────────────
+
+const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
+  { id: 'prd', label: 'PRD', icon: FileText },
+  { id: 'spec', label: '기능명세서', icon: Layers },
+  { id: 'flow', label: '유저플로우', icon: GitBranch },
 ]
 
-// ─── Main ─────────────────────────────────────────────────────────────────
+const SIDEBAR_SECTIONS: Record<TabId, { id: string; label: string }[]> = {
+  prd: [
+    { id: 'sec-overview', label: '프로젝트 개요' },
+    { id: 'sec-problem', label: '문제 및 해결 방안' },
+    { id: 'sec-features', label: '핵심 기능 요약' },
+    { id: 'sec-users', label: '목표 사용자' },
+    { id: 'sec-success', label: '성공, 위험 요소' },
+  ],
+  spec: [
+    { id: 'sec-spec', label: '기능 명세서' },
+    { id: 'sec-acceptance', label: '인수 조건' },
+  ],
+  flow: [
+    { id: 'sec-flow', label: '유저플로우' },
+  ],
+}
+
+// ─── Main ───────────────────────────────────────────────────────────────────
 
 export default function PRDResultPage() {
   const { id, workspaceId: wsPath, prdId: prdPath } = useParams<{
@@ -279,52 +267,82 @@ export default function PRDResultPage() {
   }>()
   const [searchParams] = useSearchParams()
   const jobIdParam = searchParams.get('jobId')
-  const [data, setData] = useState<PRDData | null>(null)
-  const [activeSection, setActiveSection] = useState('overview')
-  const [tocOpen, setTocOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [selectedSourcePath, setSelectedSourcePath] = useState<string | null>(null)
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
-  const [previewError, setPreviewError] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [debugAuth, setDebugAuth] = useState<DebugAuthInfo | null>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
 
-  // PRD 결과 페이지에서 스크롤 활성화
+  const [data, setData] = useState<PRDData | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabId>('prd')
+  const [activeSection, setActiveSection] = useState<string>('sec-overview')
+  const [copied, setCopied] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 윈도우 스크롤 방지 — 콘텐츠 컨테이너가 독립 스크롤
   useEffect(() => {
     const html = document.documentElement
     const body = document.body
-    const root = document.getElementById('root')
-
+    const appRoot = document.getElementById('root')
     const prevHtmlOverflow = html.style.overflow
     const prevBodyOverflow = body.style.overflow
-    const prevHtmlHeight   = html.style.height
-    const prevBodyHeight   = body.style.height
-    const prevRootHeight   = root ? root.style.height   : ''
-    const prevRootOverflow = root ? root.style.overflow : ''
-
-    html.style.overflow = 'auto'
-    body.style.overflow = 'auto'
-    html.style.height   = 'auto'
-    body.style.height   = 'auto'
-    // root의 overflow는 건드리지 않음 — overflow:auto가 있으면 #root가
-    // sticky scroll container가 되어 position:sticky가 작동하지 않음
-    if (root) { root.style.height = 'auto'; root.style.overflow = 'visible' }
-
+    const prevHtmlHeight = html.style.height
+    const prevBodyHeight = body.style.height
+    const prevRootHeight = appRoot ? appRoot.style.height : ''
+    const prevRootOverflow = appRoot ? appRoot.style.overflow : ''
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    html.style.height = '100%'
+    body.style.height = '100%'
+    if (appRoot) { appRoot.style.height = '100%'; appRoot.style.overflow = 'hidden' }
     return () => {
       html.style.overflow = prevHtmlOverflow
       body.style.overflow = prevBodyOverflow
-      html.style.height   = prevHtmlHeight
-      body.style.height   = prevBodyHeight
-      if (root) { root.style.height = prevRootHeight; root.style.overflow = prevRootOverflow }
+      html.style.height = prevHtmlHeight
+      body.style.height = prevBodyHeight
+      if (appRoot) { appRoot.style.height = prevRootHeight; appRoot.style.overflow = prevRootOverflow }
     }
   }, [])
+
+  // Scroll Spy — 스크롤 이벤트 기반 (섹션 크기와 무관하게 정확히 동작)
+  useEffect(() => {
+    const container = scrollRef.current
+    const sections = SIDEBAR_SECTIONS[activeTab]
+    setActiveSection(sections[0]?.id ?? '')
+    if (!container || !data) return
+
+    const detect = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const containerTop = container.getBoundingClientRect().top
+
+      // 바닥 20px 이내 → 마지막 섹션 활성
+      if (scrollHeight - scrollTop - clientHeight < 20) {
+        const last = sections[sections.length - 1]
+        if (last) setActiveSection(last.id)
+        return
+      }
+
+      // 컨테이너 상단 30% 지점을 기준으로 그 위에 있는 마지막 섹션을 활성
+      const threshold = containerTop + clientHeight * 0.3
+      let active = sections[0]?.id ?? ''
+      for (const { id } of sections) {
+        const el = document.getElementById(id)
+        if (!el) continue
+        if (el.getBoundingClientRect().top <= threshold) active = id
+      }
+      setActiveSection(active)
+    }
+
+    const timer = setTimeout(detect, 80)
+    container.addEventListener('scroll', detect, { passive: true })
+
+    return () => {
+      clearTimeout(timer)
+      container.removeEventListener('scroll', detect)
+    }
+  }, [activeTab, data])
 
   useEffect(() => {
     const load = async () => {
       setLoadError(null)
-      setDebugAuth(null)
-      // 워크스페이스 공유 URL: /prd/workspaces/:workspaceId/prds/:prdId
+
+      // 워크스페이스 URL: /prd/workspaces/:workspaceId/prds/:prdId
       if (wsPath && prdPath) {
         let token = localStorage.getItem('accessToken')
         const ws = parseInt(wsPath, 10)
@@ -336,48 +354,9 @@ export default function PRDResultPage() {
         if (token && !Number.isNaN(ws) && !Number.isNaN(prd)) {
           try {
             const headers = { Authorization: `Bearer ${token}` }
-            try {
-              const [meRes, wsRes] = await Promise.all([
-                axios.get(`${API_BASE_URL}/v1/users/me`, { headers }),
-                axios.get(`${API_BASE_URL}/v1/workspaces`, { headers }),
-              ])
-              const wsData = Array.isArray(wsRes.data) ? wsRes.data : []
-              const wsIds = wsData
-                .map((w: any) => Number(w?.workspaceId ?? w?.id))
-                .filter((id: number) => Number.isFinite(id))
-              setDebugAuth({
-                tokenExists: true,
-                userId: Number(meRes.data?.id),
-                userEmail: meRes.data?.email,
-                userName: meRes.data?.name,
-                workspaceIds: wsIds,
-                targetWorkspaceId: ws,
-                targetPrdId: prd,
-              })
-            } catch {
-              setDebugAuth({
-                tokenExists: true,
-                targetWorkspaceId: ws,
-                targetPrdId: prd,
-              })
-            }
-            setPreviewError(null)
-            const [jobRes, filesRes] = await Promise.all([
+            const [jobRes] = await Promise.all([
               axios.get(`${API_BASE_URL}/v1/workspaces/${ws}/prds/${prd}`, { headers }),
-              axios
-                .get(`${API_BASE_URL}/v1/workspaces/${ws}/prds/${prd}/source-files`, { headers })
-                .catch(() => ({ data: [] as { path: string; content: string }[] })),
             ])
-            try {
-              const previewRes = await axios.get(
-                `${API_BASE_URL}/v1/workspaces/${ws}/prds/${prd}/preview`,
-                { headers, responseType: 'text' }
-              )
-              setPreviewHtml(typeof previewRes.data === 'string' ? previewRes.data : null)
-            } catch {
-              setPreviewHtml(null)
-              setPreviewError('미리보기를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
-            }
             const j = jobRes.data as {
               prdMarkdown?: string
               vercelPreviewUrl?: string
@@ -386,19 +365,14 @@ export default function PRDResultPage() {
               message?: string
               simulated?: boolean
             }
-            const fileList = Array.isArray(filesRes.data) ? filesRes.data : []
-            const sourceFiles = fileList.map(
-              (f: { path: string; content: string }) => ({ path: f.path, content: f.content })
-            )
-            if (sourceFiles.length > 0) setSelectedSourcePath(sourceFiles[0].path)
-            const firstLine = (j.prdMarkdown || '').split('\n').find((l) => l.trim().length > 0) || 'PRD'
+            const firstLine = (j.prdMarkdown || '').split('\n').find(l => l.trim().length > 0) || 'PRD'
             const projectName = firstLine.replace(/^#+\s*/, '').slice(0, 80) || `Workspace ${ws} PRD`
             setData({
               projectName,
               idea: (j.prdMarkdown || '').slice(0, 500) || '팀 PRD',
               targetUsers: '서비스 사용자',
               features: ['AI 생성 PRD', '팀 협업', '서버 배포 URL'],
-              techStack: 'React, Spring Boot (Capstone API)',
+              techStack: 'React, Spring Boot',
               timeline: '—',
               template: 'standard',
               generatedAt: new Date().toLocaleDateString('ko-KR'),
@@ -408,41 +382,19 @@ export default function PRDResultPage() {
               githubRepoUrl: j.githubRepoUrl,
               prototypeMessage: j.message,
               simulated: j.simulated,
-              sourceFiles,
             })
             return
           } catch (e: any) {
-            console.error('[PRDResultPage] workspace PRD API 로드 실패', e)
-            setPreviewHtml(null)
             const status = e?.response?.status
             if (status === 401 || status === 403) {
-              setPreviewError('권한이 없어 PRD를 불러오지 못했습니다. 해당 워크스페이스 멤버 계정으로 다시 로그인해 주세요.')
-              setLoadError('접근 권한이 없습니다 (401/403). 워크스페이스 멤버 권한을 확인해 주세요.')
-              setDebugAuth(prev => ({
-                tokenExists: Boolean(token),
-                targetWorkspaceId: ws,
-                targetPrdId: prd,
-                ...(prev || {}),
-                lastErrorStatus: status,
-                lastErrorMessage: e?.response?.data?.message || e?.message,
-              }))
+              setLoadError('접근 권한이 없습니다. 워크스페이스 멤버 계정으로 로그인해 주세요.')
             } else {
-              setPreviewError('문서를 불러오는 중 문제가 있어 미리보기를 표시하지 못했습니다.')
               setLoadError('문서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
-              setDebugAuth(prev => ({
-                tokenExists: Boolean(token),
-                targetWorkspaceId: ws,
-                targetPrdId: prd,
-                ...(prev || {}),
-                lastErrorStatus: status,
-                lastErrorMessage: e?.response?.data?.message || e?.message,
-              }))
             }
             return
           }
         }
         setLoadError('로그인이 필요합니다. 로그인 후 PRD URL을 다시 열어주세요.')
-        setPreviewError('로그인 후에만 미리보기를 볼 수 있습니다.')
         return
       }
 
@@ -458,37 +410,9 @@ export default function PRDResultPage() {
         if (token && !Number.isNaN(ideaId) && !Number.isNaN(jId)) {
           try {
             const headers = { Authorization: `Bearer ${token}` }
-            setPreviewError(null)
-            const [jobRes, filesRes] = await Promise.all([
-              axios.get(`${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jId}`, { headers }),
-              axios
-                .get(
-                  `${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jId}/source-files`,
-                  { headers }
-                )
-                .catch(() => ({ data: [] as { path: string; content: string }[] })),
-            ])
-            const jMeta = jobRes.data as { workspaceId?: number }
-            const wsFromQuery = parseInt(searchParams.get('workspaceId') || '', 10)
-            const wsIdForPreview =
-              !Number.isNaN(wsFromQuery)
-                ? wsFromQuery
-                : (typeof jMeta.workspaceId === 'number' ? jMeta.workspaceId : NaN)
-            if (!Number.isNaN(wsIdForPreview)) {
-              try {
-                const previewRes = await axios.get(
-                  `${API_BASE_URL}/v1/workspaces/${wsIdForPreview}/prds/${jId}/preview`,
-                  { headers, responseType: 'text' }
-                )
-                setPreviewHtml(typeof previewRes.data === 'string' ? previewRes.data : null)
-              } catch {
-                setPreviewHtml(null)
-                setPreviewError('미리보기를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
-              }
-            } else {
-              setPreviewHtml(null)
-              setPreviewError('이 주소만으로는 미리보기를 열 수 없습니다. 팀이 공유한 PRD 링크로 다시 열어 주세요.')
-            }
+            const jobRes = await axios.get(
+              `${API_BASE_URL}/v1/ideas/${ideaId}/prototype/jobs/${jId}`, { headers }
+            )
             const j = jobRes.data as {
               prdMarkdown?: string
               vercelPreviewUrl?: string
@@ -497,24 +421,14 @@ export default function PRDResultPage() {
               message?: string
               simulated?: boolean
             }
-            const fileList = Array.isArray(filesRes.data) ? filesRes.data : []
-            const sourceFiles = fileList.map(
-              (f: { path: string; content: string }) => ({
-                path: f.path,
-                content: f.content,
-              })
-            )
-            if (sourceFiles.length > 0) {
-              setSelectedSourcePath(sourceFiles[0].path)
-            }
-            const firstLine = (j.prdMarkdown || '').split('\n').find((l) => l.trim().length > 0) || 'PRD'
+            const firstLine = (j.prdMarkdown || '').split('\n').find(l => l.trim().length > 0) || 'PRD'
             const projectName = firstLine.replace(/^#+\s*/, '').slice(0, 80) || '프로젝트 PRD'
             setData({
               projectName,
               idea: (j.prdMarkdown || '').slice(0, 500) || '팀 PRD',
               targetUsers: '서비스 사용자',
               features: ['AI 생성 PRD', '팀 협업', 'API 연동'],
-              techStack: 'React, Spring Boot (Capstone API)',
+              techStack: 'React, Spring Boot',
               timeline: '—',
               template: 'standard',
               generatedAt: new Date().toLocaleDateString('ko-KR'),
@@ -524,139 +438,62 @@ export default function PRDResultPage() {
               githubRepoUrl: j.githubRepoUrl,
               prototypeMessage: j.message,
               simulated: j.simulated,
-              sourceFiles,
             })
             return
           } catch (e: any) {
-            console.error('[PRDResultPage] API 로드 실패, sessionStorage로 대체', e)
-            setPreviewHtml(null)
             const status = e?.response?.status
             if (status === 401 || status === 403) {
-              setPreviewError('권한이 없어 PRD를 불러오지 못했습니다. 다시 로그인하거나 워크스페이스 권한을 확인해 주세요.')
               setLoadError('접근 권한이 없습니다 (401/403).')
             } else {
-              setPreviewError('문서를 불러오는 중 문제가 있어 미리보기를 표시하지 못했습니다.')
+              setLoadError('문서를 불러오지 못했습니다.')
             }
           }
         }
       }
 
-      // sessionStorage (일반 id 또는 ws_{workspaceId} 형식 모두 지원)
-    const key1 = id ? `prd_${id}` : null
-    const key2 = id ? `prd_ws_${id?.replace('ws_', '')}` : null
-    const stored = (key1 && sessionStorage.getItem(key1))
-      || (key2 && sessionStorage.getItem(key2))
-      || null
-    if (stored) {
-      const raw = JSON.parse(stored)
-      // workspaceId 기반 데이터 변환 (카드 배열 → PRDData)
-      if (raw.cards && !raw.idea) {
-        setData({
-          projectName: raw.projectName || '프로젝트',
-          idea: raw.cards.join('\n\n'),
-          targetUsers: raw.targetUsers || '프로젝트 팀원',
-          features: raw.features || raw.cards.slice(0, 8).map((c: string) => c.split(/[.。\n]/)[0].trim().slice(0, 30)),
-          techStack: raw.techStack || '',
-          timeline: raw.timeline || '',
-          template: raw.template || 'standard',
-          generatedAt: raw.generatedAt,
-          prdMarkdown: typeof raw.prdMarkdown === 'string' ? raw.prdMarkdown : undefined,
-          vercelPreviewUrl: typeof raw.vercelPreviewUrl === 'string' ? raw.vercelPreviewUrl : undefined,
-          vercelProductionUrl: typeof raw.vercelProductionUrl === 'string' ? raw.vercelProductionUrl : undefined,
-          githubRepoUrl: typeof raw.githubRepoUrl === 'string' ? raw.githubRepoUrl : undefined,
-          prototypeMessage: typeof raw.prototypeMessage === 'string' ? raw.prototypeMessage : undefined,
-          simulated: typeof raw.simulated === 'boolean' ? raw.simulated : undefined,
-        })
-      } else {
-        setData({
-          ...raw,
-          prdMarkdown: typeof raw.prdMarkdown === 'string' ? raw.prdMarkdown : undefined,
-          vercelPreviewUrl: typeof raw.vercelPreviewUrl === 'string' ? raw.vercelPreviewUrl : undefined,
-          vercelProductionUrl: typeof raw.vercelProductionUrl === 'string' ? raw.vercelProductionUrl : undefined,
-          githubRepoUrl: typeof raw.githubRepoUrl === 'string' ? raw.githubRepoUrl : undefined,
-          prototypeMessage: typeof raw.prototypeMessage === 'string' ? raw.prototypeMessage : undefined,
-          simulated: typeof raw.simulated === 'boolean' ? raw.simulated : undefined,
-        })
+      // sessionStorage fallback
+      const key1 = id ? `prd_${id}` : null
+      const key2 = id ? `prd_ws_${id?.replace('ws_', '')}` : null
+      const stored = (key1 && sessionStorage.getItem(key1))
+        || (key2 && sessionStorage.getItem(key2))
+        || null
+      if (stored) {
+        const raw = JSON.parse(stored)
+        if (raw.cards && !raw.idea) {
+          setData({
+            projectName: raw.projectName || '프로젝트',
+            idea: raw.cards.join('\n\n'),
+            targetUsers: raw.targetUsers || '프로젝트 팀원',
+            features: raw.features || raw.cards.slice(0, 8).map((c: string) => c.split(/[.。\n]/)[0].trim().slice(0, 30)),
+            techStack: raw.techStack || '',
+            timeline: raw.timeline || '',
+            template: raw.template || 'standard',
+            generatedAt: raw.generatedAt,
+            prdMarkdown: typeof raw.prdMarkdown === 'string' ? raw.prdMarkdown : undefined,
+            vercelPreviewUrl: typeof raw.vercelPreviewUrl === 'string' ? raw.vercelPreviewUrl : undefined,
+            vercelProductionUrl: typeof raw.vercelProductionUrl === 'string' ? raw.vercelProductionUrl : undefined,
+            githubRepoUrl: typeof raw.githubRepoUrl === 'string' ? raw.githubRepoUrl : undefined,
+          })
+        } else {
+          setData({ ...raw })
+        }
+        return
       }
-    } else {
+
       // Demo fallback
       setData({
         projectName: '무한 캔버스 협업 툴',
-        idea: '실시간으로 여러 사람이 같은 캔버스에서 포스트잇, 도형, 텍스트를 자유롭게 배치하고 협업할 수 있는 무한 캔버스 툴입니다. Figma의 협업 방식에서 영감을 받았으며, 프로젝트 기획 및 브레인스토밍 단계에서의 협업을 극대화하는 것이 목표입니다.',
+        idea: '실시간으로 여러 사람이 같은 캔버스에서 포스트잇, 도형, 텍스트를 자유롭게 배치하고 협업할 수 있는 무한 캔버스 툴입니다.',
         targetUsers: '스타트업 팀, 프로덕트 매니저, UX 디자이너',
         features: ['실시간 공동 편집', '무한 캔버스', '스티커 노트', '도형 그리기', '텍스트 블록', '댓글 & 리액션'],
-        techStack: 'React, TypeScript, Spring Boot, WebSocket, PostgreSQL, AWS',
+        techStack: 'React, TypeScript, Spring Boot, WebSocket, PostgreSQL',
         timeline: '3개월',
         template: 'detailed',
         generatedAt: new Date().toLocaleDateString('ko-KR'),
       })
-      setPreviewHtml(null)
-      setPreviewError('이 페이지만으로는 미리보기를 준비할 수 없습니다. PRD를 다시 연 뒤 시도해 주세요.')
-    }
     }
     void load()
   }, [id, jobIdParam, wsPath, prdPath])
-
-  // Scroll-based active section
-  const hasRealPrd = Boolean(data?.prdMarkdown && data.prdMarkdown.trim().length > 0)
-  const showDevExtras = isLocalDevBrowser()
-  const tocItems = hasRealPrd
-    ? [
-        { id: 'document-overview', label: '문서 요약', icon: BookOpen },
-        ...extractMarkdownH2Sections(data?.prdMarkdown ?? ''),
-        ...(showDevExtras && data?.sourceFiles && data.sourceFiles.length > 0
-          ? [{ id: 'ai-source', label: '소스 (개발)', icon: Code2 }]
-          : []),
-        ...(previewHtml || previewError
-          ? [{ id: 'ai-preview', label: '미리보기', icon: Globe }]
-          : []),
-      ]
-    : DEFAULT_TOC_ITEMS
-
-  useEffect(() => {
-    if (hasRealPrd) {
-      setActiveSection('ai-prd-md')
-    }
-  }, [hasRealPrd])
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const sections = tocItems.map(item => document.getElementById(item.id))
-      const scrollY = window.scrollY + 120
-
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const el = sections[i]
-        if (el && el.offsetTop <= scrollY) {
-          setActiveSection(tocItems[i].id)
-          break
-        }
-      }
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [tocItems])
-
-  function scrollTo(id: string) {
-    const el = document.getElementById(id)
-    if (!el) return
-
-    const NAV_HEIGHT = 64        // sticky nav 높이
-    const EXTRA_PADDING = 28     // 제목 위 여백
-
-    const elTop    = el.getBoundingClientRect().top + window.scrollY
-    const elHeight = el.offsetHeight
-    const vpHeight = window.innerHeight - NAV_HEIGHT
-
-    // 섹션이 뷰포트보다 짧으면 중앙 정렬, 길면 제목 기준으로만 정렬
-    const targetScrollY =
-      elHeight < vpHeight
-        ? elTop - NAV_HEIGHT - (vpHeight - elHeight) / 2
-        : elTop - NAV_HEIGHT - EXTRA_PADDING
-
-    window.scrollTo({ top: Math.max(0, targetScrollY), behavior: 'smooth' })
-    setActiveSection(id)
-    setTocOpen(false)
-  }
 
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -665,522 +502,137 @@ export default function PRDResultPage() {
     })
   }
 
-  function printDocument() {
+  function savePdf() {
+    const prev = document.title
+    document.title = `${data?.projectName || 'PRD'}_PRD`
+
+    // 인라인 스타일로 설정된 overflow: hidden 임시 해제
+    const html = document.documentElement
+    const body = document.body
+    const appRoot = document.getElementById('root')
+    const wrap = scrollRef.current
+
+    html.style.overflow = 'visible'
+    html.style.height = 'auto'
+    body.style.overflow = 'visible'
+    body.style.height = 'auto'
+    if (appRoot) { appRoot.style.overflow = 'visible'; appRoot.style.height = 'auto' }
+    if (wrap) { wrap.style.overflow = 'visible'; wrap.style.height = 'auto'; wrap.style.maxHeight = 'none' }
+
     window.print()
+
+    // 복원
+    html.style.overflow = 'hidden'
+    html.style.height = '100%'
+    body.style.overflow = 'hidden'
+    body.style.height = '100%'
+    if (appRoot) { appRoot.style.overflow = 'hidden'; appRoot.style.height = '100%' }
+    if (wrap) { wrap.style.overflow = ''; wrap.style.height = ''; wrap.style.maxHeight = '' }
+
+    document.title = prev
   }
+
+  // ─── Loading / Error ───────────────────────────────────────────────────────
 
   if (!data) {
     return (
       <div className={styles.loadingPage}>
-        <div className={styles.loadingSpinner} />
-        <p>{loadError || 'PRD 문서를 불러오는 중...'}</p>
-        {isLocalDevBrowser() && debugAuth && (
-          <div style={{ marginTop: 14, maxWidth: 760, textAlign: 'left', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>권한 디버그 정보</div>
-            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.7 }}>
-              <div>tokenExists: {String(debugAuth.tokenExists)}</div>
-              <div>user: {debugAuth.userName || '-'} ({debugAuth.userEmail || '-'}) / id={String(debugAuth.userId ?? '-')}</div>
-              <div>target: workspace={String(debugAuth.targetWorkspaceId ?? '-')}, prd={String(debugAuth.targetPrdId ?? '-')}</div>
-              <div>myWorkspaces: {(debugAuth.workspaceIds || []).join(', ') || '-'}</div>
-              <div>lastError: {String(debugAuth.lastErrorStatus ?? '-')} / {debugAuth.lastErrorMessage || '-'}</div>
-            </div>
-          </div>
+        {loadError ? (
+          <>
+            <AlertCircle size={32} style={{ color: '#ef4444' }} />
+            <p>{loadError}</p>
+          </>
+        ) : (
+          <>
+            <Loader2 size={32} className={styles.spinIcon} />
+            <p>PRD 문서를 불러오는 중...</p>
+          </>
         )}
       </div>
     )
   }
 
-  const prd = generatePRD(data)
-  const prdSectionItems =
-    hasRealPrd && data.prdMarkdown
-      ? extractMarkdownH2Sections(data.prdMarkdown)
-      : []
-  const prdInsights =
-    hasRealPrd && data.prdMarkdown
-      ? getPrdDocumentInsights(data.prdMarkdown)
-      : null
-  const prdH2SectionCount =
-    data.prdMarkdown && data.prdMarkdown.trim().length > 0
-      ? countMarkdownH2Sections(data.prdMarkdown)
-      : 0
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className={`${styles.page} ${hasRealPrd ? styles.pageDocument : ''}`}>
-      {/* ── Top Nav ── */}
-      <header className={styles.nav}>
-        <div className={styles.navLeft}>
-          <div className={styles.navLogo}>
-            <Sparkles size={18} />
-          </div>
-          <div className={styles.navMeta}>
-            <span className={styles.navTitle}>{data.projectName}</span>
-            <span className={styles.navBadge}>
-              {hasRealPrd ? 'PRD' : `v${prd.overview.version}`}
-            </span>
-          </div>
-        </div>
+    <div className={styles.page}>
 
-        <div className={styles.navRight}>
-          <span className={styles.navDate}>
-            <Clock size={13} />
-            {data.generatedAt || prd.overview.createdAt}
-          </span>
-          <button className={styles.navBtn} onClick={copyUrl}>
-            {copied ? <Check size={15} /> : <Copy size={15} />}
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <div className={styles.badge}><Sparkles size={13} />AI 기반 자동 생성</div>
+          <h1 className={styles.title}>{data.projectName} PRD</h1>
+          <p className={styles.subtitle}>아이디어 카드를 기반으로 자동 생성된 PRD 문서입니다</p>
+        </div>
+        <div className={styles.headerRight}>
+          <button className={styles.actionBtn} onClick={copyUrl}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? '복사됨' : '링크 복사'}
           </button>
-          <button className={styles.navBtnPrimary} onClick={printDocument}>
-            <Download size={15} />
-            PDF 저장
-          </button>
-          <button
-            className={styles.tocToggle}
-            onClick={() => setTocOpen(!tocOpen)}
-          >
-            {tocOpen ? <X size={18} /> : <Menu size={18} />}
+          <button className={styles.actionBtnPrimary} onClick={savePdf}>
+            <Download size={14} />PDF 저장
           </button>
         </div>
-      </header>
+      </div>
 
-      <div className={styles.layout}>
-        {/* ── TOC Sidebar ── */}
-        <aside className={`${styles.toc} ${tocOpen ? styles.tocOpen : ''}`}>
-          <div className={styles.tocInner}>
-            <div className={styles.tocHeader}>목차</div>
-            <nav>
-              {tocItems.map(item => {
-                const Icon = item.icon
-                const active = activeSection === item.id
-                return (
-                  <button
-                    key={item.id}
-                    className={`${styles.tocItem} ${active ? styles.tocItemActive : ''}`}
-                    onClick={() => scrollTo(item.id)}
-                  >
-                    <Icon size={15} className={styles.tocIcon} />
-                    <span>{item.label}</span>
-                    {active && <ChevronRight size={13} className={styles.tocArrow} />}
-                  </button>
-                )
-              })}
+      {/* ── Body: sidebar + content ── */}
+      <div className={styles.pageBody}>
+
+        {/* Sticky sidebar */}
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarInner}>
+            <p className={styles.sidebarTitle}>목차</p>
+            <nav className={styles.sidebarNav}>
+              {SIDEBAR_SECTIONS[activeTab].map(({ id, label }) => (
+                <button
+                  key={id}
+                  className={`${styles.sidebarItem} ${activeSection === id ? styles.sidebarItemActive : ''}`}
+                  onClick={() => {
+                    const el = document.getElementById(id)
+                    const container = scrollRef.current
+                    if (!el || !container) return
+                    const elRect = el.getBoundingClientRect()
+                    const containerRect = container.getBoundingClientRect()
+                    const scrollTop = container.scrollTop + elRect.top - containerRect.top - 16
+                    container.scrollTo({ top: scrollTop, behavior: 'smooth' })
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </nav>
-
-            <div className={styles.tocFooter}>
-              <div className={styles.tocStatusDot} />
-              <span>{hasRealPrd ? '팀 공유 문서' : prd.overview.status}</span>
-            </div>
           </div>
         </aside>
 
-        {/* ── Content ── */}
-        <main className={styles.content} ref={contentRef}>
+        {/* Main content */}
+        <div className={styles.main}>
+          <div className={styles.resultWrap}>
 
-          {/* Hero */}
-          <div className={hasRealPrd ? styles.heroDocument : styles.hero}>
-            <div className={hasRealPrd ? styles.heroBadgeMuted : styles.heroBadge}>
-              {hasRealPrd ? <FileText size={13} /> : <Sparkles size={13} />}
-              {hasRealPrd ? '공유 가능한 제품 요구사항 문서' : 'AI Generated PRD'}
-            </div>
-            <h1 className={styles.heroTitle}>{data.projectName}</h1>
-            <p className={styles.heroSubtitle}>
-              {hasRealPrd && data.prdMarkdown
-                ? markdownPlainExcerpt(data.prdMarkdown, 200)
-                : `${prd.overview.description.slice(0, 120)}...`}
-            </p>
-            <div className={styles.heroMeta}>
-              <span className={styles.heroMetaItem}>
-                <Calendar size={14} />
-                {data.generatedAt || prd.overview.createdAt}
-              </span>
-              {!hasRealPrd && (
-                <>
-                  <span className={styles.heroMetaItem}>
-                    <Users size={14} />
-                    {data.targetUsers}
-                  </span>
-                  <span className={styles.heroMetaItem}>
-                    <Clock size={14} />
-                    {prd.timeline.duration}
-                  </span>
-                </>
-              )}
-            </div>
-            {hasRealPrd && data.prdMarkdown && prdInsights && (
-              <div className={styles.heroDocumentActions}>
-                <button type="button" className={styles.heroPrimaryAction} onClick={() => scrollTo('ai-prd-md')}>
-                  문서 읽기
-                  <ChevronRight size={15} />
-                </button>
-                <button type="button" className={styles.heroSecondaryAction} onClick={copyUrl}>
-                  {copied ? <Check size={15} /> : <Copy size={15} />}
-                  {copied ? '링크 복사됨' : '공유 링크 복사'}
-                </button>
-                {(previewHtml || previewError) && (
-                  <button type="button" className={styles.heroSecondaryAction} onClick={() => scrollTo('ai-preview')}>
-                    <Globe size={15} />
-                    화면 미리보기
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {!hasRealPrd && (
-          <section className={styles.section} id="overview">
-            <SectionHeader icon={FileText} title="개요" id="overview-h" />
-            <div className={styles.overviewGrid}>
-              <div className={styles.overviewMain}>
-                <p className={styles.bodyText}>{prd.overview.vision}</p>
-              </div>
-              <div className={styles.overviewCards}>
-                {[
-                  { label: '상태', value: prd.overview.status, icon: CheckCircle2, color: '#01CD15' },
-                  { label: '버전', value: prd.overview.version, icon: Hash, color: '#6366f1' },
-                  { label: '타겟', value: data.targetUsers.split(',')[0], icon: Users, color: '#f59e0b' },
-                  { label: '기간', value: prd.timeline.duration, icon: Clock, color: '#0ea5e9' },
-                ].map(card => (
-                  <div key={card.label} className={styles.metaCard}>
-                    <card.icon size={16} style={{ color: card.color }} />
-                    <div>
-                      <div className={styles.metaCardLabel}>{card.label}</div>
-                      <div className={styles.metaCardValue}>{card.value}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-          )}
-
-          {hasRealPrd && data.prdMarkdown && prdInsights && (
-            <section className={`${styles.section} ${styles.documentOverviewSection}`} id="document-overview">
-              <div className={styles.documentOverviewHead}>
-                <div>
-                  <p className={styles.kicker}>Document Readiness</p>
-                  <h2>실무 검토용 PRD로 정리되었습니다</h2>
-                  <p>
-                    생성된 문서는 팀 공유, 이해관계자 리뷰, 개발 착수 논의를 바로 진행할 수 있도록
-                    목차·수용 기준·표 기반 요구사항을 중심으로 렌더링됩니다.
-                  </p>
-                </div>
-                <div className={styles.readinessBadge} data-level={prdInsights.level}>
-                  <strong>{prdInsights.score}</strong>
-                  <span>{prdInsights.level}</span>
-                </div>
-              </div>
-
-              <div className={styles.documentStatsGrid}>
-                <div className={styles.documentStatCard}>
-                  <span>예상 읽기 시간</span>
-                  <strong>{estimateReadingMinutes(data.prdMarkdown)}분</strong>
-                </div>
-                <div className={styles.documentStatCard}>
-                  <span>문서 섹션</span>
-                  <strong>{prdH2SectionCount}개</strong>
-                </div>
-                <div className={styles.documentStatCard}>
-                  <span>실무 필수 항목</span>
-                  <strong>{prdInsights.presentRequired}/{prdInsights.totalRequired}</strong>
-                </div>
-                <div className={styles.documentStatCard}>
-                  <span>표/체크리스트</span>
-                  <strong>{prdInsights.tableCount + prdInsights.checklistCount}개</strong>
-                </div>
-              </div>
-
-              {prdSectionItems.length > 0 && (
-                <div className={styles.sectionChipList} aria-label="PRD 주요 섹션">
-                  {prdSectionItems.slice(0, 10).map(section => (
-                    <button key={section.id} type="button" onClick={() => scrollTo(section.id)}>
-                      {section.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {data.prdMarkdown && data.prdMarkdown.trim().length > 0 && (
-            <section className={`${styles.section} ${hasRealPrd ? styles.prdDocumentSection : ''}`} id="ai-prd-md">
-              <SectionHeader icon={BookOpen} title="PRD" id="ai-prd-md-h" />
-              <div className={styles.prdMarkdownShell}>
-                <div className={styles.prdMdMeta} aria-label="문서 정보">
-                  <span>
-                    본문 <strong>{data.prdMarkdown.length.toLocaleString('ko-KR')}</strong>자
-                  </span>
-                  <span aria-hidden>·</span>
-                  <span>
-                    읽는 시간 약 <strong>{estimateReadingMinutes(data.prdMarkdown)}</strong>분
-                  </span>
-                  {prdH2SectionCount > 0 && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span>
-                        <strong>{prdH2SectionCount}</strong>개 섹션(##)
-                      </span>
-                    </>
-                  )}
-                </div>
-                <PrdMarkdownBody markdown={data.prdMarkdown} />
-              </div>
-              {(
-                (data.vercelPreviewUrl && !isVercelRelatedUrl(data.vercelPreviewUrl)) ||
-                (data.vercelProductionUrl && !isVercelRelatedUrl(data.vercelProductionUrl)) ||
-                (showDevExtras && data.githubRepoUrl)
-              ) && (
-                <div className={styles.prototypeLinks}>
-                  {data.vercelPreviewUrl && !isVercelRelatedUrl(data.vercelPreviewUrl) && (
-                    <a className={styles.prototypeLink} href={data.vercelPreviewUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink size={14} />
-                      외부 미리보기
-                    </a>
-                  )}
-                  {data.vercelProductionUrl && !isVercelRelatedUrl(data.vercelProductionUrl) && (
-                    <a className={styles.prototypeLink} href={data.vercelProductionUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink size={14} />
-                      서비스 열기
-                    </a>
-                  )}
-                  {showDevExtras && data.githubRepoUrl && (
-                    <a className={styles.prototypeLink} href={data.githubRepoUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink size={14} />
-                      GitHub
-                    </a>
-                  )}
-                </div>
-              )}
-            </section>
-          )}
-
-          {showDevExtras && data.sourceFiles && data.sourceFiles.length > 0 && (
-            <section className={styles.section} id="ai-source">
-              <SectionHeader icon={Code2} title="생성된 코드 (개발용)" id="ai-source-h" />
-              <p className={styles.prototypeHint} style={{ marginBottom: 12 }}>
-                로컬에서만 표시됩니다. 실제 팀·고객 공유 화면에는 포함되지 않습니다.
-              </p>
-              <div style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: '#64748b' }}>파일:</span>
-                {data.sourceFiles.map((f) => (
+            {/* Tab bar — 고정 (스크롤 안 됨) */}
+            <div className={styles.tabBar}>
+              {TABS.map(tab => {
+                const Icon = tab.icon
+                return (
                   <button
-                    key={f.path}
-                    type="button"
-                    onClick={() => setSelectedSourcePath(f.path)}
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      border: '1px solid #e2e8f0',
-                      background: selectedSourcePath === f.path ? '#eef2ff' : '#fff',
-                      cursor: 'pointer',
-                    }}
+                    key={tab.id}
+                    className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtnActive : ''}`}
+                    onClick={() => setActiveTab(tab.id)}
                   >
-                    {f.path}
+                    <Icon size={14} />{tab.label}
                   </button>
-                ))}
-              </div>
-              <pre className={styles.markdownSource} style={{ maxHeight: 480, overflow: 'auto' }}>
-                {(
-                  data.sourceFiles.find((f) => f.path === selectedSourcePath) || data.sourceFiles[0]
-                )?.content ?? ''}
-              </pre>
-            </section>
-          )}
-
-          {(previewHtml || previewError) && (
-            <section className={`${styles.section} ${hasRealPrd ? styles.previewFrameSection : ''}`} id="ai-preview">
-              <SectionHeader icon={Globe} title="화면 미리보기" id="ai-preview-h" />
-              {previewHtml ? (
-                <div className={styles.previewFrame}>
-                  <iframe
-                    title="prototype-preview"
-                    srcDoc={previewHtml}
-                    sandbox="allow-scripts allow-same-origin"
-                    className={styles.previewIframe}
-                  />
-                </div>
-              ) : (
-                <div className={styles.previewErrorBox}>
-                  {previewError || '미리보기를 불러오지 못했습니다.'}
-                </div>
-              )}
-            </section>
-          )}
-
-          {!hasRealPrd && (
-            <>
-          {/* ── Problem ── */}
-          <section className={styles.section} id="problem">
-            <SectionHeader icon={AlertTriangle} title="문제 정의" id="problem-h" />
-            <div className={styles.problemBox}>
-              <p className={styles.bodyText}>{prd.problem.statement}</p>
+                )
+              })}
             </div>
-            <div className={styles.painPoints}>
-              {prd.problem.painPoints.map((p, i) => (
-                <div key={i} className={styles.painPoint}>
-                  <div className={styles.painNum}>{i + 1}</div>
-                  <p>{p}</p>
-                </div>
-              ))}
-            </div>
-          </section>
 
-          {/* ── Goals ── */}
-          <section className={styles.section} id="goals">
-            <SectionHeader icon={Target} title="목표" id="goals-h" />
-            <div className={styles.goalsList}>
-              {prd.goals.map((g, i) => (
-                <div key={i} className={`${styles.goalItem} ${g.type === 'primary' ? styles.goalPrimary : styles.goalSecondary}`}>
-                  <div className={`${styles.goalDot} ${g.type === 'primary' ? styles.goalDotPrimary : styles.goalDotSecondary}`} />
-                  <span>{g.text}</span>
-                  <span className={`${styles.goalTag} ${g.type === 'primary' ? styles.goalTagPrimary : styles.goalTagSecondary}`}>
-                    {g.type === 'primary' ? 'Primary' : 'Secondary'}
-                  </span>
-                </div>
-              ))}
+            {/* 탭 콘텐츠 — 이 영역만 스크롤 */}
+            <div ref={scrollRef} className={styles.tabContentWrap}>
+              {activeTab === 'prd' && <PRDTabContent data={data} />}
+              {activeTab === 'spec' && <SpecTabContent data={data} />}
+              {activeTab === 'flow' && <FlowTabContent data={data} />}
             </div>
-          </section>
+          </div>
+        </div>
 
-          {/* ── Features ── */}
-          <section className={styles.section} id="features">
-            <SectionHeader icon={Zap} title="핵심 기능" id="features-h" />
-            <div className={styles.featureGrid}>
-              {prd.features.map((f, i) => (
-                <div key={i} className={styles.featureCard}>
-                  <div className={styles.featureCardHeader}>
-                    <span className={styles.featureName}>{f.name}</span>
-                    <span className={`${styles.priorityBadge} ${PRIORITY_STYLE[f.priority] || ''}`}>
-                      {f.priority}
-                    </span>
-                  </div>
-                  <p className={styles.featureDesc}>{f.description}</p>
-                  <div className={styles.featureAcceptance}>
-                    <span className={styles.featureAccTitle}>인수 조건</span>
-                    {f.acceptance.map((a, j) => (
-                      <div key={j} className={styles.acceptanceItem}>
-                        <CheckCircle2 size={13} className={styles.acceptanceIcon} />
-                        <span>{a}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Tech Stack ── */}
-          <section className={styles.section} id="tech">
-            <SectionHeader icon={Code2} title="기술 스택" id="tech-h" />
-            <div className={styles.techGrid}>
-              {[
-                { label: 'Frontend', items: prd.techStack.frontend, color: '#6366f1' },
-                { label: 'Backend', items: prd.techStack.backend, color: '#0ea5e9' },
-                { label: 'Database', items: prd.techStack.database, color: '#f59e0b' },
-                { label: 'Infrastructure', items: prd.techStack.infra, color: '#10b981' },
-              ].map(stack => (
-                <div key={stack.label} className={styles.techCategory}>
-                  <div className={styles.techCategoryLabel} style={{ color: stack.color }}>
-                    {stack.label}
-                  </div>
-                  <div className={styles.techTags}>
-                    {stack.items.map(item => (
-                      <span key={item} className={styles.techTag} style={{ borderColor: `${stack.color}30`, background: `${stack.color}08`, color: stack.color }}>
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Timeline ── */}
-          <section className={styles.section} id="timeline">
-            <SectionHeader icon={Calendar} title="타임라인" id="timeline-h" />
-            <div className={styles.timeline}>
-              {prd.timeline.phases.map((phase, i) => (
-                <div key={i} className={styles.timelineItem}>
-                  <div className={styles.timelineLeft}>
-                    <div className={styles.timelineNode}>
-                      <span>{i + 1}</span>
-                    </div>
-                    {i < prd.timeline.phases.length - 1 && <div className={styles.timelineLine} />}
-                  </div>
-                  <div className={styles.timelineContent}>
-                    <div className={styles.timelineHeader}>
-                      <span className={styles.timelinePhase}>{phase.phase}</span>
-                      <span className={styles.timelineName}>{phase.name}</span>
-                      <span className={styles.timelineDuration}>
-                        <Clock size={12} />
-                        {phase.duration}
-                      </span>
-                    </div>
-                    <div className={styles.timelineTasks}>
-                      {phase.tasks.map((task, j) => (
-                        <span key={j} className={styles.timelineTask}>
-                          <Circle size={6} fill="currentColor" />
-                          {task}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Metrics ── */}
-          <section className={styles.section} id="metrics">
-            <SectionHeader icon={TrendingUp} title="성공 지표" id="metrics-h" />
-            <div className={styles.metricsGrid}>
-              {prd.metrics.map((m, i) => (
-                <div key={i} className={styles.metricCard}>
-                  <div className={styles.metricTarget}>{m.target}</div>
-                  <div className={styles.metricName}>{m.name}</div>
-                  <div className={styles.metricTimeframe}>
-                    <Clock size={11} />
-                    {m.timeframe}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Risks ── */}
-          <section className={styles.section} id="risks">
-            <SectionHeader icon={Shield} title="리스크" id="risks-h" />
-            <div className={styles.risksList}>
-              {prd.risks.map((r, i) => (
-                <div key={i} className={styles.riskItem}>
-                  <div className={`${styles.riskLevel} ${RISK_STYLE[r.level] || ''}`}>
-                    {r.level.toUpperCase()}
-                  </div>
-                  <div className={styles.riskBody}>
-                    <div className={styles.riskTitle}>{r.title}</div>
-                    <div className={styles.riskMitigation}>
-                      <ArrowUpRight size={13} />
-                      {r.mitigation}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-            </>
-          )}
-
-          {/* Footer */}
-          <footer className={styles.docFooter}>
-            <div className={styles.docFooterLogo}>
-              <Sparkles size={16} />
-              {hasRealPrd ? '팀 PRD' : 'AI PRD Generator'}
-            </div>
-            <p className={styles.docFooterText}>
-              {hasRealPrd
-                ? '팀·이해관계자 검토를 위해 공유될 수 있는 요약 문서입니다. 실행 환경에 따라 미리보기는 달라질 수 있습니다.'
-                : '이 문서는 AI에 의해 자동 생성되었습니다. 실제 개발 전 팀 리뷰를 권장합니다.'}
-            </p>
-          </footer>
-        </main>
       </div>
     </div>
   )
