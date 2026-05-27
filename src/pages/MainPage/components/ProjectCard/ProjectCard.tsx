@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Star, Sparkles } from 'lucide-react'
+import { Star } from 'lucide-react'
 import styles from './ProjectCard.module.css'
 
 export interface ProjectCardProps {
@@ -217,7 +217,6 @@ export default function ProjectCard({ id, thumbnailUrl, previewItems, title, las
             type="button"
             title="PRD 생성"
           >
-            <Sparkles size={13} />
             <span>PRD</span>
           </button>
         )}

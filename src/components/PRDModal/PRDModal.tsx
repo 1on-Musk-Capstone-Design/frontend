@@ -11,6 +11,7 @@ import { usePRDModal } from '../../context/PRDModalContext'
 import { PrdCompletionPanel } from '../prd/PrdCompletionPanel'
 import { PrdMarkdownBody } from '../prd/PrdMarkdownBody'
 import { API_BASE_URL } from '../../config/api'
+import { type PRDData } from '../../pages/PRDResultPage/PRDResultPage'
 import styles from './PRDModal.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,6 +56,23 @@ const DEMO_CARDS: Omit<IdeaCard, 'selected'>[] = [
   { id: 'demo-5', text: '캔버스 히스토리(실행 취소/다시 실행)를 지원해야 한다' },
   { id: 'demo-6', text: '완성된 캔버스를 PNG/PDF로 내보낼 수 있어야 한다' },
 ]
+
+function toPRDData(result: PRDResult): PRDData {
+  return {
+    projectName: result.projectName,
+    idea: result.cards.join('\n\n'),
+    targetUsers: '프로젝트 팀원',
+    features: result.cards.map(c => c.split(/[.。\n]/)[0].trim().slice(0, 30)).filter(Boolean),
+    techStack: '',
+    timeline: '',
+    template: 'standard',
+    generatedAt: result.generatedAt,
+    prdMarkdown: result.prdMarkdown,
+    vercelPreviewUrl: result.vercelPreviewUrl,
+    vercelProductionUrl: result.vercelProductionUrl,
+    githubRepoUrl: result.githubRepoUrl,
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -514,6 +532,7 @@ export default function PRDModal() {
                       prdViewUrl: result.prdViewUrl,
                       prdViewPath: result.prdViewPath,
                     }}
+                    prdData={toPRDData(result)}
                   />
                 )}
                 <div className={styles.tabBar}>

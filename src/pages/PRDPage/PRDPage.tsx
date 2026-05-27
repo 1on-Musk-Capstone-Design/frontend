@@ -10,8 +10,13 @@ import {
 import axios from 'axios'
 import Sidebar from '../MainPage/components/Sidebar/Sidebar'
 import { PrdCompletionPanel } from '../../components/prd/PrdCompletionPanel'
-import { PrdMarkdownBody } from '../../components/prd/PrdMarkdownBody'
 import { API_BASE_URL } from '../../config/api'
+import {
+  PRDTabContent,
+  SpecTabContent,
+  FlowTabContent,
+  type PRDData,
+} from '../PRDResultPage/PRDResultPage'
 import styles from './PRDPage.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -318,6 +323,7 @@ function FlowTab({ result }: { result: PRDResult }) {
         <div className={styles.prdSectionHead}>
           <GitBranch size={16} />
           <span>유저플로우</span>
+          
         </div>
         <div className={styles.flowList}>
           {flowSteps.map((s, i) => (
@@ -343,6 +349,23 @@ function FlowTab({ result }: { result: PRDResult }) {
       </div>
     </div>
   )
+}
+
+function toPRDData(result: PRDResult): PRDData {
+  return {
+    projectName: result.projectName,
+    idea: result.cards.join('\n\n'),
+    targetUsers: '프로젝트 팀원',
+    features: result.cards.map(c => c.split(/[.。\n]/)[0].trim().slice(0, 30)).filter(Boolean),
+    techStack: '',
+    timeline: '',
+    template: 'standard',
+    generatedAt: result.generatedAt,
+    prdMarkdown: result.prdMarkdown,
+    vercelPreviewUrl: result.vercelPreviewUrl,
+    vercelProductionUrl: result.vercelProductionUrl,
+    githubRepoUrl: result.githubRepoUrl,
+  }
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -640,7 +663,6 @@ export default function PRDPage() {
                   </>
                 ) : (
                   <>
-                    <Sparkles size={17} />
                     PRD 생성하기
                     <ArrowRight size={15} />
                   </>
@@ -677,6 +699,7 @@ export default function PRDPage() {
                       prdViewUrl: result.prdViewUrl,
                       prdViewPath: result.prdViewPath,
                     }}
+                    prdData={toPRDData(result)}
                   />
                 )}
                 {/* Tab bar */}
@@ -705,9 +728,9 @@ export default function PRDPage() {
                 </div>
 
                 {/* Tab content */}
-                {activeTab === 'prd' && <PRDTab result={result} />}
-                {activeTab === 'spec' && <SpecTab result={result} />}
-                {activeTab === 'flow' && <FlowTab result={result} />}
+                {activeTab === 'prd' && <PRDTabContent data={toPRDData(result)} />}
+                {activeTab === 'spec' && <SpecTabContent data={toPRDData(result)} />}
+                {activeTab === 'flow' && <FlowTabContent data={toPRDData(result)} />}
               </div>
             )}
           </div>

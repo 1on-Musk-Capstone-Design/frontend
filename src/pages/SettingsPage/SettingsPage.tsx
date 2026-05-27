@@ -4,6 +4,22 @@ import Sidebar from '../MainPage/components/Sidebar/Sidebar';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api';
 import Toast, { ToastType } from '../../components/Toast/Toast';
+import toggleStyles from './SettingsPage.module.css';
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div
+      className={`${toggleStyles.toggleWrap} ${checked ? toggleStyles.toggleOn : ''}`}
+      onClick={() => onChange(!checked)}
+      role="switch"
+      aria-checked={checked}
+      tabIndex={0}
+      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onChange(!checked)}
+    >
+      <span className={toggleStyles.toggleKnob} />
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   // 초기 상태를 localStorage에서 먼저 읽어오기 (즉시 표시)
@@ -32,25 +48,6 @@ export default function SettingsPage() {
   const [marketing, setMarketing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-
-  const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
-    <div
-      className={`w-11 h-6 flex items-center rounded-full cursor-pointer transition-colors duration-200 ${
-        checked ? "bg-green-500" : "bg-gray-300"
-      }`}
-      onClick={() => onChange(!checked)}
-      role="switch"
-      aria-checked={checked}
-      tabIndex={0}
-      onKeyDown={e => (e.key === "Enter" || e.key === " ") && onChange(!checked)}
-    >
-      <div
-        className={`w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-          checked ? "translate-x-5" : "translate-x-1"
-        }`}
-      />
-    </div>
-  );
 
   // 사용자 데이터 동기화: Google OAuth 로그인 후 로컬 스토리지에 저장된 정보를 초기값으로 사용
   // userName, userEmail은 CallbackPage에서 저장됨. photoURL은 없을 수 있어 폴백 처리.
@@ -133,13 +130,13 @@ export default function SettingsPage() {
             {/* Profile Summary Card */}
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               {/* Cover */}
-              <div className="h-32 bg-gradient-to-r from-emerald-200 to-teal-300" />
+              <div className="h-32" style={{ background: 'linear-gradient(to right, #a7f3b0, #6ee7b7)' }} />
               {/* Content */}
               <div className="p-6 text-center">
                 <div className="flex flex-col items-center -mt-12">
                   {isUserLoading ? (
                     <div className="w-28 h-28 rounded-full bg-white shadow ring-2 ring-white flex items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-gray-200 border-t-emerald-500 rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: '#01cd15' }} />
                     </div>
                   ) : photoURL && !imageError ? (
                     <img
@@ -226,7 +223,7 @@ export default function SettingsPage() {
                         type="text"
                         value={nickname}
                         onChange={e => setNickname(e.target.value)}
-                        className="w-full h-11 pl-9 pr-4 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-300 transition text-gray-900"
+                        className="w-full h-11 pl-9 pr-4 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#01cd15]/30 focus:border-[#01cd15] transition text-gray-900"
                         placeholder="닉네임을 입력하세요"
                       />
                     </div>
@@ -239,7 +236,7 @@ export default function SettingsPage() {
                         type="text"
                         value={bio}
                         onChange={e => setBio(e.target.value)}
-                        className="w-full h-11 pl-9 pr-4 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-300 transition text-gray-900"
+                        className="w-full h-11 pl-9 pr-4 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#01cd15]/30 focus:border-[#01cd15] transition text-gray-900"
                         placeholder="자기소개를 입력하세요"
                       />
                     </div>
@@ -247,7 +244,7 @@ export default function SettingsPage() {
                   <div className="pt-3 flex justify-end">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center h-10 px-6 rounded-lg text-white text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: '#01cd15' }} onMouseEnter={e => (e.currentTarget.style.background='#00b312')} onMouseLeave={e => (e.currentTarget.style.background='#01cd15')}
                       onClick={async () => {
                         try {
                           const accessToken = localStorage.getItem('accessToken');
@@ -336,7 +333,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <button type="button" className="h-10 px-4 rounded-lg border border-emerald-400 text-emerald-600 font-medium hover:bg-emerald-50 transition">계정 전환</button>
+                    <button type="button" className="h-10 px-4 rounded-lg border font-medium transition" style={{ borderColor: '#01cd15', color: '#01cd15' }} onMouseEnter={e => (e.currentTarget.style.background='#f0fdf4')} onMouseLeave={e => (e.currentTarget.style.background='')}>계정 전환</button>
                     <button type="button" className="text-red-500 text-sm hover:underline">로그아웃</button>
                   </div>
                 </div>

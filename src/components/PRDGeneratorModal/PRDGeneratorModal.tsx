@@ -10,6 +10,7 @@ import axios from 'axios'
 import { PrdCompletionPanel } from '../prd/PrdCompletionPanel'
 import { PrdMarkdownBody } from '../prd/PrdMarkdownBody'
 import { API_BASE_URL } from '../../config/api'
+import { type PRDData } from '../../pages/PRDResultPage/PRDResultPage'
 import styles from './PRDGeneratorModal.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,6 +59,23 @@ function makePRD(projectName: string, cards: string[]) {
     { step: cards.length + 3, actor: '시스템', action: '결과 저장 및 알림', result: '완료 상태 반영' },
   ]
   return { features, flowSteps }
+}
+
+function toPRDData(result: PRDResult): PRDData {
+  return {
+    projectName: result.projectName,
+    idea: result.cards.join('\n\n'),
+    targetUsers: '프로젝트 팀원',
+    features: result.cards.map(c => c.split(/[.。\n]/)[0].trim().slice(0, 30)).filter(Boolean),
+    techStack: '',
+    timeline: '',
+    template: 'standard',
+    generatedAt: result.generatedAt,
+    prdMarkdown: result.prdMarkdown,
+    vercelPreviewUrl: result.vercelPreviewUrl,
+    vercelProductionUrl: result.vercelProductionUrl,
+    githubRepoUrl: result.githubRepoUrl,
+  }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -453,6 +471,7 @@ export default function PRDGeneratorModal({ isOpen, workspaceId, projectName, on
                       prdViewUrl: result.prdViewUrl,
                       prdViewPath: result.prdViewPath,
                     }}
+                    prdData={toPRDData(result)}
                   />
                 )}
                 <div className={styles.tabBar}>

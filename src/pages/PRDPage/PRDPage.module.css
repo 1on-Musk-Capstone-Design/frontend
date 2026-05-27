@@ -272,7 +272,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #22c55e;
+  background: #01cd15;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -283,7 +283,7 @@
 }
 
 .generateBtn:hover:not(:disabled) {
-  background: #16a34a;
+  background: #00b312;
   transform: translateY(-1px);
 }
 

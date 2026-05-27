@@ -12,7 +12,7 @@ import styles from './PRDResultPage.module.css'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-interface PRDData {
+export interface PRDData {
   projectName: string
   idea: string
   targetUsers: string
@@ -127,7 +127,7 @@ function SubRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function PRDTabContent({ data }: { data: PRDData }) {
+export function PRDTabContent({ data }: { data: PRDData }) {
   const { features } = makeSpec(data)
   const cards = data.prdMarkdown ? extractCardsFromMarkdown(data.prdMarkdown) : []
   const oneLiner = cards[0] || (data.idea ? data.idea.split(/[.。\n]/)[0].replace(/^#+\s*/, '').trim().slice(0, 80) : '')
@@ -172,7 +172,7 @@ function PRDTabContent({ data }: { data: PRDData }) {
   )
 }
 
-function SpecTabContent({ data }: { data: PRDData }) {
+export function SpecTabContent({ data }: { data: PRDData }) {
   const { features } = makeSpec(data)
   return (
     <div className={styles.tabContent}>
@@ -207,7 +207,7 @@ function SpecTabContent({ data }: { data: PRDData }) {
   )
 }
 
-function FlowTabContent({ data }: { data: PRDData }) {
+export function FlowTabContent({ data }: { data: PRDData }) {
   const { flowSteps } = makeSpec(data)
   return (
     <div className={styles.tabContent}>

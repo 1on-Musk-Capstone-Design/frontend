@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
-import { ExternalLink, Copy, Check, RefreshCw, Globe } from 'lucide-react'
-import { API_BASE_URL } from '../../config/api'
+import { useState } from 'react'
+import { ExternalLink, Copy, Check, Globe, FileText, Layers, GitBranch } from 'lucide-react'
+import {
+  PRDTabContent,
+  SpecTabContent,
+  FlowTabContent,
+  type PRDData,
+} from '../../pages/PRDResultPage/PRDResultPage'
 import styles from './PrdCompletionPanel.module.css'
 
 export type PrdCompletionInfo = {
@@ -12,8 +16,17 @@ export type PrdCompletionInfo = {
   prdViewPath?: string
 }
 
+type TabId = 'prd' | 'spec' | 'flow'
+
+const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
+  { id: 'prd', label: 'PRD', icon: FileText },
+  { id: 'spec', label: '기능명세서', icon: Layers },
+  { id: 'flow', label: '유저플로우', icon: GitBranch },
+]
+
 type Props = {
   info: PrdCompletionInfo | null
+  prdData?: PRDData
 }
 
 function buildOpenUrl(info: PrdCompletionInfo | null): string | null {
@@ -31,49 +44,11 @@ function buildOpenUrl(info: PrdCompletionInfo | null): string | null {
   return null
 }
 
-export function PrdCompletionPanel({ info }: Props) {
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
-  const [previewError, setPreviewError] = useState<string | null>(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
+export function PrdCompletionPanel({ info, prdData }: Props) {
   const [copied, setCopied] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabId>('prd')
 
   const openUrl = buildOpenUrl(info)
-
-  const loadPreview = useCallback(async () => {
-    if (info?.workspaceId == null || info?.jobId == null) {
-      setPreviewHtml(null)
-      setPreviewError('워크스페이스·작업 ID가 없어 프리뷰를 불러올 수 없습니다.')
-      return
-    }
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      setPreviewError('로그인이 필요해 프리뷰를 불러올 수 없습니다.')
-      return
-    }
-    setLoadingPreview(true)
-    setPreviewError(null)
-    try {
-      const { data } = await axios.get(
-        `${API_BASE_URL}/v1/workspaces/${info.workspaceId}/prds/${info.jobId}/preview`,
-        { headers: { Authorization: `Bearer ${token}` }, responseType: 'text' }
-      )
-      setPreviewHtml(typeof data === 'string' ? data : null)
-    } catch {
-      setPreviewHtml(null)
-      setPreviewError('미리보기를 불러오지 못했습니다. 잠시 후 새로고침 해 보세요.')
-    } finally {
-      setLoadingPreview(false)
-    }
-  }, [info?.workspaceId, info?.jobId])
-
-  useEffect(() => {
-    if (info?.workspaceId != null && info?.jobId != null) {
-      void loadPreview()
-    } else {
-      setPreviewHtml(null)
-      setPreviewError(null)
-    }
-  }, [info?.workspaceId, info?.jobId, loadPreview])
 
   if (!info || (openUrl == null && info.workspaceId == null)) {
     return null
@@ -114,33 +89,29 @@ export function PrdCompletionPanel({ info }: Props) {
         </div>
       )}
 
-      <div className={styles.previewHead}>
-        <span className={styles.previewLabel}>화면 미리보기</span>
-        <button
-          type="button"
-          className={styles.ghostBtn}
-          onClick={() => void loadPreview()}
-          disabled={loadingPreview}
-        >
-          <RefreshCw size={14} className={loadingPreview ? styles.spin : ''} />
-          새로고침
-        </button>
-      </div>
-      {loadingPreview && !previewHtml && !previewError && (
-        <div className={styles.previewLoading}>프리뷰 불러오는 중…</div>
-      )}
-      {previewHtml && (
-        <div className={styles.iframeShell}>
-          <iframe
-            title="prototype-preview"
-            srcDoc={previewHtml}
-            sandbox="allow-scripts allow-same-origin"
-            className={styles.iframe}
-          />
+      {prdData && (
+        <div className={styles.previewCard}>
+          <div className={styles.previewTabBar}>
+            {TABS.map(tab => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  className={`${styles.previewTabBtn} ${activeTab === tab.id ? styles.previewTabBtnActive : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <Icon size={13} />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className={styles.previewTabContent}>
+            {activeTab === 'prd' && <PRDTabContent data={prdData} />}
+            {activeTab === 'spec' && <SpecTabContent data={prdData} />}
+            {activeTab === 'flow' && <FlowTabContent data={prdData} />}
+          </div>
         </div>
-      )}
-      {previewError && (
-        <div className={styles.previewError}>{previewError}</div>
       )}
     </div>
   )
