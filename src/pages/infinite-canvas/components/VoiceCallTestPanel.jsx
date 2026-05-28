@@ -381,9 +381,11 @@ export default function VoiceCallTestPanel({
           style={{
             marginTop: 4,
             width: '100%',
-            height: 8,
+            height: 10,
             borderRadius: 999,
-            background: '#e5e7eb',
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             overflow: 'hidden'
           }}
         >
@@ -392,7 +394,7 @@ export default function VoiceCallTestPanel({
               width: `${micLevel}%`,
               height: '100%',
               borderRadius: 999,
-              background: 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)',
+              background: 'linear-gradient(90deg, #b6e4c7 0%, #22c55e 60%, #e5e7eb 100%)',
               transition: 'width 120ms ease'
             }}
           />

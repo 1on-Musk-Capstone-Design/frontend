@@ -70,49 +70,33 @@ export default function LoginForm() {
   const containerStyle = {
     display: "flex",
     flexDirection: "column",
-    gap: 24,
-  };
-
-  const titleStyle = {
-    fontSize: 28,
-    fontWeight: 800,
-    color: "#2c3e50",
-    textAlign: "center",
-    margin: 0,
-    marginBottom: 4,
-  };
-
-  const subtitleStyle = {
-    fontSize: 15,
-    color: "#7f8c8d",
-    textAlign: "center",
-    margin: 0,
-    fontWeight: 500,
+    alignItems: "center",
+    gap: 0,
   };
 
 const buttonStyle = {
-  width: "100%",
-  height: 52,
+  width: "min(300px, 100%)",
+  height: 54,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 12,
   fontSize: 16,
-  fontWeight: 600,
-  borderRadius: 8,
-  border: "2px solid #34495e",
+  fontWeight: 700,
+  borderRadius: 12,
+  border: "1px solid #b8c4bc",
   cursor: isLoading ? "not-allowed" : "pointer",
-  background: "#ffffff",
-  color: "#2c3e50",
-  transition: "all 0.3s ease",
-  boxShadow: "0 3px 8px rgba(0,0,0,0.12)",
+  background: "linear-gradient(180deg, #ffffff 0%, #eef2ef 100%)",
+  color: "#2b3b32",
+  transition: "all 0.24s ease",
+  boxShadow: "0 8px 20px rgba(35, 52, 43, 0.12)",
 };
 
   const spinnerStyle = {
     width: 20,
     height: 20,
-    border: "2px solid rgba(255,255,255,0.3)",
-    borderTop: "2px solid white",
+    border: "2px solid rgba(23,63,36,0.2)",
+    borderTop: "2px solid #0f8a1f",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   };
@@ -124,29 +108,47 @@ const buttonStyle = {
 
   return (
     <div style={containerStyle}>
-      <div>
-        <h2 style={titleStyle}>로그인</h2>
-        <p style={subtitleStyle}>구글 계정으로 계속하세요</p>
-      </div>
-
       <button
         onClick={onGoogleLogin}
         disabled={isLoading}
         style={buttonStyle}
          onMouseEnter={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "#e9ecef"; 
-            e.currentTarget.style.color = "#2c3e50";
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)"; 
+            e.currentTarget.style.background = "linear-gradient(180deg, #f2f6f3 0%, #dfe8e2 100%)";
+            e.currentTarget.style.borderColor = "#829587";
+            e.currentTarget.style.color = "#23352b";
+            e.currentTarget.style.transform = "translateY(-2px) scale(1.01)";
+            e.currentTarget.style.boxShadow = "0 14px 28px rgba(35, 52, 43, 0.22), 0 0 0 1px rgba(255,255,255,0.65) inset";
+            const icon = e.currentTarget.querySelector('svg');
+            if (icon) {
+              icon.style.transform = 'scale(1.08) rotate(-4deg)';
+              icon.style.transition = 'transform 0.2s ease';
+            }
           }
         }}
          onMouseLeave={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "#ffffff"; 
-            e.currentTarget.style.color = "#2c3e50";
+            e.currentTarget.style.background = "linear-gradient(180deg, #ffffff 0%, #eef2ef 100%)";
+            e.currentTarget.style.borderColor = "#b8c4bc";
+            e.currentTarget.style.color = "#2b3b32";
             e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.12)"; 
+            e.currentTarget.style.boxShadow = "0 8px 20px rgba(35, 52, 43, 0.12)";
+            const icon = e.currentTarget.querySelector('svg');
+            if (icon) {
+              icon.style.transform = 'scale(1) rotate(0deg)';
+            }
+          }
+        }}
+        onMouseDown={(e) => {
+          if (!isLoading) {
+            e.currentTarget.style.transform = "translateY(0) scale(0.995)";
+            e.currentTarget.style.boxShadow = "0 5px 12px rgba(35, 52, 43, 0.16)";
+          }
+        }}
+        onMouseUp={(e) => {
+          if (!isLoading) {
+            e.currentTarget.style.transform = "translateY(-2px) scale(1.01)";
+            e.currentTarget.style.boxShadow = "0 14px 28px rgba(35, 52, 43, 0.22), 0 0 0 1px rgba(255,255,255,0.65) inset";
           }
         }}
       >
@@ -180,7 +182,7 @@ const buttonStyle = {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span>구글로 로그인하기</span>
+            <span>Google 로그인</span>
           </>
         )}
       </button>
