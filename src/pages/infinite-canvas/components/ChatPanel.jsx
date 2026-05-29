@@ -1,6 +1,77 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import axios from 'axios';
 import ChatMenu from './ChatMenu';
 import ChatView from './ChatView';
+import { useVoiceSFU } from '../hooks/useVoiceSFU';
+import { API_BASE_URL } from '../../../config/api';
+
+const VOICE_MEMBER_REFRESH_INTERVAL_MS = 1000;
+
+function RemoteVoiceAudio({ producerId, stream, muted, outputDeviceId, onLevel }) {
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.srcObject = stream || null;
+    audioRef.current.muted = Boolean(muted);
+    audioRef.current.volume = muted ? 0 : 1;
+
+    if (typeof audioRef.current.setSinkId === 'function' && outputDeviceId) {
+      audioRef.current.setSinkId(outputDeviceId).catch((err) => {
+        console.warn('[ChatPanel] output device switch failed', err);
+      });
+    }
+
+    if (stream && !muted) {
+      audioRef.current.play().catch((err) => {
+        if (err?.name !== 'AbortError') {
+          console.warn('[ChatPanel] remote voice autoplay blocked', err);
+        }
+      });
+    }
+  }, [stream, muted, outputDeviceId]);
+
+  useEffect(() => {
+    if (!stream || !onLevel) return undefined;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return undefined;
+
+    let disposed = false;
+    let animationId = null;
+    const audioContext = new AudioContextClass();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.86;
+    const source = audioContext.createMediaStreamSource(stream);
+    const data = new Uint8Array(analyser.fftSize);
+    source.connect(analyser);
+
+    const tick = () => {
+      if (disposed) return;
+      analyser.getByteTimeDomainData(data);
+      let total = 0;
+      for (let index = 0; index < data.length; index += 1) {
+        const normalized = (data[index] - 128) / 128;
+        total += normalized * normalized;
+      }
+      onLevel(producerId, Math.sqrt(total / data.length));
+      animationId = requestAnimationFrame(tick);
+    };
+
+    tick();
+
+    return () => {
+      disposed = true;
+      if (animationId) cancelAnimationFrame(animationId);
+      source.disconnect();
+      audioContext.close().catch(() => {});
+      onLevel(producerId, 0);
+    };
+  }, [producerId, stream, onLevel]);
+
+  return <audio ref={audioRef} autoPlay playsInline />;
+}
 
 const ChatPanel = ({ 
   messages = [], 
@@ -77,6 +148,244 @@ const ChatPanel = ({
   const speakingSourceRef = useRef(null);
   const speakingAnimationRef = useRef(null);
   const lastSpeakingAtRef = useRef(0);
+  const joinedVoiceSessionRef = useRef(null);
+  const [activeVoiceSessionId, setActiveVoiceSessionId] = useState(null);
+  const [isVoiceSessionReady, setIsVoiceSessionReady] = useState(false);
+  const [voiceSessionError, setVoiceSessionError] = useState('');
+  const [shouldStartSfuVoice, setShouldStartSfuVoice] = useState(false);
+  const [inputDevices, setInputDevices] = useState([{ deviceId: 'default', label: '기본 마이크' }]);
+  const [outputDevices, setOutputDevices] = useState([{ deviceId: 'default', label: '기본 출력' }]);
+  const [selectedInputDeviceId, setSelectedInputDeviceId] = useState(
+    localStorage.getItem('voice-input-device-id') || 'default'
+  );
+  const [selectedOutputDeviceId, setSelectedOutputDeviceId] = useState(
+    localStorage.getItem('voice-output-device-id') || 'default'
+  );
+  const [remoteVoiceLevels, setRemoteVoiceLevels] = useState({});
+  const [voiceSessionIdsByChannel, setVoiceSessionIdsByChannel] = useState({});
+  const currentVoiceUserId = useMemo(() => {
+    const storedEmail = localStorage.getItem('userEmail');
+    const byEmail = storedEmail
+      ? participants.find((participant) => participant.email && participant.email === storedEmail)
+      : null;
+    if (byEmail?.id) return byEmail.id;
+
+    const byName = currentUserName
+      ? participants.find((participant) => participant.name && participant.name === currentUserName)
+      : null;
+    const resolvedId = byName?.id || currentUserId || localStorage.getItem('userId');
+    if (resolvedId && Number.isFinite(Number(resolvedId))) {
+      return resolvedId;
+    }
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? '1'
+      : resolvedId;
+  }, [currentUserId, currentUserName, participants]);
+
+  const sfuVoice = useVoiceSFU({
+    workspaceId,
+    sessionId: activeVoiceSessionId,
+    workspaceUserId: currentVoiceUserId,
+    inputDeviceId: selectedInputDeviceId
+  });
+
+  const normalizeDeviceLabel = (label, fallback) => {
+    if (!label) return fallback;
+    return label
+      .replace(/^Default\s*-\s*/i, '')
+      .replace(/^기본값?\s*-\s*/i, '')
+      .trim() || fallback;
+  };
+
+  const refreshMediaDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const makeLabel = (device, fallback, index) => (
+        normalizeDeviceLabel(device.label, `${fallback} ${index + 1}`)
+      );
+      const isVirtualDefaultDevice = (device) => {
+        const id = String(device.deviceId || '').toLowerCase();
+        const label = String(device.label || '').toLowerCase();
+        return id === 'default'
+          || id === 'communications'
+          || label.includes('communications')
+          || label.includes('communication')
+          || label.includes('커뮤니케이션');
+      };
+      const dedupeDevices = (items) => {
+        const seen = new Set();
+        return items.filter((device) => {
+          const key = device.label.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      };
+      const nextInputs = dedupeDevices(devices
+        .filter((device) => device.kind === 'audioinput')
+        .filter((device) => !isVirtualDefaultDevice(device))
+        .map((device, index) => ({
+          deviceId: device.deviceId,
+          label: makeLabel(device, '마이크', index)
+        })));
+      const nextOutputs = dedupeDevices(devices
+        .filter((device) => device.kind === 'audiooutput')
+        .filter((device) => !isVirtualDefaultDevice(device))
+        .map((device, index) => ({
+          deviceId: device.deviceId,
+          label: makeLabel(device, '스피커', index)
+        })));
+      const fallbackInputs = nextInputs.length ? nextInputs : [{ deviceId: 'default', label: '마이크' }];
+      const fallbackOutputs = nextOutputs.length ? nextOutputs : [{ deviceId: 'default', label: '스피커' }];
+
+      setInputDevices(fallbackInputs);
+      setOutputDevices(fallbackOutputs);
+      setSelectedInputDeviceId((prev) => (
+        fallbackInputs.some((device) => device.deviceId === prev) ? prev : fallbackInputs[0].deviceId
+      ));
+      setSelectedOutputDeviceId((prev) => (
+        fallbackOutputs.some((device) => device.deviceId === prev) ? prev : fallbackOutputs[0].deviceId
+      ));
+    } catch (err) {
+      console.warn('[ChatPanel] media device list failed', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshMediaDevices();
+    if (!navigator.mediaDevices?.addEventListener) return undefined;
+
+    navigator.mediaDevices.addEventListener('devicechange', refreshMediaDevices);
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', refreshMediaDevices);
+    };
+  }, [refreshMediaDevices]);
+
+  useEffect(() => {
+    localStorage.setItem('voice-input-device-id', selectedInputDeviceId);
+  }, [selectedInputDeviceId]);
+
+  useEffect(() => {
+    localStorage.setItem('voice-output-device-id', selectedOutputDeviceId);
+  }, [selectedOutputDeviceId]);
+
+  const handleSelectInputDevice = useCallback(async (deviceId) => {
+    setSelectedInputDeviceId(deviceId || 'default');
+    if (sfuVoice.isInCall) {
+      await sfuVoice.leaveCall?.();
+      setIsVoiceSessionReady(true);
+      setShouldStartSfuVoice(true);
+    }
+  }, [sfuVoice]);
+
+  const handleSelectOutputDevice = useCallback((deviceId) => {
+    setSelectedOutputDeviceId(deviceId || 'default');
+  }, []);
+
+  const handleRemoteVoiceLevel = useCallback((producerId, level) => {
+    setRemoteVoiceLevels((prev) => {
+      const roundedLevel = Math.round(level * 1000) / 1000;
+      if (prev[producerId] === roundedLevel) return prev;
+      return { ...prev, [producerId]: roundedLevel };
+    });
+  }, []);
+
+  const remoteVoiceParticipants = useMemo(() => {
+    const remotePeerIds = Object.values(sfuVoice.remoteProducerMeta || {})
+      .map((meta) => String(meta.producerPeerId || ''))
+      .filter(Boolean);
+
+    return [...new Set(remotePeerIds)].map((peerId) => {
+      const matched = participants.find((participant) => String(participant.id) === peerId);
+      if (matched) return matched;
+
+      const level = Object.entries(sfuVoice.remoteProducerMeta || {}).reduce((max, [producerId, meta]) => (
+        String(meta.producerPeerId) === peerId ? Math.max(max, Number(remoteVoiceLevels[producerId] || 0)) : max
+      ), 0);
+
+      return {
+        id: peerId,
+        name: `사용자 ${peerId}`,
+        userName: `사용자 ${peerId}`,
+        audioLevel: level
+      };
+    });
+  }, [participants, remoteVoiceLevels, sfuVoice.remoteProducerMeta]);
+
+  const getOpenVoiceSessions = useCallback(async () => {
+    if (!workspaceId) return [];
+
+    const accessToken = localStorage.getItem('accessToken');
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    const sessionsRes = await axios.get(
+      `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`,
+      { headers }
+    );
+    return (Array.isArray(sessionsRes.data) ? sessionsRes.data : [])
+      .filter((session) => !session.endedAt)
+      .sort((a, b) => {
+        const aId = Number(a.id ?? a.voiceSessionId ?? 0);
+        const bId = Number(b.id ?? b.voiceSessionId ?? 0);
+        if (aId && bId) return aId - bId;
+        const aTime = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+        const bTime = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+        return aTime - bTime;
+      });
+  }, [workspaceId]);
+
+  const refreshVoiceMembers = useCallback(async () => {
+    if (!workspaceId) return;
+
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+      const sessions = await getOpenVoiceSessions();
+      const nextSessionMap = {};
+      const nextMembersMap = new Map();
+
+      await Promise.all(voiceChannels.map(async (channel, index) => {
+        const sessionId = Number(sessions[index]?.id ?? sessions[index]?.voiceSessionId);
+        if (!Number.isFinite(sessionId)) {
+          nextMembersMap.set(channel.id, []);
+          return;
+        }
+
+        nextSessionMap[channel.id] = sessionId;
+        const usersRes = await axios.get(
+          `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice/${sessionId}/users`,
+          { headers }
+        );
+        const activeUsers = (Array.isArray(usersRes.data) ? usersRes.data : [])
+          .filter((user) => user.active !== false && !user.leftAt)
+          .map((user) => {
+            const id = user.workspaceUserId;
+            const matched = participants.find((participant) => String(participant.id) === String(id));
+            return {
+              id,
+              name: matched?.name || matched?.userName || user.workspaceUserName || `사용자 ${id}`,
+              userName: matched?.userName || user.workspaceUserName || `사용자 ${id}`,
+              profileImage: matched?.profileImage || matched?.image || '',
+              audioLevel: matched?.audioLevel || 0,
+              isSpeaking: matched?.isSpeaking || false
+            };
+          });
+        nextMembersMap.set(channel.id, activeUsers);
+      }));
+
+      setVoiceSessionIdsByChannel(nextSessionMap);
+      setVoiceMembersByChannel(nextMembersMap);
+    } catch (err) {
+      console.warn('[ChatPanel] voice members refresh failed', err);
+    }
+  }, [getOpenVoiceSessions, participants, voiceChannels, workspaceId]);
+
+  useEffect(() => {
+    refreshVoiceMembers();
+    const timerId = window.setInterval(refreshVoiceMembers, VOICE_MEMBER_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timerId);
+  }, [refreshVoiceMembers]);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -136,9 +445,13 @@ const ChatPanel = ({
       }
       if (speakingAudioContextRef.current) {
         try {
-          await speakingAudioContextRef.current.close();
+          if (speakingAudioContextRef.current.state !== 'closed') {
+            await speakingAudioContextRef.current.close();
+          }
         } catch (error) {
-          console.warn('오디오 컨텍스트 종료 실패', error);
+          if (error?.name !== 'InvalidStateError') {
+            console.warn('오디오 컨텍스트 종료 실패', error);
+          }
         }
         speakingAudioContextRef.current = null;
       }
@@ -333,6 +646,10 @@ const ChatPanel = ({
 
   const activeChatChannel = chatChannels.find((channel) => channel.id === activeChatChannelId) || chatChannels[0] || initialChatChannels[0];
   const activeVoiceChannel = voiceChannels.find((channel) => channel.id === activeVoiceChannelId) || voiceChannels[0] || initialVoiceChannels[0];
+  const getVoiceChannelIndex = (channelId) => {
+    const index = voiceChannels.findIndex((channel) => channel.id === channelId);
+    return index >= 0 ? index : 0;
+  };
 
   const updateVoiceMembership = (channelId, member, remove = false) => {
     if (!channelId || !member) return;
@@ -347,6 +664,14 @@ const ChatPanel = ({
 
   const toggleVoiceControl = (key) => {
     setVoiceControls((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleVoiceMute = () => {
+    const nextMuted = sfuVoice.toggleMute?.();
+    setVoiceControls((prev) => ({
+      ...prev,
+      muted: typeof nextMuted === 'boolean' ? nextMuted : !prev.muted
+    }));
   };
 
   const toggleInputSettings = () => {
@@ -366,28 +691,190 @@ const ChatPanel = ({
   };
 
 
-  const handleJoinVoice = (channelId = activeVoiceChannelId) => {
-    if (!channelId) return;
-    setIsVoiceActive(true);
-    if (currentUserId) {
-      updateVoiceMembership(channelId, {
-        id: currentUserId,
-        name: currentUserName,
-        profileImage: currentUserImage
-      });
+  const setupVoiceSession = async (channelId = activeVoiceChannelId) => {
+    if (!workspaceId || !currentVoiceUserId) {
+      throw new Error('워크스페이스 또는 사용자 정보가 없습니다.');
     }
+
+    const userId = Number(currentVoiceUserId);
+    if (!Number.isFinite(userId)) {
+      throw new Error('음성 연결에는 숫자형 워크스페이스 사용자 ID가 필요합니다.');
+    }
+
+    const accessToken = localStorage.getItem('accessToken');
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    const openSessions = await getOpenVoiceSessions();
+
+    const channelIndex = getVoiceChannelIndex(channelId);
+    while (openSessions.length <= channelIndex) {
+      const createRes = await axios.post(
+        `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`,
+        {},
+        { headers }
+      );
+      openSessions.push(createRes.data);
+    }
+
+    let sessionId = openSessions[channelIndex]?.id;
+
+    const numericSessionId = Number(sessionId);
+    if (!Number.isFinite(numericSessionId)) {
+      throw new Error('유효한 음성 세션 ID를 확인하지 못했습니다.');
+    }
+
+    const isAlreadyJoined = async () => {
+      const usersRes = await axios.get(
+        `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice/${numericSessionId}/users`,
+        { headers }
+      );
+      const activeUsers = Array.isArray(usersRes.data) ? usersRes.data : [];
+      return activeUsers.some((user) => Number(user.workspaceUserId) === userId);
+    };
+
+    if (!(await isAlreadyJoined())) {
+      try {
+        await axios.post(
+          `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice/${numericSessionId}/users`,
+          { workspaceUserId: userId },
+          { headers }
+        );
+      } catch (joinErr) {
+        const status = joinErr?.response?.status;
+        if (status !== 400 && status !== 403) {
+          throw joinErr;
+        }
+
+        if (!(await isAlreadyJoined())) {
+          throw joinErr;
+        }
+      }
+    }
+
+    joinedVoiceSessionRef.current = numericSessionId;
+    setVoiceSessionIdsByChannel((prev) => ({
+      ...prev,
+      [channelId]: numericSessionId
+    }));
+    setActiveVoiceSessionId(numericSessionId);
+    setIsVoiceSessionReady(true);
+    refreshVoiceMembers();
   };
 
-  const handleLeaveVoice = () => {
+  const leaveVoiceSession = async (channelId = activeVoiceChannelId) => {
+    const sessionId = joinedVoiceSessionRef.current;
+    const userId = Number(currentVoiceUserId);
+
+    try {
+      await sfuVoice.leaveCall?.();
+      if (workspaceId && sessionId && Number.isFinite(userId)) {
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+        await axios.delete(
+          `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice/${sessionId}/users/${userId}`,
+          { headers }
+        );
+      }
+    } catch (err) {
+      console.warn('[ChatPanel] voice leave failed', err);
+    }
+
+    joinedVoiceSessionRef.current = null;
+    setActiveVoiceSessionId(null);
+    setIsVoiceSessionReady(false);
+    setShouldStartSfuVoice(false);
+    setVoiceSessionError('');
     setIsVoiceActive(false);
-    if (currentUserId) {
-      updateVoiceMembership(activeVoiceChannelId, {
-        id: currentUserId
+    if (currentVoiceUserId) {
+      updateVoiceMembership(channelId, {
+        id: currentVoiceUserId
       }, true);
     }
+    refreshVoiceMembers();
   };
 
-  const activeVoiceMembers = voiceMembersByChannel.get(activeVoiceChannelId) || [];
+  const handleJoinVoice = async (channelId = activeVoiceChannelId) => {
+    if (!channelId) return;
+
+    try {
+      setVoiceSessionError('');
+      const previousVoiceChannelId = activeVoiceChannelId;
+      if (isVoiceActive && previousVoiceChannelId && previousVoiceChannelId !== channelId) {
+        await leaveVoiceSession(previousVoiceChannelId);
+      }
+      setActiveVoiceChannelId(channelId);
+      setIsVoiceActive(true);
+      setIsVoiceSessionReady(false);
+
+      if (currentVoiceUserId) {
+        updateVoiceMembership(channelId, {
+          id: currentVoiceUserId,
+          name: currentUserName,
+          profileImage: currentUserImage
+        });
+      }
+
+      await setupVoiceSession(channelId);
+      setShouldStartSfuVoice(true);
+    } catch (err) {
+      console.error('[ChatPanel] voice join failed', err);
+      setVoiceSessionError(err?.response?.data?.message || err?.message || '음성 연결에 실패했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    if (!shouldStartSfuVoice || !isVoiceSessionReady || !activeVoiceSessionId) return;
+
+    setShouldStartSfuVoice(false);
+    if (sfuVoice.isInCall || sfuVoice.callPhase === 'connected') return;
+
+    sfuVoice.startCall().catch((err) => {
+      console.error('[ChatPanel] SFU start failed', err);
+      setVoiceSessionError(err?.response?.data?.message || err?.message || 'SFU 연결에 실패했습니다.');
+    });
+  }, [activeVoiceSessionId, isVoiceSessionReady, sfuVoice, shouldStartSfuVoice]);
+
+  const handleLeaveVoice = async () => {
+    await leaveVoiceSession(activeVoiceChannelId);
+  };
+
+  useEffect(() => () => {
+    if (joinedVoiceSessionRef.current) {
+      handleLeaveVoice();
+    }
+  }, []);
+
+  useEffect(() => {
+    const leaveOnPageHide = () => {
+      const sessionId = joinedVoiceSessionRef.current;
+      const userId = Number(currentVoiceUserId);
+      if (!workspaceId || !sessionId || !Number.isFinite(userId)) return;
+
+      fetch(`${API_BASE_URL}/v1/webrtc/sfu/workspaces/${workspaceId}/sessions/${sessionId}/peers/${userId}`, {
+        method: 'DELETE',
+        keepalive: true
+      }).catch(() => {});
+
+      fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/voice/${sessionId}/users/${userId}`, {
+        method: 'DELETE',
+        keepalive: true
+      }).catch(() => {});
+    };
+
+    window.addEventListener('pagehide', leaveOnPageHide);
+    window.addEventListener('beforeunload', leaveOnPageHide);
+    return () => {
+      window.removeEventListener('pagehide', leaveOnPageHide);
+      window.removeEventListener('beforeunload', leaveOnPageHide);
+    };
+  }, [currentVoiceUserId, workspaceId]);
+
+  const activeVoiceMembers = [
+    ...(voiceMembersByChannel.get(activeVoiceChannelId) || []),
+    ...remoteVoiceParticipants
+  ].filter((participant, index, array) => (
+    array.findIndex((item) => String(item.id) === String(participant.id)) === index
+  ));
+  const voiceMembersByChannelObject = Object.fromEntries(voiceMembersByChannel);
   const speakingUserIds = [];
   participants.forEach((participant) => {
     if (!participant?.id) return;
@@ -397,8 +884,14 @@ const ChatPanel = ({
       speakingUserIds.push(String(participant.id));
     }
   });
-  if (isCurrentUserSpeaking && currentUserId) {
-    speakingUserIds.push(String(currentUserId));
+  Object.entries(sfuVoice.remoteProducerMeta || {}).forEach(([producerId, meta]) => {
+    const level = Number(remoteVoiceLevels[producerId] || 0);
+    if (meta?.producerPeerId && level > 0.025) {
+      speakingUserIds.push(String(meta.producerPeerId));
+    }
+  });
+  if (isCurrentUserSpeaking && currentVoiceUserId) {
+    speakingUserIds.push(String(currentVoiceUserId));
   }
 
   const createChannel = (type) => {
@@ -524,7 +1017,8 @@ const ChatPanel = ({
               onApplyEditChannel={applyEditChannel}
               activeVoiceChannelId={activeVoiceChannelId}
               participants={activeVoiceMembers}
-              currentUserId={currentUserId}
+              participantsByChannel={voiceMembersByChannelObject}
+              currentUserId={currentVoiceUserId}
               projectName={projectName}
               voiceState={{
                 isVoiceActive,
@@ -533,16 +1027,25 @@ const ChatPanel = ({
                 deafened: voiceControls.deafened,
                 settingsOpen: voiceControls.settingsOpen,
                 speakingUserIds,
-                isCurrentUserSpeaking
+                isCurrentUserSpeaking,
+                error: voiceSessionError || sfuVoice.error,
+                callPhase: sfuVoice.callPhase
               }}
               currentUserName={currentUserName}
               currentUserImage={currentUserImage}
-              onToggleMute={() => toggleVoiceControl('muted')}
+              onToggleMute={toggleVoiceMute}
               onToggleDeafen={() => toggleVoiceControl('deafened')}
               onToggleInputSettings={toggleInputSettings}
               onToggleOutputSettings={toggleOutputSettings}
               inputSettingsOpen={voiceControls.inputSettingsOpen}
               outputSettingsOpen={voiceControls.outputSettingsOpen}
+              inputDevices={inputDevices}
+              outputDevices={outputDevices}
+              selectedInputDeviceId={selectedInputDeviceId}
+              selectedOutputDeviceId={selectedOutputDeviceId}
+              onSelectInputDevice={handleSelectInputDevice}
+              onSelectOutputDevice={handleSelectOutputDevice}
+              onRefreshDevices={refreshMediaDevices}
               onLeaveVoice={handleLeaveVoice}
             />
           ) : (
@@ -559,6 +1062,16 @@ const ChatPanel = ({
           )}
         </div>
       </div>
+      {Object.entries(sfuVoice.remoteStreams || {}).map(([producerId, stream]) => (
+        <RemoteVoiceAudio
+          key={producerId}
+          producerId={producerId}
+          stream={stream}
+          muted={voiceControls.deafened}
+          outputDeviceId={selectedOutputDeviceId}
+          onLevel={handleRemoteVoiceLevel}
+        />
+      ))}
     </>
   );
 };

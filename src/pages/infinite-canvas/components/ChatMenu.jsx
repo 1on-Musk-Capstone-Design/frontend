@@ -14,6 +14,7 @@ const ChatMenu = ({
   onApplyEditChannel,
   activeVoiceChannelId,
   participants = [],
+  participantsByChannel = {},
   currentUserId,
   projectName,
   voiceState,
@@ -21,11 +22,16 @@ const ChatMenu = ({
   currentUserImage,
   onToggleMute,
   onToggleDeafen,
+  inputDevices = [{ deviceId: 'default', label: '기본 마이크' }],
+  outputDevices = [{ deviceId: 'default', label: '기본 출력' }],
+  selectedInputDeviceId = 'default',
+  selectedOutputDeviceId = 'default',
+  onSelectInputDevice,
+  onSelectOutputDevice,
+  onRefreshDevices,
   onLeaveVoice
 }) => {
   const [contextMenu, setContextMenu] = useState(null);
-  const [selectedInputDevice, setSelectedInputDevice] = useState('기본 마이크');
-  const [selectedOutputDevice, setSelectedOutputDevice] = useState('기본 출력');
   const [inputVolume, setInputVolume] = useState(80);
   const [outputVolume, setOutputVolume] = useState(70);
   const [deviceModalOpen, setDeviceModalOpen] = useState(false);
@@ -54,8 +60,8 @@ const ChatMenu = ({
     shouldUndeafen: false
   });
 
-  const inputDevices = ['기본 마이크', '외장 마이크'];
-  const outputDevices = ['기본 출력', '스피커', '헤드셋'];
+  const selectedInputDevice = inputDevices.find((device) => device.deviceId === selectedInputDeviceId) || inputDevices[0];
+  const selectedOutputDevice = outputDevices.find((device) => device.deviceId === selectedOutputDeviceId) || outputDevices[0];
   const speakingUserIds = new Set((voiceState?.speakingUserIds || []).map((id) => String(id)));
 
   const isParticipantSpeaking = (participant) => {
@@ -70,7 +76,6 @@ const ChatMenu = ({
     voiceState?.isCurrentUserSpeaking ||
     (currentUserId && speakingUserIds.has(String(currentUserId)))
   );
-
   const getInitials = (name = '') => {
     const trimmed = name.trim();
     if (!trimmed) return 'U';
@@ -107,13 +112,13 @@ const ChatMenu = ({
     closeContextMenu();
   };
 
-  const handleSelectInputDevice = (device) => {
-    setSelectedInputDevice(device);
+  const handleSelectInputDevice = (deviceId) => {
+    onSelectInputDevice?.(deviceId);
     setInputDropdownOpen(false);
   };
 
-  const handleSelectOutputDevice = (device) => {
-    setSelectedOutputDevice(device);
+  const handleSelectOutputDevice = (deviceId) => {
+    onSelectOutputDevice?.(deviceId);
     setOutputDropdownOpen(false);
   };
 
@@ -178,18 +183,26 @@ const ChatMenu = ({
         shouldUndeafen: shouldAutoDeafen
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
+      const audioConstraints = {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false,
+          autoGainControl: true,
           channelCount: 1,
           sampleRate: 48000,
           sampleSize: 16,
           latency: 0
-        },
+      };
+
+      if (selectedInputDeviceId && selectedInputDeviceId !== 'default') {
+        audioConstraints.deviceId = { exact: selectedInputDeviceId };
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
         video: false
       });
+
+      onRefreshDevices?.();
 
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) {
@@ -368,6 +381,25 @@ const ChatMenu = ({
     }
   }, [isMicTesting, inputVolume, outputVolume]);
 
+  useEffect(() => {
+    if (!isMicTesting) return undefined;
+
+    const resumeMicTestContext = () => {
+      if (!document.hidden && micAudioContextRef.current?.state === 'suspended') {
+        micAudioContextRef.current.resume().catch((error) => {
+          console.warn('[ChatMenu] 마이크 테스트 오디오 재개 실패', error);
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', resumeMicTestContext);
+    window.addEventListener('focus', resumeMicTestContext);
+    return () => {
+      document.removeEventListener('visibilitychange', resumeMicTestContext);
+      window.removeEventListener('focus', resumeMicTestContext);
+    };
+  }, [isMicTesting]);
+
   const handleToggleDeafenWithMic = () => {
     if (voiceState?.deafened) {
       if (voiceState?.muted) {
@@ -498,9 +530,11 @@ const ChatMenu = ({
                 </button>
                 <div className="chatMenuActions" />
               </div>
-              {channel.id === activeVoiceChannelId && participants.length > 0 && (
+              {(() => {
+                const channelParticipants = participantsByChannel[channel.id] || (channel.id === activeVoiceChannelId ? participants : []);
+                return channelParticipants.length > 0 && (
                 <div className="voiceChannelMembers">
-                  {participants.map((participant) => (
+                  {channelParticipants.map((participant) => (
                     <div className="voiceParticipantItem" key={participant.id}>
                       <div className={`voiceParticipantAvatar ${isParticipantSpeaking(participant) ? 'speaking' : ''}`}>
                         {participant.profileImage ? (
@@ -523,7 +557,8 @@ const ChatMenu = ({
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -538,7 +573,7 @@ const ChatMenu = ({
                 <div>
                   <div className="voiceConnectionTitle">음성 연결 됨</div>
                   <div className="voiceConnectionMeta">
-                    {(voiceChannels.find((item) => item.id === activeVoiceChannelId)?.name || '음성 채널')} · {projectName || '프로젝트'}
+                    {`${voiceChannels.find((item) => item.id === activeVoiceChannelId)?.name || '음성 채널'} · ${projectName || '프로젝트'}`}
                   </div>
                 </div>
               </div>
@@ -607,6 +642,7 @@ const ChatMenu = ({
                 if (deviceModalOpen) {
                   closeSettingsPanel();
                 } else {
+                  onRefreshDevices?.();
                   setDeviceModalOpen(true);
                 }
               }}
@@ -645,18 +681,18 @@ const ChatMenu = ({
                       setOutputDropdownOpen(false);
                     }}
                   >
-                    <span>{selectedInputDevice}</span>
+                    <span>{selectedInputDevice?.label || '기본 마이크'}</span>
                   </button>
                   {inputDropdownOpen && (
                     <div className="deviceModalDropdown">
                       {inputDevices.map((item) => (
                         <button
-                          key={item}
+                          key={item.deviceId}
                           type="button"
-                          className={`deviceModalDropdownItem ${selectedInputDevice === item ? 'selected' : ''}`}
-                          onClick={() => handleSelectInputDevice(item)}
+                          className={`deviceModalDropdownItem ${selectedInputDeviceId === item.deviceId ? 'selected' : ''}`}
+                          onClick={() => handleSelectInputDevice(item.deviceId)}
                         >
-                          {item}
+                          {item.label}
                         </button>
                       ))}
                     </div>
@@ -684,18 +720,18 @@ const ChatMenu = ({
                       setInputDropdownOpen(false);
                     }}
                   >
-                    <span>{selectedOutputDevice}</span>
+                    <span>{selectedOutputDevice?.label || '기본 출력'}</span>
                   </button>
                   {outputDropdownOpen && (
                     <div className="deviceModalDropdown">
                       {outputDevices.map((item) => (
                         <button
-                          key={item}
+                          key={item.deviceId}
                           type="button"
-                          className={`deviceModalDropdownItem ${selectedOutputDevice === item ? 'selected' : ''}`}
-                          onClick={() => handleSelectOutputDevice(item)}
+                          className={`deviceModalDropdownItem ${selectedOutputDeviceId === item.deviceId ? 'selected' : ''}`}
+                          onClick={() => handleSelectOutputDevice(item.deviceId)}
                         >
-                          {item}
+                          {item.label}
                         </button>
                       ))}
                     </div>
@@ -713,7 +749,7 @@ const ChatMenu = ({
                 />
               </div>
             </div>
-            <div className="deviceModalMicTestRow">
+            <div className="deviceModalMicTestCard">
               <button
                 type="button"
                 className={`deviceModalMicTestButton ${isMicTesting ? 'active' : ''}`}

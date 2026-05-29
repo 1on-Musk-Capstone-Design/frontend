@@ -3,7 +3,9 @@ import * as mediasoupClient from 'mediasoup-client';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config/api';
 
-export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
+const PRODUCER_POLL_INTERVAL_MS = 800;
+
+export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId, inputDeviceId = 'default' }) {
   const deviceRef = useRef(null);
   const sendTransportRef = useRef(null);
   const recvTransportRef = useRef(null);
@@ -353,7 +355,23 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
       // 3. 실제 마이크 트랙 송출 시작
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16
+        };
+
+        if (inputDeviceId && inputDeviceId !== 'default') {
+          audioConstraints.deviceId = { exact: inputDeviceId };
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false
+        });
       } catch (mediaErr) {
         const permissionDenied = mediaErr?.name === 'NotAllowedError' || mediaErr?.name === 'PermissionDeniedError';
         if (!permissionDenied) {
@@ -489,9 +507,17 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
           const next = { ...prev };
           for (const key of Object.keys(next)) {
             if (!activeProducerIds.has(key) && !activeProducerIds.has(String(key))) {
+              if (consumersRef.current[key]) {
+                try {
+                  consumersRef.current[key].close();
+                } catch (err) {
+                  console.warn('[useVoiceSFU] stale consumer close failed:', err);
+                }
+              }
               delete next[key];
               delete consumersRef.current[key];
               delete remoteProducerMetaRef.current[key];
+              consumedProducerIdsRef.current.delete(key);
             }
           }
           return next;
@@ -518,7 +544,7 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
             lastError: pollErr.response?.data?.message || pollErr.message || 'producer poll failed'
           }));
         });
-      }, 3000);
+      }, PRODUCER_POLL_INTERVAL_MS);
       await refreshMediaStats();
       statsTimerRef.current = window.setInterval(() => {
         refreshMediaStats();
@@ -536,7 +562,7 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
       resetSessionState();
       setCallPhase('error');
     }
-  }, [workspaceId, sessionId, workspaceUserId, callPhase, getRouterCapabilities, createTransport, connectTransport, produce, consume, listProducers, resumeConsumerWithRetry, refreshMediaStats, resetSessionState, createFallbackAudioStream]);
+  }, [workspaceId, sessionId, workspaceUserId, inputDeviceId, callPhase, getRouterCapabilities, createTransport, connectTransport, produce, consume, listProducers, resumeConsumerWithRetry, refreshMediaStats, resetSessionState, createFallbackAudioStream]);
 
   useEffect(() => {
     // cleanup은 컴포넌트가 내려가거나 세션/사용자가 바뀔 때만 수행한다.

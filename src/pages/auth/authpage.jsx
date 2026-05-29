@@ -3,199 +3,189 @@ import LoginForm from "./components/loginForm";
 
 export default function AuthPage() {
   return (
-    <div 
-      style={{ 
-        display:"flex", 
-        flexDirection:"column",
-        alignItems:"center", 
-        justifyContent:"center", 
-        minHeight:"100vh", 
-        background:'linear-gradient(135deg, #fafafa 0%, #ffffff 100%)',
-        fontFamily: 'inherit',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      {/* 배경 그라데이션 원형 요소들 */}
-      <div style={{
-        position: 'absolute',
-        top: '-15%',
-        right: '-8%',
-        width: '700px',
-        height: '700px',
-        background: 'radial-gradient(circle, rgba(1,205,21,0.08) 0%, rgba(1,205,21,0.03) 40%, rgba(1,205,21,0) 70%)',
-        borderRadius: '50%',
-        pointerEvents: 'none'
-      }}
-/>
-      
-      <div style={{
-        position: 'absolute',
-        bottom: '-18%',
-        left: '-12%',
-        width: '750px',
-        height: '750px',
-        background: 'radial-gradient(circle, rgba(1,205,21,0.07) 0%, rgba(1,205,21,0.02) 40%, rgba(1,205,21,0) 70%)',
-        borderRadius: '50%',
-        pointerEvents: 'none'
-      }} />
+    <div className="auth-entry-page">
+      <div className="auth-entry-noise" />
+      <div className="auth-entry-shell">
+        <p className="auth-entry-badge">Infinite Canvas Collaboration</p>
+        <h1 className="auth-entry-logo">
+          ON<span>it</span>
+        </h1>
+        <p className="auth-entry-description">
+          무한 캔버스에서 아이디어를 정리하고,<br />
+          팀원과 함께 실시간으로 협업하세요.
+        </p>
 
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '900px',
-        height: '900px',
-        background: 'radial-gradient(circle, rgba(1,205,21,0.03) 0%, rgba(1,205,21,0.01) 50%, rgba(1,205,21,0) 70%)',
-        borderRadius: '50%',
-        pointerEvents: 'none',
-        zIndex: 0
-      }} />
+        <div className="auth-entry-metrics">
+          <div className="auth-entry-metric-card">
+            <span>Canvas</span>
+            <strong>Infinite</strong>
+          </div>
+          <div className="auth-entry-metric-card">
+            <span>AI</span>
+            <strong>Clustering</strong>
+          </div>
+          <div className="auth-entry-metric-card">
+            <span>Collab</span>
+            <strong>Realtime</strong>
+          </div>
+          <div className="auth-entry-metric-card">
+            <span>Voice</span>
+            <strong>Brainstorm</strong>
+          </div>
+        </div>
 
-      {/* 기하학적 장식 요소들 */}
-      <div style={{
-        position: 'absolute',
-        top: '12%',
-        left: '8%',
-        width: '100px',
-        height: '100px',
-        borderRadius: '24px',
-        background: 'linear-gradient(135deg, rgba(1,205,21,0.1) 0%, rgba(1,205,21,0.06) 100%)',
-        transform: 'rotate(15deg)',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{
-        position: 'absolute',
-        bottom: '15%',
-        right: '10%',
-        width: '120px',
-        height: '120px',
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, rgba(1,205,21,0.09) 0%, rgba(1,205,21,0.05) 100%)',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{
-        position: 'absolute',
-        top: '32%',
-        left: '6%',
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, rgba(1,205,21,0.07) 0%, rgba(1,205,21,0.04) 100%)',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{
-        position: 'absolute',
-        top: '22%',
-        right: '8%',
-        width: '95px',
-        height: '95px',
-        borderRadius: '20px',
-        background: 'linear-gradient(135deg, rgba(1,205,21,0.08) 0%, rgba(1,205,21,0.05) 100%)',
-        transform: 'rotate(-20deg)',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{
-        position: 'absolute',
-        top: '62%',
-        left: '10%',
-        width: '90px',
-        height: '90px',
-        borderRadius: '22px',
-        background: 'linear-gradient(135deg, rgba(1,205,21,0.07) 0%, rgba(1,205,21,0.04) 100%)',
-        transform: 'rotate(-15deg)',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{
-        position: 'absolute',
-        top: '38%',
-        right: '18%',
-        width: '75px',
-        height: '75px',
-        borderRadius: '18px',
-        background: 'linear-gradient(135deg, rgba(1,205,21,0.06) 0%, rgba(1,205,21,0.03) 100%)',
-        transform: 'rotate(30deg)',
-        pointerEvents: 'none'
-      }} />
-
-      <h1 style={{
-        fontSize: '2.4rem',
-        fontWeight: 700,
-        color: '#111827',
-        marginBottom: 6,
-        letterSpacing: '-0.5px',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        ONit
-      </h1>
-
-      <p style={{
-        color: "#9ca3af",
-        marginBottom: 36,
-        fontSize: '0.9rem',
-        fontWeight: 400,
-        position: 'relative',
-        zIndex: 1
-      }}>
-        무한한 아이디어를 하나로
-      </p>
-
-      {/* 로그인 카드 */}
-      <div
-        style={{
-          width: 460,
-          maxWidth: "90%",
-          background: "rgba(255,255,255,0.98)",
-          borderRadius: 16,
-          boxShadow: "0 30px 60px -15px rgba(0,0,0,0.2), 0 0 0 1px rgba(1,205,21,0.1)",
-          padding: 48,
-          border: "1px solid rgba(1,205,21,0.15)",
-          boxSizing: 'border-box',
-          position: 'relative',
-          zIndex: 1,
-          backdropFilter: 'blur(16px)',
-          transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "translateY(-4px)";
-          e.currentTarget.style.boxShadow = "0 35px 70px -15px rgba(0,0,0,0.25), 0 0 0 1px rgba(1,205,21,0.2)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "0 30px 60px -15px rgba(0,0,0,0.2), 0 0 0 1px rgba(1,205,21,0.1)";
-        }}
-      >
-        {/* 상단 그라데이션 라인 */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '4px',
-          background: 'linear-gradient(90deg, transparent 0%, #01CD15 20%, #10b981 50%, #01CD15 80%, transparent 100%)',
-          borderRadius: '16px 16px 0 0'
-        }} />
-
-        {/* 우측 상단 데코 점 */}
-        <div style={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: 'rgba(1,205,21,0.3)'
-        }} />
-
-        <LoginForm />
+        <section className="auth-entry-login-area">
+          <LoginForm />
+        </section>
       </div>
+
+      <style>{`
+        .auth-entry-page {
+          min-height: 100vh;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          overflow: auto;
+          background:
+            radial-gradient(circle at 12% 18%, rgba(1, 205, 21, 0.2) 0%, transparent 44%),
+            radial-gradient(circle at 86% 80%, rgba(25, 146, 0, 0.14) 0%, transparent 40%),
+            linear-gradient(140deg, #edf7ef 0%, #f8fbff 46%, #ffffff 100%);
+          font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+        }
+
+        .auth-entry-noise {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.14;
+          background-image: radial-gradient(rgba(17, 24, 39, 0.12) 0.45px, transparent 0.45px);
+          background-size: 5px 5px;
+        }
+
+        .auth-entry-shell {
+          width: min(760px, 100%);
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          border-radius: 26px;
+          border: 1px solid rgba(15, 23, 42, 0.09);
+          background:
+            radial-gradient(circle at 90% 14%, rgba(255, 255, 255, 0.2) 0%, transparent 32%),
+            linear-gradient(150deg, #0f2f15 0%, #14551f 52%, #16632a 100%);
+          box-shadow: 0 30px 80px rgba(15, 23, 42, 0.15);
+          animation: authEntryFadeIn 420ms ease-out;
+          position: relative;
+          z-index: 1;
+          padding: 30px;
+        }
+
+        .auth-entry-badge {
+          margin: 0;
+          width: fit-content;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: #c5f2cb;
+          font-size: 13px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          line-height: 1.1;
+        }
+
+        .auth-entry-logo {
+          margin: 0;
+          font-size: clamp(36px, 3vw, 46px);
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          color: #ffffff;
+          line-height: 1;
+        }
+
+        .auth-entry-logo span {
+          color: #9dffae;
+        }
+
+        .auth-entry-description {
+          margin: 0;
+          max-width: 36ch;
+          color: rgba(229, 247, 230, 0.92);
+          line-height: 1.6;
+        }
+
+        .auth-entry-metrics {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .auth-entry-metric-card {
+          padding: 14px;
+          border-radius: 12px;
+          border: 1px solid rgba(229, 247, 230, 0.2);
+          background: rgba(255, 255, 255, 0.12);
+          display: grid;
+          gap: 4px;
+          min-height: 74px;
+        }
+
+        .auth-entry-metric-card span {
+          font-size: 13px;
+          color: rgba(229, 247, 230, 0.75);
+        }
+
+        .auth-entry-metric-card strong {
+          font-size: 20px;
+          letter-spacing: -0.02em;
+          color: #ffffff;
+        }
+
+        .auth-entry-login-area {
+          background: transparent;
+          padding: 0;
+          margin-top: 12px;
+          border-radius: 0;
+          display: flex;
+          flex-direction: column;
+          border: 0;
+        }
+
+        @keyframes authEntryFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.99);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @media (max-width: 920px) {
+          .auth-entry-shell {
+            width: min(680px, 100%);
+            padding: 24px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .auth-entry-page {
+            padding: 16px;
+          }
+
+          .auth-entry-shell {
+            border-radius: 20px;
+            padding: 20px;
+          }
+
+          .auth-entry-metrics {
+            grid-template-columns: 1fr;
+            max-width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }

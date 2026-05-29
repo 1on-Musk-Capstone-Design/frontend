@@ -5,7 +5,6 @@ import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import TopToolbar from './components/TopToolbar';
-import VoiceCallTestPanel from './components/VoiceCallTestPanel';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
@@ -87,10 +86,6 @@ const InfiniteCanvasPage = () => {
   const canvas = useCanvas();
   const textFields = useTextFields();
   const session = useSession();
-  const voicePeerCandidates = workspaceParticipants.filter(
-    (participant) => String(participant.id) !== String(currentUserId)
-  );
-  const showVoiceTestPanel = import.meta.env.DEV || import.meta.env.VITE_ENABLE_VOICE_TEST_PANEL === 'true';
 
   // 윈도우 크기 추적
   useEffect(() => {
@@ -367,7 +362,7 @@ const InfiniteCanvasPage = () => {
           // userId -> userName 매핑 생성 및 참가자 목록 생성
           const participantsList = [];
           usersRes.data.forEach((user) => {
-            const userId = String(user.id);
+            const userId = String(user.workspaceUserId ?? user.id);
             const userName = user.name || user.email || '알 수 없음';
             const rawProfileImage = user.profileImage;
             let profileImage = '';
@@ -385,6 +380,7 @@ const InfiniteCanvasPage = () => {
             participantsList.push({
               id: userId,
               name: userName,
+              email: user.email || '',
               profileImage
             });
           });
@@ -3054,15 +3050,6 @@ const InfiniteCanvasPage = () => {
         onSendMessage={sendChatMessage}
       />
 
-      {showVoiceTestPanel && workspaceId && currentUserId && (
-        <VoiceCallTestPanel
-          workspaceId={workspaceId}
-          currentWorkspaceUserId={currentUserId}
-          peerWorkspaceUserId={voicePeerCandidates[0]?.id || null}
-          candidatePeers={voicePeerCandidates}
-        />
-      )}
-      
       {/* 클러스터링 패널 */}
       <ClusteringPanel 
         onClusteringParamsChange={handleClusteringParamsChange}
