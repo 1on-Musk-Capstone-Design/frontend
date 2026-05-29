@@ -8,18 +8,23 @@
  */
 
 const LOCAL_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const PUBLIC_API_BASE_URL = import.meta.env.VITE_PUBLIC_API_BASE_URL || '';
+const PUBLIC_SOCKET_BASE_URL = import.meta.env.VITE_PUBLIC_SOCKET_BASE_URL || '';
+
+const isLocalHostname = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '127.0.0.1';
 
 export const getApiBaseUrl = (): string => {
-  // 현재 호스트 확인
   const hostname = window.location.hostname;
-  
-  // 로컬 개발 환경 (localhost:3000)
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+
+  if (isLocalHostname(hostname)) {
     return LOCAL_API_BASE_URL;
   }
-  
-  // 프로덕션 환경 (on-it.kro.kr): 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
-  // Nginx가 /api 경로를 백엔드로 프록시하므로 상대 경로 사용
+
+  if (PUBLIC_API_BASE_URL) {
+    return PUBLIC_API_BASE_URL.replace(/\/$/, '');
+  }
+
   return '/api';
 };
 
@@ -35,24 +40,20 @@ export const API_BASE_URL = getApiBaseUrl();
  * SockJS는 http:// 또는 https:// 프로토콜을 받아서 자동으로 ws/wss로 변환합니다.
  */
 export const getSocketServerUrl = (): string => {
-  // 현재 호스트 확인
   const hostname = window.location.hostname;
-  
-  // 로컬 개발 환경 (localhost:3000): 백엔드 서버 직접 사용
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return LOCAL_API_BASE_URL;
-  }
-  
-  // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
-  // Nginx가 /ws 경로를 백엔드 WebSocket으로 프록시하므로 상대 경로 사용
-  // SockJS는 현재 프로토콜(http/https)에 맞춰 자동으로 ws/wss로 변환
-  // window.location.origin을 사용하여 현재 프로토콜과 호스트 포함
-  /* return `${window.location.origin}/api`;*/
+
+  if (isLocalHostname(hostname)) {
     return window.location.origin;
+  }
+
+  if (PUBLIC_SOCKET_BASE_URL) {
+    return PUBLIC_SOCKET_BASE_URL.replace(/\/$/, '');
+  }
+
+  return window.location.origin;
 };
 
-/* export const SOCKET_SERVER_URL = getSocketServerUrl();*/
-export const SOCKET_SERVER_URL = window.location.origin;
+export const SOCKET_SERVER_URL = getSocketServerUrl();
 
 
 /**
@@ -67,13 +68,13 @@ export const normalizeThumbnailUrl = (url: string | null | undefined): string =>
   
   // 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환 (Nginx 프록시 사용)
   if (isProduction) {
-    // http://51.20.106.74:8080/api/uploads/... → /api/uploads/...
-    if (url.includes('http://51.20.106.74:8080/api')) {
-      return url.replace('http://51.20.106.74:8080/api', '/api');
+    // http://54.91.62.109:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('http://54.91.62.109:8080/api')) {
+      return url.replace('http://54.91.62.109:8080/api', '/api');
     }
-    // https://51.20.106.74:8080/api/uploads/... → /api/uploads/...
-    if (url.includes('https://51.20.106.74:8080/api')) {
-      return url.replace('https://51.20.106.74:8080/api', '/api');
+    // https://54.91.62.109:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('https://54.91.62.109:8080/api')) {
+      return url.replace('https://54.91.62.109:8080/api', '/api');
     }
     // http://localhost:8080/api/uploads/... → /api/uploads/...
     if (url.includes('http://localhost:8080/api')) {
@@ -146,4 +147,3 @@ export const getApiUrl = (endpoint: string): string => {
   // endpoint가 /로 시작하면 API_BASE_URL과 결합
   return `${API_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 };
-

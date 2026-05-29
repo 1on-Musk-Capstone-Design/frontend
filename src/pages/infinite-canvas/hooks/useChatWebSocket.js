@@ -10,17 +10,22 @@ import { SOCKET_SERVER_URL } from '../../../config/api';
  * @param {Map} workspaceUsers - 사용자 ID -> 이름 매핑
  * @param {Function} onMessageReceived - 메시지 수신 콜백 함수
  */
-export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onMessageReceived) => {
+export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onMessageReceived, onVoiceEvent) => {
   const clientRef = useRef(null);
   const subscriptionsRef = useRef([]); // 구독 객체들을 저장
   const [isConnected, setIsConnected] = useState(false);
   const onMessageReceivedRef = useRef(onMessageReceived);
+  const onVoiceEventRef = useRef(onVoiceEvent);
   const workspaceUsersRef = useRef(workspaceUsers);
   
   // 콜백 함수를 ref에 저장하여 최신 버전 유지
   useEffect(() => {
     onMessageReceivedRef.current = onMessageReceived;
   }, [onMessageReceived]);
+
+  useEffect(() => {
+    onVoiceEventRef.current = onVoiceEvent;
+  }, [onVoiceEvent]);
   
   // workspaceUsers를 ref에 저장하여 최신 버전 유지
   useEffect(() => {
@@ -163,6 +168,22 @@ export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onM
         console.log('[채팅 웹소켓] 사용자 구독 경로:', usersSubscriptionPath);
         stompClient.subscribe(usersSubscriptionPath, (message) => {
           console.log('[채팅 웹소켓] 사용자 이벤트:', message.body);
+        });
+
+        const voiceSubscriptionPath = `/topic/workspace/${workspaceId}/voice`;
+        console.log('[채팅 웹소켓] 음성 구독 경로:', voiceSubscriptionPath);
+        stompClient.subscribe(voiceSubscriptionPath, (message) => {
+          console.log('[채팅 웹소켓] 음성 이벤트:', message.body);
+          if (!onVoiceEventRef.current) {
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(message.body);
+            onVoiceEventRef.current(parsed);
+          } catch (err) {
+            onVoiceEventRef.current({ type: 'voice_event', message: message.body });
+          }
         });
       },
       onStompError: (frame) => {
@@ -368,10 +389,36 @@ export const useChatWebSocket = (workspaceId, currentUserId, workspaceUsers, onM
     }
   };
 
+  const sendVoiceEvent = (destination, payload = {}) => {
+    if (!clientRef.current || !clientRef.current.active || !clientRef.current.connected) {
+      return false;
+    }
+
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      return false;
+    }
+
+    try {
+      clientRef.current.publish({
+        destination,
+        body: JSON.stringify({ workspaceId: Number(workspaceId), ...payload }),
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      return true;
+    } catch (error) {
+      console.error('[채팅 웹소켓] 음성 이벤트 전송 실패:', destination, error);
+      return false;
+    }
+  };
+
   return {
     client: clientRef.current,
     isConnected: isConnected,
-    sendMessage
+    sendMessage,
+    sendVoiceJoin: (payload = {}) => sendVoiceEvent('/app/voice/join', payload),
+    sendVoiceLeave: (payload = {}) => sendVoiceEvent('/app/voice/leave', payload)
   };
 };
-

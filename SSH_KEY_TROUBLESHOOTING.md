@@ -73,7 +73,7 @@ GitHub Secrets에 인코딩된 값을 저장하고, 워크플로우에서 디코
 chmod 400 ~/capstone.pem
 
 # 서버 접속 테스트
-ssh -i ~/capstone.pem ec2-user@51.20.106.74 "echo 'SSH 연결 성공'"
+ssh -i ~/capstone.pem ec2-user@54.91.162.220 "echo 'SSH 연결 성공'"
 ```
 
 ### 4. GitHub Secrets 재설정

@@ -90,12 +90,14 @@ const getBoxStyle = (embedded) => ({
   bottom: embedded ? 'auto' : 16,
   zIndex: 9999,
   width: embedded ? 'min(100%, 392px)' : 392,
+  maxHeight: embedded ? 'min(100%, 78vh)' : '78vh',
   padding: 16,
   borderRadius: 18,
   border: '1px solid rgba(148,163,184,0.24)',
   background: 'rgba(255,255,255,0.88)',
   boxShadow: '0 16px 36px rgba(15,23,42,0.12)',
-  backdropFilter: 'blur(12px)'
+  backdropFilter: 'blur(12px)',
+  overflowY: 'auto'
 });
 
 const panelHeaderStyle = {
@@ -223,7 +225,11 @@ export default function VoiceCallTestPanel({
   currentWorkspaceUserId,
   peerWorkspaceUserId,
   candidatePeers = [],
-  embedded = false
+  embedded = false,
+  preferredSessionId = null,
+  connectRequestKey = null,
+  disconnectRequestKey = null,
+  onVoiceStateChange
 }) {
   const micStreamRef = useRef(null);
   const micAudioContextRef = useRef(null);
@@ -231,9 +237,12 @@ export default function VoiceCallTestPanel({
   const micDataRef = useRef(null);
   const micRafRef = useRef(null);
   const outputAudioContextRef = useRef(null);
+  const remoteSpeakingAudioContextRef = useRef(null);
+  const remoteSpeakingRefs = useRef({});
+  const remoteSpeakingRafRef = useRef(null);
   const joinedSessionRef = useRef(null);
   const [activeSessionId, setActiveSessionId] = useState(null);
-  const [callMode, setCallMode] = useState('mesh'); // 'mesh' or 'sfu'
+  const [callMode, setCallMode] = useState('sfu'); // 'mesh' or 'sfu'
   const [sessionError, setSessionError] = useState('');
   const [isSessionReady, setIsSessionReady] = useState(false);
   const defaultPeerId = useMemo(() => {
@@ -250,6 +259,9 @@ export default function VoiceCallTestPanel({
   const [isSpeakerTesting, setIsSpeakerTesting] = useState(false);
   const [manualSessionInput, setManualSessionInput] = useState('');
   const [manualSessionToUse, setManualSessionToUse] = useState(null);
+  const [pendingAutoConnectKey, setPendingAutoConnectKey] = useState(null);
+  const [remoteSpeakingPeerIds, setRemoteSpeakingPeerIds] = useState([]);
+  const lastDisconnectRequestRef = useRef(null);
 
 
   // 훅은 항상 같은 순서로 호출 (조건문 X)
@@ -333,39 +345,61 @@ export default function VoiceCallTestPanel({
         const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
         const userId = Number(currentWorkspaceUserId);
 
-        if (!Number.isFinite(userId)) {
+        if (!Number.isFinite(userId) || userId <= 0) {
           throw new Error('현재 워크스페이스 사용자 ID가 유효하지 않습니다.');
         }
 
         // 사용자가 입력한 세션 ID가 있으면 그것을 우선 사용합니다.
         // 입력이 없으면 이미 열려 있는 세션을 먼저 재사용하고, 없을 때만 새로 생성합니다.
+        const sessionsRes = await axios.get(
+          `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`,
+          { headers }
+        );
+        const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
+        const openSessions = sessions
+          .filter((s) => !s.endedAt)
+          .sort((a, b) => {
+            const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+            const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+            return tb - ta;
+          });
+
         let resolvedSessionId = null;
-        if (manualSessionToUse) {
-          resolvedSessionId = manualSessionToUse;
-        } else {
-          const sessionsRes = await axios.get(
+        if (preferredSessionId) {
+          const matchedPreferredSession = openSessions.find(
+            (session) => Number(session.id) === Number(preferredSessionId)
+          );
+
+          if (!matchedPreferredSession) {
+            throw new Error('선택한 음성채널 세션을 찾지 못했거나 이미 종료되었습니다.');
+          }
+
+          resolvedSessionId = matchedPreferredSession.id;
+          setManualSessionInput(String(matchedPreferredSession.id));
+        } else if (manualSessionToUse) {
+          const matchedManualSession = openSessions.find(
+            (session) => Number(session.id) === Number(manualSessionToUse)
+          );
+
+          if (matchedManualSession) {
+            resolvedSessionId = matchedManualSession.id;
+          } else {
+            setManualSessionToUse(null);
+            setManualSessionInput('');
+          }
+        }
+
+        if (!resolvedSessionId) {
+          resolvedSessionId = openSessions[0]?.id;
+        }
+
+        if (!resolvedSessionId) {
+          const createRes = await axios.post(
             `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`,
+            {},
             { headers }
           );
-          const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
-          const openSessions = sessions
-            .filter((s) => !s.endedAt)
-            .sort((a, b) => {
-              const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0;
-              const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0;
-              return tb - ta;
-            });
-
-          resolvedSessionId = openSessions[0]?.id;
-
-          if (!resolvedSessionId) {
-            const createRes = await axios.post(
-              `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`,
-              {},
-              { headers }
-            );
-            resolvedSessionId = createRes.data?.id;
-          }
+          resolvedSessionId = createRes.data?.id;
         }
 
         const numericSessionId = Number(resolvedSessionId);
@@ -421,7 +455,7 @@ export default function VoiceCallTestPanel({
     return () => {
       const joinedSessionId = joinedSessionRef.current;
       const userId = Number(currentWorkspaceUserId);
-      if (!workspaceId || !joinedSessionId || !Number.isFinite(userId)) return;
+      if (!workspaceId || !joinedSessionId || !Number.isFinite(userId) || userId <= 0) return;
 
       const accessToken = localStorage.getItem('accessToken');
       const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
@@ -433,7 +467,7 @@ export default function VoiceCallTestPanel({
 
       joinedSessionRef.current = null;
     };
-  }, [workspaceId, currentWorkspaceUserId, manualSessionToUse]);
+  }, [workspaceId, currentWorkspaceUserId, manualSessionToUse, preferredSessionId]);
 
   useEffect(() => {
     setSelectedPeerId(defaultPeerId);
@@ -447,6 +481,143 @@ export default function VoiceCallTestPanel({
       return defaultPeerId ? [defaultPeerId] : [];
     });
   }, [candidatePeers, defaultPeerId]);
+
+  useEffect(() => {
+    if (!connectRequestKey) return;
+    setCallMode('sfu');
+    setPendingAutoConnectKey(connectRequestKey);
+  }, [connectRequestKey]);
+
+  useEffect(() => {
+    const cleanupRemoteSpeaking = async () => {
+      if (remoteSpeakingRafRef.current) {
+        cancelAnimationFrame(remoteSpeakingRafRef.current);
+        remoteSpeakingRafRef.current = null;
+      }
+
+      Object.values(remoteSpeakingRefs.current).forEach((entry) => {
+        try {
+          entry.source?.disconnect();
+        } catch (err) {
+          console.warn('[VoiceCallTestPanel] remote speaking source cleanup failed:', err);
+        }
+      });
+      remoteSpeakingRefs.current = {};
+
+      if (remoteSpeakingAudioContextRef.current) {
+        try {
+          await remoteSpeakingAudioContextRef.current.close();
+        } catch (err) {
+          console.warn('[VoiceCallTestPanel] remote speaking audio context close failed:', err);
+        }
+        remoteSpeakingAudioContextRef.current = null;
+      }
+
+      setRemoteSpeakingPeerIds([]);
+    };
+
+    const trackEntries = Object.entries(remoteStreams || {});
+    if (trackEntries.length === 0) {
+      cleanupRemoteSpeaking();
+      return undefined;
+    }
+
+    let disposed = false;
+
+    const setupRemoteSpeaking = async () => {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          return;
+        }
+
+        const audioContext = new AudioContextClass();
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
+        const nextRefs = {};
+        trackEntries.forEach(([producerId, stream]) => {
+          const producerMeta = remoteProducerMeta[producerId];
+          const peerId = String(producerMeta?.producerPeerId || '');
+          if (!stream || !peerId) {
+            return;
+          }
+
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 1024;
+          analyser.smoothingTimeConstant = 0.84;
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          nextRefs[producerId] = {
+            peerId,
+            analyser,
+            source,
+            data: new Uint8Array(analyser.fftSize),
+            lastSpeakingAt: 0
+          };
+        });
+
+        remoteSpeakingAudioContextRef.current = audioContext;
+        remoteSpeakingRefs.current = nextRefs;
+
+        const updateSpeaking = () => {
+          if (disposed) {
+            return;
+          }
+
+          const now = performance.now();
+          const speakingIds = [];
+
+          Object.values(remoteSpeakingRefs.current).forEach((entry) => {
+            if (!entry?.analyser || !entry?.data) {
+              return;
+            }
+
+            entry.analyser.getByteTimeDomainData(entry.data);
+            let sum = 0;
+            for (let index = 0; index < entry.data.length; index += 1) {
+              const normalized = (entry.data[index] - 128) / 128;
+              sum += normalized * normalized;
+            }
+
+            const rms = Math.sqrt(sum / entry.data.length);
+            const speakingNow = rms > 0.025;
+            if (speakingNow) {
+              entry.lastSpeakingAt = now;
+            }
+
+            if (speakingNow || now - entry.lastSpeakingAt < 260) {
+              speakingIds.push(String(entry.peerId));
+            }
+          });
+
+          setRemoteSpeakingPeerIds((prev) => {
+            const prevKey = prev.join(',');
+            const nextKey = speakingIds.join(',');
+            return prevKey === nextKey ? prev : speakingIds;
+          });
+
+          remoteSpeakingRafRef.current = requestAnimationFrame(updateSpeaking);
+        };
+
+        remoteSpeakingRafRef.current = requestAnimationFrame(updateSpeaking);
+      } catch (err) {
+        console.warn('[VoiceCallTestPanel] remote speaking detection setup failed:', err);
+      }
+    };
+
+    cleanupRemoteSpeaking().then(() => {
+      if (!disposed) {
+        setupRemoteSpeaking();
+      }
+    });
+
+    return () => {
+      disposed = true;
+      cleanupRemoteSpeaking();
+    };
+  }, [remoteStreams, remoteProducerMeta]);
 
   const handleStartCall = async () => {
     if (callMode === 'mesh' && !selectedPeerId) return;
@@ -481,6 +652,61 @@ export default function VoiceCallTestPanel({
       console.error('[VoiceCallTestPanel] toggleMute failed:', err);
     }
   };
+
+  useEffect(() => {
+    if (!pendingAutoConnectKey || !isSessionReady || isInCall) return;
+
+    const startAutoConnect = async () => {
+      try {
+        setGroupCallError('');
+
+        if (callMode === 'sfu') {
+          await startCall(selectedPeerId);
+          setPendingAutoConnectKey(null);
+          return;
+        }
+
+        if (selectedPeerIds.length > 0) {
+          await startGroupCall(selectedPeerIds);
+          setPendingAutoConnectKey(null);
+          return;
+        }
+
+        if (selectedPeerId) {
+          await startCall(selectedPeerId);
+          setPendingAutoConnectKey(null);
+          return;
+        }
+
+        setGroupCallError('연결 가능한 상대가 아직 없습니다.');
+      } catch (err) {
+        console.error('[VoiceCallTestPanel] auto connect failed:', err);
+      }
+    };
+
+    startAutoConnect();
+  }, [
+    pendingAutoConnectKey,
+    isSessionReady,
+    isInCall,
+    callMode,
+    selectedPeerId,
+    selectedPeerIds,
+    startCall,
+    startGroupCall
+  ]);
+
+  useEffect(() => {
+    if (!disconnectRequestKey) return;
+    if (lastDisconnectRequestRef.current === disconnectRequestKey) return;
+    lastDisconnectRequestRef.current = disconnectRequestKey;
+
+    try {
+      leaveCall();
+    } catch (err) {
+      console.error('[VoiceCallTestPanel] leaveCall failed:', err);
+    }
+  }, [disconnectRequestKey, leaveCall]);
 
   const togglePeerSelection = (peerId) => {
     const targetId = String(peerId || '');
@@ -634,12 +860,29 @@ export default function VoiceCallTestPanel({
   useEffect(() => {
     return () => {
       stopMicTest();
+      if (remoteSpeakingRafRef.current) {
+        cancelAnimationFrame(remoteSpeakingRafRef.current);
+        remoteSpeakingRafRef.current = null;
+      }
       if (outputAudioContextRef.current) {
         outputAudioContextRef.current.close().catch(() => {});
         outputAudioContextRef.current = null;
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!onVoiceStateChange) return;
+    onVoiceStateChange({
+      activeSessionId,
+      isSessionReady,
+      isInCall,
+      isMuted,
+      callState,
+      callMode,
+      speakingUserIds: remoteSpeakingPeerIds
+    });
+  }, [activeSessionId, isSessionReady, isInCall, isMuted, callState, callMode, remoteSpeakingPeerIds, onVoiceStateChange]);
 
   return (
     <div style={getBoxStyle(embedded)}>

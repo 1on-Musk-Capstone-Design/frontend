@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import ChatPanel from './components/ChatPanel';
 import VoiceCallTestPanel from './components/VoiceCallTestPanel';
@@ -100,11 +100,28 @@ const fieldStyle = {
   background: '#ffffff'
 };
 
+const PREVIEW_BROWSER_SESSION_KEY = 'voicePreviewBrowserSessionId';
+const PREVIEW_BOOTSTRAP_RUN_KEY = 'voicePreviewBootstrapRunKey';
+const PREVIEW_WORKSPACE_USER_ID_KEY = 'voicePreviewWorkspaceUserId';
+
+function getOrCreatePreviewBrowserSessionId() {
+  const existing = localStorage.getItem(PREVIEW_BROWSER_SESSION_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const generated = window.crypto?.randomUUID?.() || `preview-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(PREVIEW_BROWSER_SESSION_KEY, generated);
+  return generated;
+}
+
 export default function VoicePreviewPage() {
   const [workspaceId, setWorkspaceId] = useState('1');
-  const [currentWorkspaceUserId, setCurrentWorkspaceUserId] = useState('1');
+  const [currentWorkspaceUserId, setCurrentWorkspaceUserId] = useState('');
   const [workspaceMembers, setWorkspaceMembers] = useState([]);
   const [workspaceMembersError, setWorkspaceMembersError] = useState('');
+  const [bootstrapError, setBootstrapError] = useState('');
+  const bootstrapRunKeyRef = useRef('');
 
   const candidatePeers = useMemo(() => {
     return workspaceMembers
@@ -116,32 +133,122 @@ export default function VoicePreviewPage() {
       }));
   }, [workspaceMembers, currentWorkspaceUserId]);
 
+  const chatParticipants = useMemo(() => {
+    return workspaceMembers.map((member) => {
+      const participantId = member.workspaceUserId ?? member.id;
+      return {
+        id: String(participantId),
+        name: member.name || member.email || `사용자 ${participantId}`,
+        profileImage: member.profileImage || ''
+      };
+    });
+  }, [workspaceMembers]);
+
+  const currentChatParticipant = useMemo(() => {
+    if (!chatParticipants.length) {
+      return null;
+    }
+
+    const selectedId = String(currentWorkspaceUserId || chatParticipants[0].id);
+    return chatParticipants.find((participant) => participant.id === selectedId) || chatParticipants[0];
+  }, [chatParticipants, currentWorkspaceUserId]);
+
   useEffect(() => {
-    const loadWorkspaceMembers = async () => {
+    let isCancelled = false;
+
+    const bootstrapPreviewUser = async () => {
       if (!workspaceId) {
         setWorkspaceMembers([]);
         setWorkspaceMembersError('');
+        setBootstrapError('');
+        setCurrentWorkspaceUserId('');
         return;
       }
 
+      setBootstrapError('');
+
       try {
-        setWorkspaceMembersError('');
-        const accessToken = localStorage.getItem('accessToken');
-        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+        const browserSessionId = getOrCreatePreviewBrowserSessionId();
+        const runKey = `${workspaceId}:${browserSessionId}`;
+        let workspaceUserIdFromBootstrap = null;
+
+        if (bootstrapRunKeyRef.current !== runKey && sessionStorage.getItem(PREVIEW_BOOTSTRAP_RUN_KEY) !== runKey) {
+          bootstrapRunKeyRef.current = runKey;
+          sessionStorage.setItem(PREVIEW_BOOTSTRAP_RUN_KEY, runKey);
+
+          const response = await axios.post(`${API_BASE_URL}/v1/auth/dev/preview/bootstrap`, {
+            workspaceId: Number(workspaceId),
+            browserSessionId
+          });
+
+          const { accessToken, refreshToken, workspaceUserId, name, email } = response.data || {};
+          workspaceUserIdFromBootstrap = workspaceUserId;
+
+          if (isCancelled) {
+            return;
+          }
+
+          if (accessToken) {
+            localStorage.setItem('accessToken', accessToken);
+          }
+          if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken);
+          }
+          if (name) {
+            localStorage.setItem('userName', name);
+          }
+          if (email) {
+            localStorage.setItem('userEmail', email);
+          }
+
+          if (workspaceUserId != null) {
+            localStorage.setItem(PREVIEW_WORKSPACE_USER_ID_KEY, String(workspaceUserId));
+            setCurrentWorkspaceUserId(String(workspaceUserId));
+          }
+        } else {
+          const savedWorkspaceUserId = localStorage.getItem(PREVIEW_WORKSPACE_USER_ID_KEY);
+          if (savedWorkspaceUserId) {
+            workspaceUserIdFromBootstrap = Number(savedWorkspaceUserId);
+            setCurrentWorkspaceUserId(savedWorkspaceUserId);
+          }
+        }
+
+        if (workspaceUserIdFromBootstrap != null) {
+          setCurrentWorkspaceUserId(String(workspaceUserIdFromBootstrap));
+        }
+      } catch (error) {
+        console.error('[VoicePreviewPage] failed to bootstrap preview user', error);
+        if (!isCancelled) {
+          const status = error?.response?.status;
+          const detail = error?.response?.data?.message || error?.response?.data || error?.message || '';
+          const statusSuffix = status ? ` (status: ${status})` : '';
+          const detailSuffix = detail ? ` - ${String(detail)}` : '';
+          setBootstrapError(`프리뷰용 임시 사용자를 생성하지 못했습니다.${statusSuffix}${detailSuffix}`);
+        }
+      }
+
+      try {
         const response = await axios.get(
-          `${API_BASE_URL}/v1/workspaces/${workspaceId}/users`,
-          { headers }
+          `${API_BASE_URL}/v1/workspaces/${workspaceId}/users`
         );
 
-        setWorkspaceMembers(Array.isArray(response.data) ? response.data : []);
+        if (!isCancelled) {
+          setWorkspaceMembers(Array.isArray(response.data) ? response.data : []);
+        }
       } catch (error) {
         console.error('[VoicePreviewPage] failed to load workspace members', error);
-        setWorkspaceMembers([]);
-        setWorkspaceMembersError('워크스페이스 사용자 목록을 불러오지 못했습니다.');
+        if (!isCancelled) {
+          setWorkspaceMembers([]);
+          setWorkspaceMembersError('워크스페이스 사용자 목록을 불러오지 못했습니다.');
+        }
       }
     };
 
-    loadWorkspaceMembers();
+    bootstrapPreviewUser();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [workspaceId]);
 
   return (
@@ -179,7 +286,9 @@ export default function VoicePreviewPage() {
               />
             </label>
             <div style={{ marginTop: 8, fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
-              {workspaceMembersError
+              {bootstrapError
+                ? bootstrapError
+                : workspaceMembersError
                 ? workspaceMembersError
                 : candidatePeers.length > 0
                   ? `활성 peer: ${candidatePeers.map((peer) => peer.userName).join(', ')}`
@@ -207,13 +316,10 @@ export default function VoicePreviewPage() {
       </div>
       <ChatPanel
         messages={[]}
-        participants={[
-          { id: 'preview-1', name: '개발용 사용자', profileImage: '' },
-          { id: 'preview-2', name: '테스트 멤버', profileImage: '' }
-        ]}
-        currentUserId="preview-1"
-        currentUserName="개발용 사용자"
-        currentUserImage=""
+        participants={chatParticipants}
+        currentUserId={currentChatParticipant?.id || ''}
+        currentUserName={currentChatParticipant?.name || ''}
+        currentUserImage={currentChatParticipant?.profileImage || ''}
         workspaceId={workspaceId ? Number(workspaceId) : null}
         projectName="Voice Preview"
       />

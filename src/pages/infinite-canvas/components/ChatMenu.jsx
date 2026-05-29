@@ -548,7 +548,7 @@ const ChatMenu = ({
                 title="연결 끊기"
                 onClick={onLeaveVoice}
               >
-                📞
+                나가기
               </button>
             </div>
           </>

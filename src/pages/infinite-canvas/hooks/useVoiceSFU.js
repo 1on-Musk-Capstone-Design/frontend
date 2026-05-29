@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as mediasoupClient from 'mediasoup-client';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config/api';
+import { buildWebRtcIceConfig } from './webrtcIceConfig';
 
 export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
+  const iceConfigRef = useRef(buildWebRtcIceConfig());
   const deviceRef = useRef(null);
   const sendTransportRef = useRef(null);
   const recvTransportRef = useRef(null);
@@ -20,6 +22,7 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
   const [remoteStreams, setRemoteStreams] = useState({});
   const [remoteProducerMeta, setRemoteProducerMeta] = useState({});
   const [isSignalingConnected, setIsSignalingConnected] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [error, setError] = useState('');
   const [callPhase, setCallPhase] = useState('idle');
   const [sfuStats, setSfuStats] = useState({
@@ -158,9 +161,23 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
       return;
     }
 
-    await axios.delete(
-      `${API_BASE_URL}/v1/webrtc/sfu/workspaces/${workspaceId}/sessions/${sessionId}/peers/${workspaceUserId}`
-    );
+    try {
+      await axios.delete(
+        `${API_BASE_URL}/v1/webrtc/sfu/workspaces/${workspaceId}/sessions/${sessionId}/peers/${workspaceUserId}`
+      );
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 404 || status === 500) {
+        console.warn('[useVoiceSFU] closePeer ignored:', {
+          workspaceId,
+          sessionId,
+          workspaceUserId,
+          status
+        });
+        return;
+      }
+      throw err;
+    }
   }, [workspaceId, sessionId, workspaceUserId]);
 
   const stopLocalStream = useCallback(() => {
@@ -260,6 +277,7 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
     setSfuMediaStats({ local: null, remotes: {} });
     setSfuTransportStates({ send: '-', recv: '-' });
     setIsSignalingConnected(false);
+    setIsMuted(false);
     setCallPhase('idle');
     setSfuStats({
       producersSeen: 0,
@@ -316,11 +334,15 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
       const device = new mediasoupClient.Device();
       await device.load({ routerRtpCapabilities });
       deviceRef.current = device;
+      console.log('[useVoiceSFU] ICE config:', iceConfigRef.current);
 
       // 2. 송신 트랜스포트 설정
       setCallPhase('creating-send-transport');
       const sendTransportOptions = await createTransport('send', workspaceUserId);
-      const sendTransport = device.createSendTransport(sendTransportOptions);
+      const sendTransport = device.createSendTransport({
+        ...sendTransportOptions,
+        ...iceConfigRef.current
+      });
       sendTransportRef.current = sendTransport;
 
       sendTransport.on('connectionstatechange', (state) => {
@@ -373,7 +395,10 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
 
       // 4. 수신 트랜스포트 설정 (멀티 유저를 위해 필요)
       const recvTransportOptions = await createTransport('recv', workspaceUserId);
-      const recvTransport = device.createRecvTransport(recvTransportOptions);
+      const recvTransport = device.createRecvTransport({
+        ...recvTransportOptions,
+        ...iceConfigRef.current
+      });
       recvTransportRef.current = recvTransport;
 
       recvTransport.on('connectionstatechange', (state) => {
@@ -543,6 +568,9 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
     // 연결 상태 변경(isSignalingConnected)마다 실행되면 방금 만든 SFU 연결이 즉시 reset된다.
     return () => {
       closePeer().catch((err) => {
+        if (err?.response?.status === 403) {
+          return;
+        }
         console.warn('[useVoiceSFU] peer cleanup failed:', err);
       });
       resetSessionState();
@@ -553,24 +581,42 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
     try {
       await closePeer();
     } catch (err) {
+      if (err?.response?.status === 403) {
+        resetSessionState();
+        setError('');
+        return;
+      }
       console.warn('[useVoiceSFU] peer cleanup failed:', err);
     }
     resetSessionState();
     setError('');
   }, [closePeer, resetSessionState]);
 
-  const toggleMute = useCallback(() => {
+  const toggleMute = useCallback(async () => {
     if (!localStreamRef.current) {
       return false;
     }
 
-    const nextMuted = !localStreamRef.current.getAudioTracks().some((track) => track.enabled === false);
+    const nextMuted = !isMuted;
     localStreamRef.current.getAudioTracks().forEach((track) => {
       track.enabled = !nextMuted;
     });
 
+    if (producerRef.current && !producerRef.current.closed) {
+      try {
+        if (nextMuted) {
+          await producerRef.current.pause();
+        } else {
+          await producerRef.current.resume();
+        }
+      } catch (err) {
+        console.warn('[useVoiceSFU] producer mute toggle failed:', err);
+      }
+    }
+
+    setIsMuted(nextMuted);
     return nextMuted;
-  }, []);
+  }, [isMuted]);
 
   // 패널에서 기대하는 필드명으로 반환
   return {
@@ -582,6 +628,7 @@ export function useVoiceSFU({ workspaceId, sessionId, workspaceUserId }) {
     sfuMediaStats,
     sfuTransportStates,
     remoteProducerMeta,
+    isMuted,
     isInCall: isSignalingConnected,
     callState: error ? 'ERROR' : (isSignalingConnected ? 'CONNECTED' : 'IDLE'),
     callStateLabel: error ? '오류' : (isSignalingConnected ? '연결됨' : '준비 중'),

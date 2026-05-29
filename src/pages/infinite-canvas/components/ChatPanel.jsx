@@ -9,10 +9,18 @@ const ChatPanel = ({
   onSendMessage,
   participants = [],
   currentUserId = null,
+  currentWorkspaceUserId = null,
   currentUserName = '',
   currentUserImage = '',
   workspaceId = null,
-  projectName = '프로젝트'
+  projectName = '프로젝트',
+  externalVoiceChannels = null,
+  externalVoiceParticipants = null,
+  externalActiveVoiceChannelId = null,
+  externalVoiceState = null,
+  onAddVoiceChannel,
+  onJoinVoiceChannel,
+  onLeaveVoiceChannel
 }) => {
   const legacyStorageKey = 'infinite-canvas-chat-state';
   const storageKey = workspaceId ? `infinite-canvas-chat-state-${workspaceId}` : legacyStorageKey;
@@ -102,6 +110,9 @@ const ChatPanel = ({
     }
   }, [chatChannels, voiceChannels, localMessages, activeChatChannelId, view]);
 
+  const resolvedVoiceChannels = Array.isArray(externalVoiceChannels) ? externalVoiceChannels : voiceChannels;
+  const voiceCurrentUserId = currentWorkspaceUserId ?? currentUserId;
+
   useEffect(() => {
     if (!chatChannels.find((channel) => channel.id === activeChatChannelId)) {
       setActiveChatChannelId(chatChannels[0]?.id || initialChatChannels[0].id);
@@ -109,10 +120,10 @@ const ChatPanel = ({
   }, [chatChannels, activeChatChannelId, initialChatChannels]);
 
   useEffect(() => {
-    if (!voiceChannels.find((channel) => channel.id === activeVoiceChannelId)) {
-      setActiveVoiceChannelId(voiceChannels[0]?.id || initialVoiceChannels[0].id);
+    if (!resolvedVoiceChannels.find((channel) => channel.id === activeVoiceChannelId)) {
+      setActiveVoiceChannelId(resolvedVoiceChannels[0]?.id || initialVoiceChannels[0].id);
     }
-  }, [voiceChannels, activeVoiceChannelId, initialVoiceChannels]);
+  }, [resolvedVoiceChannels, activeVoiceChannelId, initialVoiceChannels]);
 
   useEffect(() => {
     const shouldDetectSpeaking = isVoiceActive && !voiceControls.muted && !voiceControls.deafened;
@@ -332,7 +343,7 @@ const ChatPanel = ({
   }, [allMessages, isUserScrolling]);
 
   const activeChatChannel = chatChannels.find((channel) => channel.id === activeChatChannelId) || chatChannels[0] || initialChatChannels[0];
-  const activeVoiceChannel = voiceChannels.find((channel) => channel.id === activeVoiceChannelId) || voiceChannels[0] || initialVoiceChannels[0];
+  const activeVoiceChannel = resolvedVoiceChannels.find((channel) => channel.id === activeVoiceChannelId) || resolvedVoiceChannels[0] || initialVoiceChannels[0];
 
   const updateVoiceMembership = (channelId, member, remove = false) => {
     if (!channelId || !member) return;
@@ -369,25 +380,57 @@ const ChatPanel = ({
   const handleJoinVoice = (channelId = activeVoiceChannelId) => {
     if (!channelId) return;
     setIsVoiceActive(true);
+    setActiveVoiceChannelId(channelId);
     if (currentUserId) {
       updateVoiceMembership(channelId, {
-        id: currentUserId,
+        id: voiceCurrentUserId,
         name: currentUserName,
         profileImage: currentUserImage
       });
+    }
+    if (onJoinVoiceChannel) {
+      onJoinVoiceChannel(channelId);
     }
   };
 
   const handleLeaveVoice = () => {
     setIsVoiceActive(false);
-    if (currentUserId) {
+    if (voiceCurrentUserId) {
       updateVoiceMembership(activeVoiceChannelId, {
-        id: currentUserId
+        id: voiceCurrentUserId
       }, true);
+    }
+    if (onLeaveVoiceChannel) {
+      onLeaveVoiceChannel(activeVoiceChannelId);
     }
   };
 
-  const activeVoiceMembers = voiceMembersByChannel.get(activeVoiceChannelId) || [];
+  useEffect(() => {
+    if (!externalActiveVoiceChannelId) return;
+    setActiveVoiceChannelId(externalActiveVoiceChannelId);
+  }, [externalActiveVoiceChannelId]);
+
+  const effectiveActiveVoiceChannelId = externalActiveVoiceChannelId || activeVoiceChannelId;
+  const activeVoiceMembers = Array.isArray(externalVoiceParticipants)
+    ? externalVoiceParticipants
+    : (voiceMembersByChannel.get(effectiveActiveVoiceChannelId) || []);
+  const displayedVoiceMembers = (() => {
+    const merged = new Map();
+
+    activeVoiceMembers.forEach((participant) => {
+      const participantId = participant?.workspaceUserId ?? participant?.id;
+      if (!participantId) return;
+
+      merged.set(String(participantId), {
+        ...participant,
+        id: participantId,
+        name: participant.workspaceUserName || participant.name || participant.userName || participantId
+      });
+    });
+
+    return Array.from(merged.values());
+  })();
+
   const speakingUserIds = [];
   participants.forEach((participant) => {
     if (!participant?.id) return;
@@ -397,9 +440,27 @@ const ChatPanel = ({
       speakingUserIds.push(String(participant.id));
     }
   });
-  if (isCurrentUserSpeaking && currentUserId) {
-    speakingUserIds.push(String(currentUserId));
+  if (isCurrentUserSpeaking && voiceCurrentUserId) {
+    speakingUserIds.push(String(voiceCurrentUserId));
   }
+
+  const mergedSpeakingUserIds = Array.from(
+    new Set([
+      ...speakingUserIds.map((id) => String(id)),
+      ...((externalVoiceState?.speakingUserIds || []).map((id) => String(id)))
+    ])
+  );
+
+  const effectiveVoiceState = {
+    isVoiceActive,
+    connectionStatus: isVoiceActive ? 'connected' : 'idle',
+    muted: voiceControls.muted,
+    deafened: voiceControls.deafened,
+    settingsOpen: voiceControls.settingsOpen,
+    ...(externalVoiceState || {}),
+    speakingUserIds: mergedSpeakingUserIds,
+    isCurrentUserSpeaking: isCurrentUserSpeaking || Boolean(externalVoiceState?.isCurrentUserSpeaking)
+  };
 
   const createChannel = (type) => {
     const id = `${type}-${Date.now()}`;
@@ -407,7 +468,11 @@ const ChatPanel = ({
     if (type === 'chat') {
       setChatChannels((prev) => [...prev, { id, name }]);
     } else {
-      setVoiceChannels((prev) => [...prev, { id, name }]);
+      if (onAddVoiceChannel) {
+        onAddVoiceChannel();
+      } else {
+        setVoiceChannels((prev) => [...prev, { id, name }]);
+      }
     }
   };
 
@@ -421,7 +486,7 @@ const ChatPanel = ({
         setView('menu');
       }
     } else {
-      if (voiceChannels.length <= 1) return;
+      if (resolvedVoiceChannels.length <= 1) return;
       setVoiceChannels((prev) => prev.filter((channel) => channel.id !== id));
     }
   };
@@ -487,9 +552,10 @@ const ChatPanel = ({
             <button
               className="chatBackButton"
               onClick={() => setView('menu')}
-              title="메뉴로"
+              title="채널 목록으로 돌아가기"
+              aria-label="채널 목록으로 돌아가기"
             >
-              −
+              ← 뒤로
             </button>
           )}
           <button
@@ -506,14 +572,13 @@ const ChatPanel = ({
           {view === 'menu' ? (
             <ChatMenu
               chatChannels={chatChannels}
-              voiceChannels={voiceChannels}
+              voiceChannels={resolvedVoiceChannels}
               editingChannel={editingChannel}
               onSelectChatChannel={(channelId) => {
                 setActiveChatChannelId(channelId);
                 setView('chat');
               }}
               onSelectVoiceChannel={(channelId) => {
-                setActiveVoiceChannelId(channelId);
                 setView('menu');
                 handleJoinVoice(channelId);
               }}
@@ -522,19 +587,11 @@ const ChatPanel = ({
               onStartEditChannel={startEditChannel}
               onEditChannelName={(name) => setEditingChannel((prev) => prev ? { ...prev, name } : prev)}
               onApplyEditChannel={applyEditChannel}
-              activeVoiceChannelId={activeVoiceChannelId}
-              participants={activeVoiceMembers}
-              currentUserId={currentUserId}
+              activeVoiceChannelId={effectiveActiveVoiceChannelId}
+              participants={displayedVoiceMembers}
+              currentUserId={voiceCurrentUserId}
               projectName={projectName}
-              voiceState={{
-                isVoiceActive,
-                connectionStatus: isVoiceActive ? 'connected' : 'idle',
-                muted: voiceControls.muted,
-                deafened: voiceControls.deafened,
-                settingsOpen: voiceControls.settingsOpen,
-                speakingUserIds,
-                isCurrentUserSpeaking
-              }}
+              voiceState={effectiveVoiceState}
               currentUserName={currentUserName}
               currentUserImage={currentUserImage}
               onToggleMute={() => toggleVoiceControl('muted')}
