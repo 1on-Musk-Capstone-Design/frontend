@@ -197,11 +197,19 @@
   margin: 0;
 }
 
+/* ─── Tablet (769px – 1024px) ───────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main {
+    margin-left: 200px;
+    padding: 24px 28px 40px;
+  }
+}
+
 /* 반응형 */
 @media (max-width: 768px) {
   .main {
     margin-left: 0;
-    padding: 20px 16px 32px 16px;
+    padding: 72px 16px 32px 16px; /* top: 72px to clear hamburger */
   }
 
   .header {

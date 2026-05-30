@@ -12,6 +12,8 @@ import LandingPage from './pages/LandingPage/LandingPage'
 import LandingPage2 from './pages/LandingPage2/LandingPage2'
 import CapstoneV2Redirect from './pages/CapstoneV2Redirect'
 import TrashPage from './pages/TrashPage/TrashPage'
+import PRDPage from './pages/PRDPage/PRDPage'
+import PRDResultPage from './pages/PRDResultPage/PRDResultPage'
 import './index.css'
 import Login from './pages/login/Login'
 
@@ -31,6 +33,9 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/canvas/:projectId" element={<InfiniteCanvasPage />} />
         <Route path="/canvas" element={<InfiniteCanvasPage />} />
+        <Route path="/prd" element={<PRDPage />} />
+        <Route path="/prd/result/:id" element={<PRDResultPage />} />
+        <Route path="/prd/workspaces/:workspaceId/prds/:prdId" element={<PRDResultPage />} />
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/notifications" element={<NotificationPage />} />

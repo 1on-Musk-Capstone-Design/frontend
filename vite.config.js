@@ -10,8 +10,14 @@ export default defineConfig({
     // WebSocket 프록시 설정 (로컬 개발 시 백엔드 WebSocket 사용)
     // SockJS가 /ws/info, /ws/websocket 등의 경로를 사용하므로 모두 프록시
     proxy: {
+      // 로컬 Spring Boot (Capstone) — VITE_API_BASE_URL=/api 일 때 CORS 없이 사용
+      // 원격 서버로 붙이려면 target 을 http://51.20.106.74:8080 등으로 변경
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
       '/ws': {
-        target: 'http://51.20.106.74:8080',
+        target: 'http://localhost:8080',
         ws: true, // WebSocket 업그레이드 지원
         changeOrigin: true,
         secure: false,

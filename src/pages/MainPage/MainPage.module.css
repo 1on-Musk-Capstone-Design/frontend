@@ -1,180 +1,114 @@
+/* ─── Page root ──────────────────────────────────────────────────────────── */
 .pageRoot {
   min-height: 100vh;
-  width: 100vw;
-  background-color: #ffffff; /* 전체 화이트 */
+  width: 100%;
+  background: #ffffff;
   color: #111827;
   font-family: inherit;
 }
 
-                                                                                                                                                                                          
+.container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ─── Main (content area right of sidebar) ───────────────────────────────── */
 .main {
-  margin-left: 250px; /* fixed sidebar width */
-  padding: 32px 40px 48px 40px;
+  margin-left: 250px;
+  /* sidebar width = 250px; main takes the rest */
+  width: calc(100% - 250px);
+  min-width: 0;
+  padding: 32px 40px 64px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
   box-sizing: border-box;
-  background-color: #ffffff; /* 명시적 배경색 설정 */
+  background: #ffffff;
 }
 
-/* 대시보드 헤더 */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 36px;
-}
-
-.title {
-  font-size: 2.15rem;
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-
-.subtitle {
-  margin: 6px 0 0 0;
-  font-size: 0.95rem;
-  color: #6b7280;
-  font-weight: 500;
-}
-
+/* ─── Header — stretches full width of .main ────────────────────────────── */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;           /* ← full width of content area */
   margin-bottom: 24px;
-  flex-shrink: 0;
+  gap: 16px;
+  flex-wrap: wrap;       /* wraps on narrow viewports */
 }
 
 .title {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.75rem;
+  font-weight: 800;
   margin: 0;
+  letter-spacing: -0.5px;
+  color: #111827;
 }
 
 .subtitle {
-  margin: 2px 0 0 0;
+  margin: 4px 0 0;
   font-size: 0.9rem;
-  color: var(--muted, #6b7280);
+  color: #6b7280;
+  font-weight: 500;
 }
 
-.createButton {
-  /* infinite-canvas의 패널 스타일과 유사한 디자인 */
-  background: rgba(255,255,255,0.95);
-  color: var(--text, #111827);
-  border: 1px solid rgba(0,0,0,0.06);
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.12);
-}
-
-.createButton:hover {
-  transform: translateY(-2px);
-}
-
-.createButton:focus {
-  outline: 2px solid rgba(59,130,246,0.12);
-}
-
-.gridSection {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 32px;
-  flex: 1;
-  padding-bottom: 64px;
-}
-
-/* Green primary button */
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
 .createButton {
   background: #01CD15;
   color: #ffffff;
-  border: 1px solid #01CD15;
-  padding: 12px 20px;
+  border: none;
+  padding: 0 18px;
+  height: 40px;
   font-weight: 600;
   border-radius: 10px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
   box-shadow: 0 4px 14px rgba(1,205,21,0.25);
-  transition: background .16s ease, box-shadow .16s ease;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
-
-.createButton:hover { background: #10b981; box-shadow: 0 6px 18px rgba(16,185,129,0.30); }
+.createButton:hover  { background: #10b981; box-shadow: 0 6px 18px rgba(16,185,129,0.3); }
 .createButton:active { background: #059669; }
-.logoutButton { background: transparent; }
 
-@media (max-width: 768px) {
-  .container {
-    padding: 12px;
-    gap: 12px;
-  }
-  
-  .main {
-    padding: 16px;
-  }
-  
-  .gridSection {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-  }
-  
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
+/* ─── Grid section ───────────────────────────────────────────────────────── */
+.gridSection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+  flex: 1;
 }
 
-@media (prefers-color-scheme: dark) {
-  .pageRoot {
-    background-color: #0f1724;
-    background-image: 
-      linear-gradient(45deg, #374151 25%, transparent 25%),
-      linear-gradient(-45deg, #374151 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #374151 75%),
-      linear-gradient(-45deg, transparent 75%, #374151 75%);
-  }
-  
-  .main {
-    background-color: #ffffff; /* 다크 모드에서도 메인 영역은 밝게 유지 */
-  }
-}
-
-/* Modal form styles */
-.formGroup {
-  margin-bottom: 12px;
-}
+/* ─── Modal form ─────────────────────────────────────────────────────────── */
+.formGroup  { margin-bottom: 12px; }
 
 .label {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.95rem;
-  color: var(--text, #111827);
+  font-size: 0.9rem;
+  color: #111827;
+  font-weight: 500;
 }
 
-.required {
-  color: #ef4444;
-  margin-left: 6px;
-  font-weight: 600;
-}
+.required { color: #ef4444; margin-left: 4px; }
 
 .input,
 .textarea {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(15,23,42,0.06);
+  border: 1.5px solid #e5e7eb;
   background: #ffffff;
-  font-size: 0.95rem;
-  color: var(--text, #111827);
+  font-size: 0.9rem;
+  color: #111827;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
 }
-
-.textarea {
-  resize: vertical;
-}
+.input:focus,
+.textarea:focus { border-color: #01CD15; box-shadow: 0 0 0 3px rgba(1,205,21,0.1); }
+.textarea { resize: vertical; }
 
 .formActions {
   display: flex;
@@ -185,43 +119,102 @@
 
 .ghostBtn {
   background: transparent;
-  border: 1px solid rgba(15,23,42,0.06);
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.primaryBtn {
-  background: var(--primary, #4f46e5);
-  color: white;
-  border: none;
+  border: 1.5px solid #e5e7eb;
   padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: #374151;
+  transition: background 0.12s;
+}
+.ghostBtn:hover { background: #f3f4f6; }
+
+.primaryBtn {
+  background: #01CD15;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.88rem;
 }
 
 .dangerBtn {
   background: #dc2626;
   color: white;
   border: none;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
-  transition: background-color 180ms ease;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.dangerBtn:hover:not(:disabled) { background: #b91c1c; }
+.dangerBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.errorText { color: #dc2626; margin-top: 6px; font-size: 0.875rem; }
+
+.logoutButton { background: transparent; }
+
+/* ─── Tablet (769px – 1024px) ───────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main {
+    margin-left: 200px;
+    width: calc(100% - 200px);
+    padding: 24px 28px 48px;
+  }
+
+  .title { font-size: 1.5rem; }
 }
 
-.dangerBtn:hover:not(:disabled) {
-  background: #b91c1c;
+/* ─── Mobile (≤ 768px) ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .main {
+    margin-left: 0;
+    width: 100%;
+    padding: 64px 16px 48px; /* top: 64px to clear hamburger button */
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  /* controls 행: search + buttons */
+  .header > div:last-child {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* search input full-width on mobile */
+  .header > div:last-child > div:first-child {
+    flex: 1;
+    min-width: 0;
+    width: auto !important; /* override w-72 */
+  }
+
+  .title    { font-size: 1.4rem; }
+  .subtitle { font-size: 0.82rem; }
+
+  .gridSection {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
 }
 
-.dangerBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+/* ─── Small mobile (≤ 480px) ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .main { padding: 60px 12px 40px; }
 
-.errorText {
-  color: #dc2626;
-  margin-top: 8px;
-  font-size: 0.9rem;
+  .gridSection {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 }
