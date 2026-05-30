@@ -4,7 +4,8 @@ import { API_BASE_URL, getOAuthRedirectUri } from "../../../config/api";
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const [isDevLoading, setIsDevLoading] = useState(false);
+  const [isDevPreviewLoading, setIsDevPreviewLoading] = useState(false);
 
   const onGoogleLogin = async () => {
     if (isLoading) return;
@@ -14,6 +15,9 @@ export default function LoginForm() {
     try {
       // 현재 환경에 맞는 리다이렉트 URI 생성
       const redirectUri = getOAuthRedirectUri();
+      const params = new URLSearchParams(window.location.search);
+      const devEmail = params.get('dev_email');
+      const devName = params.get('dev_name');
       
       // 디버깅: 콜백 URL 확인
       console.log('OAuth 리다이렉트 URI:', redirectUri);
@@ -23,7 +27,9 @@ export default function LoginForm() {
         `${API_BASE_URL}/v1/auth-google/login-uri`,
         {
           params: {
-            redirect_uri: redirectUri
+            redirect_uri: redirectUri,
+            ...(devEmail ? { dev_email: devEmail } : {}),
+            ...(devName ? { dev_name: devName } : {})
           },
           timeout: 10000
         }
@@ -68,30 +74,146 @@ export default function LoginForm() {
   };
 
   const onDevLogin = async () => {
-    if (isLoading) return;
+    if (isDevLoading) return;
 
-    setIsLoading(true);
+    setIsDevLoading(true);
 
     try {
-      const devUserId = "1";
+      const response = await axios.post(
+        `${API_BASE_URL}/v1/auth/dev/bootstrap`,
+        {},
+        {
+          timeout: 10000
+        }
+      );
 
-      localStorage.setItem("accessToken", `dev_token_${Date.now()}`);
-      localStorage.setItem("refreshToken", "dev_refresh_token_local");
-      localStorage.setItem("userId", devUserId);
-      localStorage.setItem("userName", "개발자");
-      localStorage.setItem("userEmail", "dev@localhost.local");
+      const { accessToken, refreshToken, name, email } = response.data || {};
 
-      window.location.href = "/canvas/1";
+      if (!accessToken || !refreshToken) {
+        throw new Error("개발자 로그인 토큰을 받지 못했습니다.");
+      }
+
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+
+      if (name) {
+        localStorage.setItem("userName", name);
+      }
+
+      if (email) {
+        localStorage.setItem("userEmail", email);
+      }
+
+      window.location.href = "/";
     } catch (err) {
-      console.error("개발 로그인 오류:", err);
+      console.error("개발자 로그인 오류:", err);
 
-      let errorMessage = "개발 로그인에 실패했습니다.";
-      if (!err.response && !err.request) {
+      let errorMessage = "개발자 로그인에 실패했습니다.";
+
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data;
+        errorMessage = `서버 오류 (${status})`;
+        if (data?.message) {
+          errorMessage = `${errorMessage}: ${data.message}`;
+        } else if (typeof data === "string") {
+          errorMessage = `${errorMessage}: ${data}`;
+        } else if (status === 404) {
+          errorMessage = "개발자 로그인 엔드포인트가 비활성화되어 있습니다.";
+        }
+      } else if (err.request) {
+        errorMessage = `서버에 연결할 수 없습니다.\n\n서버 주소: ${API_BASE_URL}`;
+      } else {
         errorMessage = err.message || errorMessage;
       }
 
       alert(errorMessage);
-      setIsLoading(false);
+      setIsDevLoading(false);
+    }
+  };
+
+  const onDevPreviewLogin = async () => {
+    if (isDevPreviewLoading) return;
+
+    setIsDevPreviewLoading(true);
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const workspaceId = Number(params.get("workspaceId") || "1");
+      const browserSessionId =
+        params.get("browserSessionId") ||
+        `local-preview-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      const response = await axios.post(
+        `${API_BASE_URL}/v1/auth/dev/bootstrap`,
+        {
+          workspaceId,
+          browserSessionId,
+          devIndex: 2
+        },
+        {
+          timeout: 10000
+        }
+      );
+
+      const {
+        accessToken,
+        refreshToken,
+        userId,
+        workspaceUserId,
+        name,
+        email
+      } = response.data || {};
+
+      if (!accessToken || !refreshToken) {
+        throw new Error("개발자2 로그인 토큰을 받지 못했습니다.");
+      }
+
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("voicePreviewBrowserSessionId", browserSessionId);
+
+      if (userId !== undefined && userId !== null) {
+        localStorage.setItem("userId", String(userId));
+      }
+
+      if (workspaceUserId !== undefined && workspaceUserId !== null) {
+        localStorage.setItem("workspaceUserId", String(workspaceUserId));
+      }
+
+      if (name) {
+        localStorage.setItem("userName", name);
+      }
+
+      if (email) {
+        localStorage.setItem("userEmail", email);
+      }
+
+      window.location.href = `/canvas/${workspaceId}`;
+    } catch (err) {
+      console.error("개발자2 로그인 오류:", err);
+
+      let errorMessage = "개발자2 로그인에 실패했습니다.";
+
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data;
+        errorMessage = `서버 오류 (${status})`;
+        if (data?.message) {
+          errorMessage = `${errorMessage}: ${data.message}`;
+        } else if (typeof data === "string") {
+          errorMessage = `${errorMessage}: ${data}`;
+        } else if (status === 404) {
+          errorMessage = "프리뷰 부트스트랩 엔드포인트가 비활성화되어 있습니다.";
+        }
+      } else if (err.request) {
+        errorMessage = `서버에 연결할 수 없습니다.\n\n서버 주소: ${API_BASE_URL}`;
+      } else {
+        errorMessage = err.message || errorMessage;
+      }
+
+      alert(errorMessage);
+      setIsDevPreviewLoading(false);
     }
   };
 
@@ -99,44 +221,49 @@ export default function LoginForm() {
   const containerStyle = {
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    gap: 0,
+    gap: 24,
+  };
+
+  const titleStyle = {
+    fontSize: 28,
+    fontWeight: 800,
+    color: "#2c3e50",
+    textAlign: "center",
+    margin: 0,
+    marginBottom: 4,
+  };
+
+  const subtitleStyle = {
+    fontSize: 15,
+    color: "#7f8c8d",
+    textAlign: "center",
+    margin: 0,
+    fontWeight: 500,
   };
 
 const buttonStyle = {
-  width: "min(300px, 100%)",
-  height: 54,
+  width: "100%",
+  height: 52,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 12,
   fontSize: 16,
-  fontWeight: 700,
-  borderRadius: 12,
-  border: "1px solid #b8c4bc",
+  fontWeight: 600,
+  borderRadius: 8,
+  border: "2px solid #34495e",
   cursor: isLoading ? "not-allowed" : "pointer",
-  background: "linear-gradient(180deg, #ffffff 0%, #eef2ef 100%)",
-  color: "#2b3b32",
-  transition: "all 0.24s ease",
-  boxShadow: "0 8px 20px rgba(35, 52, 43, 0.12)",
-};
-
-const devButtonStyle = {
-  ...buttonStyle,
-  marginTop: 10,
-  height: 44,
-  fontSize: 14,
-  background: "rgba(255, 255, 255, 0.14)",
-  color: "#e5f7e6",
-  border: "1px solid rgba(229, 247, 230, 0.35)",
-  boxShadow: "none",
+  background: "#ffffff",
+  color: "#2c3e50",
+  transition: "all 0.3s ease",
+  boxShadow: "0 3px 8px rgba(0,0,0,0.12)",
 };
 
   const spinnerStyle = {
     width: 20,
     height: 20,
-    border: "2px solid rgba(23,63,36,0.2)",
-    borderTop: "2px solid #0f8a1f",
+    border: "2px solid rgba(255,255,255,0.3)",
+    borderTop: "2px solid white",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   };
@@ -146,49 +273,67 @@ const devButtonStyle = {
     height: 20,
   };
 
+  const devButtonStyle = {
+    width: "100%",
+    height: 48,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    fontSize: 15,
+    fontWeight: 700,
+    borderRadius: 8,
+    border: "1px solid #d1d5db",
+    cursor: isDevLoading ? "not-allowed" : "pointer",
+    background: "#0f172a",
+    color: "#f8fafc",
+    transition: "all 0.2s ease",
+    boxShadow: "0 4px 12px rgba(15,23,42,0.14)",
+  };
+
+  const devPreviewButtonStyle = {
+    width: "100%",
+    height: 48,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    fontSize: 15,
+    fontWeight: 700,
+    borderRadius: 8,
+    border: "1px solid #bae6fd",
+    cursor: isDevPreviewLoading ? "not-allowed" : "pointer",
+    background: "#ecfeff",
+    color: "#155e75",
+    transition: "all 0.2s ease",
+    boxShadow: "0 4px 12px rgba(8,145,178,0.12)",
+  };
+
   return (
     <div style={containerStyle}>
+      <div>
+        <h2 style={titleStyle}>로그인</h2>
+        <p style={subtitleStyle}>구글 계정으로 계속하세요</p>
+      </div>
+
       <button
         onClick={onGoogleLogin}
         disabled={isLoading}
         style={buttonStyle}
          onMouseEnter={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "linear-gradient(180deg, #f2f6f3 0%, #dfe8e2 100%)";
-            e.currentTarget.style.borderColor = "#829587";
-            e.currentTarget.style.color = "#23352b";
-            e.currentTarget.style.transform = "translateY(-2px) scale(1.01)";
-            e.currentTarget.style.boxShadow = "0 14px 28px rgba(35, 52, 43, 0.22), 0 0 0 1px rgba(255,255,255,0.65) inset";
-            const icon = e.currentTarget.querySelector('svg');
-            if (icon) {
-              icon.style.transform = 'scale(1.08) rotate(-4deg)';
-              icon.style.transition = 'transform 0.2s ease';
-            }
+            e.currentTarget.style.background = "#e9ecef"; 
+            e.currentTarget.style.color = "#2c3e50";
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)"; 
           }
         }}
          onMouseLeave={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "linear-gradient(180deg, #ffffff 0%, #eef2ef 100%)";
-            e.currentTarget.style.borderColor = "#b8c4bc";
-            e.currentTarget.style.color = "#2b3b32";
+            e.currentTarget.style.background = "#ffffff"; 
+            e.currentTarget.style.color = "#2c3e50";
             e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 8px 20px rgba(35, 52, 43, 0.12)";
-            const icon = e.currentTarget.querySelector('svg');
-            if (icon) {
-              icon.style.transform = 'scale(1) rotate(0deg)';
-            }
-          }
-        }}
-        onMouseDown={(e) => {
-          if (!isLoading) {
-            e.currentTarget.style.transform = "translateY(0) scale(0.995)";
-            e.currentTarget.style.boxShadow = "0 5px 12px rgba(35, 52, 43, 0.16)";
-          }
-        }}
-        onMouseUp={(e) => {
-          if (!isLoading) {
-            e.currentTarget.style.transform = "translateY(-2px) scale(1.01)";
-            e.currentTarget.style.boxShadow = "0 14px 28px rgba(35, 52, 43, 0.22), 0 0 0 1px rgba(255,255,255,0.65) inset";
+            e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.12)"; 
           }
         }}
       >
@@ -222,20 +367,68 @@ const devButtonStyle = {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span>Google 로그인</span>
+            <span>구글로 로그인하기</span>
           </>
         )}
       </button>
 
-      {isLocalhost && (
-        <button
-          onClick={onDevLogin}
-          disabled={isLoading}
-          style={devButtonStyle}
-        >
-          개발 로그인
-        </button>
-      )}
+      <button
+        onClick={onDevLogin}
+        disabled={isDevLoading}
+        style={devButtonStyle}
+        onMouseEnter={(e) => {
+          if (!isDevLoading) {
+            e.currentTarget.style.background = "#1e293b";
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow = "0 8px 18px rgba(15,23,42,0.22)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isDevLoading) {
+            e.currentTarget.style.background = "#0f172a";
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(15,23,42,0.14)";
+          }
+        }}
+      >
+        {isDevLoading ? (
+          <>
+            <div style={spinnerStyle} />
+            <span>개발자 로그인 중...</span>
+          </>
+        ) : (
+          <span>개발자 로그인</span>
+        )}
+      </button>
+
+      <button
+        onClick={onDevPreviewLogin}
+        disabled={isDevPreviewLoading}
+        style={devPreviewButtonStyle}
+        onMouseEnter={(e) => {
+          if (!isDevPreviewLoading) {
+            e.currentTarget.style.background = "#cffafe";
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow = "0 8px 18px rgba(8,145,178,0.2)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isDevPreviewLoading) {
+            e.currentTarget.style.background = "#ecfeff";
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(8,145,178,0.12)";
+          }
+        }}
+      >
+        {isDevPreviewLoading ? (
+          <>
+            <div style={spinnerStyle} />
+            <span>개발자2 로그인 중...</span>
+          </>
+        ) : (
+          <span>개발자2 로그인</span>
+        )}
+      </button>
 
       <style>{`
         @keyframes spin {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API_BASE_URL, getOAuthRedirectUri } from "../../../config/api";
+import { API_BASE_URL } from "../../../config/api";
 
 export default function CallbackPage() {
   const [searchParams] = useSearchParams();
@@ -90,13 +90,12 @@ export default function CallbackPage() {
 
       try {
         setStatus("로그인 처리 중...");
-        const redirectUri = getOAuthRedirectUri();
         
         const res = await axios.post(
           `${API_BASE_URL}/v1/auth-google`,
           null,
           {
-            params: { code, redirect_uri: redirectUri },
+            params: { code },
             timeout: 10000,
             signal: abortControllerRef.current?.signal,
           }

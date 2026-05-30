@@ -11,7 +11,8 @@ export default function AuthPage() {
           ON<span>it</span>
         </h1>
         <p className="auth-entry-description">
-          무한 캔버스에서 아이디어를 정리하고,<br />
+          무한 캔버스에서 아이디어를 정리하고,
+          <br />
           팀원과 함께 실시간으로 협업하세요.
         </p>
 
@@ -32,6 +33,12 @@ export default function AuthPage() {
             <span>Voice</span>
             <strong>Brainstorm</strong>
           </div>
+        </div>
+
+        <div className="auth-entry-dev-hint">
+          개발 테스트용으로 로그인 카드 하단에
+          <strong> 개발자 로그인 </strong>
+          버튼이 함께 표시됩니다.
         </div>
 
         <section className="auth-entry-login-area">
@@ -64,6 +71,7 @@ export default function AuthPage() {
 
         .auth-entry-shell {
           width: min(760px, 100%);
+          max-height: calc(100vh - 48px);
           display: flex;
           flex-direction: column;
           gap: 16px;
@@ -77,6 +85,7 @@ export default function AuthPage() {
           position: relative;
           z-index: 1;
           padding: 30px;
+          overflow-y: auto;
         }
 
         .auth-entry-badge {
@@ -152,6 +161,21 @@ export default function AuthPage() {
           border: 0;
         }
 
+        .auth-entry-dev-hint {
+          margin-top: 4px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(229, 247, 230, 0.22);
+          background: rgba(255, 255, 255, 0.1);
+          color: rgba(229, 247, 230, 0.92);
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .auth-entry-dev-hint strong {
+          color: #ffffff;
+        }
+
         @keyframes authEntryFadeIn {
           from {
             opacity: 0;
@@ -167,6 +191,7 @@ export default function AuthPage() {
           .auth-entry-shell {
             width: min(680px, 100%);
             padding: 24px;
+            max-height: calc(100vh - 40px);
           }
         }
 
@@ -178,6 +203,7 @@ export default function AuthPage() {
           .auth-entry-shell {
             border-radius: 20px;
             padding: 20px;
+            max-height: calc(100vh - 32px);
           }
 
           .auth-entry-metrics {
