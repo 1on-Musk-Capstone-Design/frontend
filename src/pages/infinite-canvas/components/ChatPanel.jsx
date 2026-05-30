@@ -20,7 +20,9 @@ const ChatPanel = ({
   externalVoiceState = null,
   onAddVoiceChannel,
   onJoinVoiceChannel,
-  onLeaveVoiceChannel
+  onLeaveVoiceChannel,
+  onToggleVoiceMute,
+  onToggleVoiceDeafen
 }) => {
   const legacyStorageKey = 'infinite-canvas-chat-state';
   const storageKey = workspaceId ? `infinite-canvas-chat-state-${workspaceId}` : legacyStorageKey;
@@ -64,27 +66,10 @@ const ChatPanel = ({
   );
   const [newMessage, setNewMessage] = useState("");
   const [isHidden, setIsHidden] = useState(false);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
-  const [voiceMembersByChannel, setVoiceMembersByChannel] = useState(new Map());
-  const [isCurrentUserSpeaking, setIsCurrentUserSpeaking] = useState(false);
-  const [voiceControls, setVoiceControls] = useState({
-    muted: false,
-    deafened: false,
-    settingsOpen: false,
-    inputSettingsOpen: false,
-    outputSettingsOpen: false
-  });
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const scrollTimeoutRef = useRef(null);
-  const speakingAudioContextRef = useRef(null);
-  const speakingAnalyserRef = useRef(null);
-  const speakingDataRef = useRef(null);
-  const speakingStreamRef = useRef(null);
-  const speakingSourceRef = useRef(null);
-  const speakingAnimationRef = useRef(null);
-  const lastSpeakingAtRef = useRef(0);
 
   // 가시성 변경 시 부모에게 알림
   useEffect(() => {
@@ -112,6 +97,14 @@ const ChatPanel = ({
 
   const resolvedVoiceChannels = Array.isArray(externalVoiceChannels) ? externalVoiceChannels : voiceChannels;
   const voiceCurrentUserId = currentWorkspaceUserId ?? currentUserId;
+  const effectiveActiveVoiceChannelId = externalActiveVoiceChannelId || activeVoiceChannelId;
+  const effectiveVoiceState = {
+    isVoiceActive: Boolean(effectiveActiveVoiceChannelId),
+    connectionStatus: effectiveActiveVoiceChannelId ? 'connected' : 'idle',
+    muted: false,
+    ...(externalVoiceState || {}),
+    deafened: Boolean(externalVoiceState?.deafened)
+  };
 
   useEffect(() => {
     if (!chatChannels.find((channel) => channel.id === activeChatChannelId)) {
@@ -124,124 +117,6 @@ const ChatPanel = ({
       setActiveVoiceChannelId(resolvedVoiceChannels[0]?.id || initialVoiceChannels[0].id);
     }
   }, [resolvedVoiceChannels, activeVoiceChannelId, initialVoiceChannels]);
-
-  useEffect(() => {
-    const shouldDetectSpeaking = isVoiceActive && !voiceControls.muted && !voiceControls.deafened;
-
-    const cleanupSpeakingDetection = async () => {
-      if (speakingAnimationRef.current) {
-        cancelAnimationFrame(speakingAnimationRef.current);
-        speakingAnimationRef.current = null;
-      }
-      if (speakingSourceRef.current) {
-        try {
-          speakingSourceRef.current.disconnect();
-        } catch (error) {
-          console.warn('마이크 소스 정리 실패', error);
-        }
-        speakingSourceRef.current = null;
-      }
-      if (speakingStreamRef.current) {
-        speakingStreamRef.current.getTracks().forEach((track) => track.stop());
-        speakingStreamRef.current = null;
-      }
-      if (speakingAudioContextRef.current) {
-        try {
-          await speakingAudioContextRef.current.close();
-        } catch (error) {
-          console.warn('오디오 컨텍스트 종료 실패', error);
-        }
-        speakingAudioContextRef.current = null;
-      }
-      speakingAnalyserRef.current = null;
-      speakingDataRef.current = null;
-      lastSpeakingAtRef.current = 0;
-      setIsCurrentUserSpeaking(false);
-    };
-
-    if (!shouldDetectSpeaking) {
-      cleanupSpeakingDetection();
-      return undefined;
-    }
-
-    let isDisposed = false;
-
-    const startSpeakingDetection = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
-          video: false
-        });
-
-        if (isDisposed) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        const audioContext = new AudioContextClass();
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 1024;
-        analyser.smoothingTimeConstant = 0.86;
-
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.fftSize);
-        speakingAudioContextRef.current = audioContext;
-        speakingAnalyserRef.current = analyser;
-        speakingDataRef.current = dataArray;
-        speakingStreamRef.current = stream;
-        speakingSourceRef.current = source;
-
-        const detectSpeaking = () => {
-          if (isDisposed || !speakingAnalyserRef.current || !speakingDataRef.current) {
-            return;
-          }
-
-          speakingAnalyserRef.current.getByteTimeDomainData(speakingDataRef.current);
-          let total = 0;
-          for (let index = 0; index < speakingDataRef.current.length; index += 1) {
-            const normalized = (speakingDataRef.current[index] - 128) / 128;
-            total += normalized * normalized;
-          }
-
-          const rms = Math.sqrt(total / speakingDataRef.current.length);
-          const now = performance.now();
-          const speakingNow = rms > 0.035;
-
-          if (speakingNow) {
-            lastSpeakingAtRef.current = now;
-          }
-
-          const isActive = speakingNow || now - lastSpeakingAtRef.current < 260;
-          setIsCurrentUserSpeaking((prev) => (prev === isActive ? prev : isActive));
-
-          speakingAnimationRef.current = requestAnimationFrame(detectSpeaking);
-        };
-
-        speakingAnimationRef.current = requestAnimationFrame(detectSpeaking);
-      } catch (error) {
-        console.warn('마이크 음성 감지 초기화 실패', error);
-      }
-    };
-
-    startSpeakingDetection();
-
-    return () => {
-      isDisposed = true;
-      cleanupSpeakingDetection();
-    };
-  }, [isVoiceActive, voiceControls.muted, voiceControls.deafened]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -343,63 +218,31 @@ const ChatPanel = ({
   }, [allMessages, isUserScrolling]);
 
   const activeChatChannel = chatChannels.find((channel) => channel.id === activeChatChannelId) || chatChannels[0] || initialChatChannels[0];
-  const activeVoiceChannel = resolvedVoiceChannels.find((channel) => channel.id === activeVoiceChannelId) || resolvedVoiceChannels[0] || initialVoiceChannels[0];
+  const toggleVoiceControl = async (key) => {
+    if (key === 'muted' && onToggleVoiceMute) {
+      try {
+        await onToggleVoiceMute();
+      } catch (err) {
+        console.error('음소거 토글 실패', err);
+      }
+      return;
+    }
 
-  const updateVoiceMembership = (channelId, member, remove = false) => {
-    if (!channelId || !member) return;
-    setVoiceMembersByChannel((prev) => {
-      const next = new Map(prev);
-      const current = next.get(channelId) || [];
-      const filtered = current.filter((item) => String(item.id) !== String(member.id));
-      next.set(channelId, remove ? filtered : [...filtered, member]);
-      return next;
-    });
-  };
-
-  const toggleVoiceControl = (key) => {
-    setVoiceControls((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const toggleInputSettings = () => {
-    setVoiceControls((prev) => ({
-      ...prev,
-      inputSettingsOpen: !prev.inputSettingsOpen,
-      outputSettingsOpen: false
-    }));
-  };
-
-  const toggleOutputSettings = () => {
-    setVoiceControls((prev) => ({
-      ...prev,
-      outputSettingsOpen: !prev.outputSettingsOpen,
-      inputSettingsOpen: false
-    }));
+    if (key === 'deafened' && onToggleVoiceDeafen) {
+      onToggleVoiceDeafen();
+    }
   };
 
 
   const handleJoinVoice = (channelId = activeVoiceChannelId) => {
     if (!channelId) return;
-    setIsVoiceActive(true);
     setActiveVoiceChannelId(channelId);
-    if (currentUserId) {
-      updateVoiceMembership(channelId, {
-        id: voiceCurrentUserId,
-        name: currentUserName,
-        profileImage: currentUserImage
-      });
-    }
     if (onJoinVoiceChannel) {
       onJoinVoiceChannel(channelId);
     }
   };
 
   const handleLeaveVoice = () => {
-    setIsVoiceActive(false);
-    if (voiceCurrentUserId) {
-      updateVoiceMembership(activeVoiceChannelId, {
-        id: voiceCurrentUserId
-      }, true);
-    }
     if (onLeaveVoiceChannel) {
       onLeaveVoiceChannel(activeVoiceChannelId);
     }
@@ -410,10 +253,9 @@ const ChatPanel = ({
     setActiveVoiceChannelId(externalActiveVoiceChannelId);
   }, [externalActiveVoiceChannelId]);
 
-  const effectiveActiveVoiceChannelId = externalActiveVoiceChannelId || activeVoiceChannelId;
   const activeVoiceMembers = Array.isArray(externalVoiceParticipants)
     ? externalVoiceParticipants
-    : (voiceMembersByChannel.get(effectiveActiveVoiceChannelId) || []);
+    : [];
   const displayedVoiceMembers = (() => {
     const merged = new Map();
 
@@ -440,7 +282,7 @@ const ChatPanel = ({
       speakingUserIds.push(String(participant.id));
     }
   });
-  if (isCurrentUserSpeaking && voiceCurrentUserId) {
+  if (effectiveVoiceState.isCurrentUserSpeaking && voiceCurrentUserId) {
     speakingUserIds.push(String(voiceCurrentUserId));
   }
 
@@ -450,17 +292,8 @@ const ChatPanel = ({
       ...((externalVoiceState?.speakingUserIds || []).map((id) => String(id)))
     ])
   );
-
-  const effectiveVoiceState = {
-    isVoiceActive,
-    connectionStatus: isVoiceActive ? 'connected' : 'idle',
-    muted: voiceControls.muted,
-    deafened: voiceControls.deafened,
-    settingsOpen: voiceControls.settingsOpen,
-    ...(externalVoiceState || {}),
-    speakingUserIds: mergedSpeakingUserIds,
-    isCurrentUserSpeaking: isCurrentUserSpeaking || Boolean(externalVoiceState?.isCurrentUserSpeaking)
-  };
+  effectiveVoiceState.speakingUserIds = mergedSpeakingUserIds;
+  effectiveVoiceState.isCurrentUserSpeaking = Boolean(externalVoiceState?.isCurrentUserSpeaking);
 
   const createChannel = (type) => {
     const id = `${type}-${Date.now()}`;
@@ -555,7 +388,7 @@ const ChatPanel = ({
               title="채널 목록으로 돌아가기"
               aria-label="채널 목록으로 돌아가기"
             >
-              ← 뒤로
+              ←
             </button>
           )}
           <button
@@ -596,10 +429,6 @@ const ChatPanel = ({
               currentUserImage={currentUserImage}
               onToggleMute={() => toggleVoiceControl('muted')}
               onToggleDeafen={() => toggleVoiceControl('deafened')}
-              onToggleInputSettings={toggleInputSettings}
-              onToggleOutputSettings={toggleOutputSettings}
-              inputSettingsOpen={voiceControls.inputSettingsOpen}
-              outputSettingsOpen={voiceControls.outputSettingsOpen}
               onLeaveVoice={handleLeaveVoice}
             />
           ) : (

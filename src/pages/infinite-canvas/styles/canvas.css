@@ -909,22 +909,24 @@
 }
 
 .voiceHangupButton {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #2f2f2f;
-  font-size: 13px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: none;
+  background: none;
+  color: var(--chat-header-text-color);
+  font-size: 20px;
+  font-weight: 500;
+  padding: 0;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transform: rotate(135deg);
+  line-height: 1;
 }
 
 .voiceHangupButton:hover {
-  background: #f3f4f6;
+  background: #f0f0f0;
 }
 
 .voiceStatusBar {

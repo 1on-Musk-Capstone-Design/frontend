@@ -6,6 +6,7 @@ import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import TopToolbar from './components/TopToolbar';
 import VoiceCallTestPanel from './components/VoiceCallTestPanel';
+import RemoteVoiceAudioRenderer from './components/RemoteVoiceAudioRenderer';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
@@ -17,6 +18,8 @@ import { useTextFields } from './hooks/useTextFields';
 import { useSession } from './hooks/useSession';
 import { useChatWebSocket } from './hooks/useChatWebSocket';
 import { useCanvasWebSocket } from './hooks/useCanvasWebSocket';
+import { useWorkspaceVoiceSession } from './hooks/useWorkspaceVoiceSession';
+import { useLocalSpeakingIndicator } from './hooks/useLocalSpeakingIndicator';
 import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants';
 import { API_BASE_URL } from '../../config/api';
 import { packClusterTextsSimple } from './utils/simplePacking';
@@ -71,15 +74,7 @@ const InfiniteCanvasPage = () => {
   const [activeVoiceSessionId, setActiveVoiceSessionId] = useState(null);
   const [voiceConnectRequestKey, setVoiceConnectRequestKey] = useState(null);
   const [voiceDisconnectRequestKey, setVoiceDisconnectRequestKey] = useState(null);
-  const [voicePanelState, setVoicePanelState] = useState({
-    activeSessionId: null,
-    isSessionReady: false,
-    isInCall: false,
-    isMuted: false,
-    callState: 'IDLE',
-    callMode: 'mesh',
-    speakingUserIds: []
-  });
+  const [isVoiceDeafened, setIsVoiceDeafened] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
   const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName, canvasX, canvasY})
@@ -112,18 +107,34 @@ const InfiniteCanvasPage = () => {
   const voicePeerCandidates = voiceWorkspaceParticipants.filter(
     (participant) => String(participant.id) !== String(currentWorkspaceUserId)
   );
-  const showVoiceTestPanel = import.meta.env.DEV || import.meta.env.VITE_ENABLE_VOICE_TEST_PANEL === 'true';
+  const voiceSession = useWorkspaceVoiceSession({
+    workspaceId,
+    workspaceUserId: currentWorkspaceUserId,
+    preferredSessionId: activeVoiceSessionId,
+    connectRequestKey: voiceConnectRequestKey,
+    disconnectRequestKey: voiceDisconnectRequestKey
+  });
+  const isCurrentUserSpeaking = useLocalSpeakingIndicator(
+    Boolean(activeVoiceChannelId) && !voiceSession.isMuted && !isVoiceDeafened
+  );
+  const showVoiceTestPanel = import.meta.env.VITE_ENABLE_VOICE_TEST_PANEL === 'true';
   const activeVoiceChannelMembers = activeVoiceSessionId
     ? (voiceChannelMembersBySession[String(activeVoiceSessionId)] || [])
     : [];
   const chatPanelVoiceState = {
     isVoiceActive: Boolean(activeVoiceChannelId),
-    connectionStatus: voicePanelState.isInCall
+    connectionStatus: voiceSession.isInCall
       ? 'connected'
-      : (voicePanelState.isSessionReady ? 'preparing' : 'idle'),
-    muted: voicePanelState.isMuted,
-    speakingUserIds: voicePanelState.speakingUserIds || []
+      : (voiceSession.isSessionReady ? 'preparing' : 'idle'),
+    muted: voiceSession.isMuted,
+    deafened: isVoiceDeafened,
+    speakingUserIds: voiceSession.speakingUserIds || [],
+    isCurrentUserSpeaking
   };
+
+  const handleToggleVoiceDeafen = useCallback(() => {
+    setIsVoiceDeafened((prev) => !prev);
+  }, []);
 
   const handleJoinVoiceChannel = useCallback((channelId) => {
     if (!channelId) return;
@@ -3226,18 +3237,18 @@ const InfiniteCanvasPage = () => {
         onAddVoiceChannel={handleAddVoiceChannel}
         onJoinVoiceChannel={handleJoinVoiceChannel}
         onLeaveVoiceChannel={handleLeaveVoiceChannel}
+        onToggleVoiceMute={voiceSession.toggleMute}
+        onToggleVoiceDeafen={handleToggleVoiceDeafen}
       />
+
+      <RemoteVoiceAudioRenderer remoteStreams={voiceSession.remoteStreams} />
 
       {showVoiceTestPanel && workspaceId && currentUserId && (
         <VoiceCallTestPanel
           workspaceId={workspaceId}
           currentWorkspaceUserId={currentWorkspaceUserId}
-          peerWorkspaceUserId={voicePeerCandidates[0]?.id || null}
           candidatePeers={voicePeerCandidates}
-          preferredSessionId={activeVoiceSessionId}
-          connectRequestKey={voiceConnectRequestKey}
-          disconnectRequestKey={voiceDisconnectRequestKey}
-          onVoiceStateChange={setVoicePanelState}
+          voiceSession={voiceSession}
         />
       )}
       
