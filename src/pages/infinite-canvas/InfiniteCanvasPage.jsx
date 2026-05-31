@@ -1546,15 +1546,15 @@ const InfiniteCanvasPage = () => {
             }
           }
         );
-        
-        // WebSocket으로 브로드캐스트 (백엔드가 자동으로 브로드캐스트하지만, 확실하게 하기 위해)
-        // 백엔드에서 REST API 호출 시 자동으로 브로드캐스트하므로 여기서는 생략 가능
-        // 하지만 명시적으로 보내고 싶다면:
-        // canvasWebSocket.emitIdeaUpdate({
-        //   action: 'update',
-        //   id: ideaId,
-        //   ...ideaData
-        // });
+
+        if (canvasWebSocket.emitIdeaUpdate) {
+          canvasWebSocket.emitIdeaUpdate({
+            action: 'updated',
+            id: ideaId,
+            userId: currentUserId,
+            ...ideaData
+          });
+        }
       } else {
         // 새 아이디어 생성
         const res = await axios.post(
@@ -1567,25 +1567,33 @@ const InfiniteCanvasPage = () => {
             }
           }
         );
-        const serverId = res.data.id;
+        const serverId = res.data.id ?? res.data.ideaId;
         
-        // 서버 ID를 pendingServerIds에 추가 (웹소켓 중복 방지)
-        setPendingServerIds(prev => new Set(prev).add(serverId));
-        
-        // 매핑 저장
-        setSavedIdeaIds(prev => new Map(prev).set(textId, serverId));
-        
-        // 짧은 시간 후 pendingServerIds에서 제거 (웹소켓 메시지가 도착할 시간을 고려)
-        setTimeout(() => {
-          setPendingServerIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(serverId);
-            return newSet;
+        if (serverId) {
+          // 서버 ID를 pendingServerIds에 추가 (웹소켓 중복 방지)
+          setPendingServerIds(prev => new Set(prev).add(serverId));
+
+          // 매핑 저장
+          setSavedIdeaIds(prev => new Map(prev).set(textId, serverId));
+
+          // 짧은 시간 후 pendingServerIds에서 제거 (웹소켓 메시지가 도착할 시간을 고려)
+          setTimeout(() => {
+            setPendingServerIds(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(serverId);
+              return newSet;
+            });
+          }, 2000); // 2초 후 제거
+        }
+
+        if (serverId && canvasWebSocket.emitIdeaUpdate) {
+          canvasWebSocket.emitIdeaUpdate({
+            action: 'created',
+            id: serverId,
+            userId: currentUserId,
+            ...ideaData
           });
-        }, 2000); // 2초 후 제거
-        
-        // WebSocket으로 브로드캐스트 (백엔드가 자동으로 브로드캐스트하지만, 확실하게 하기 위해)
-        // 백엔드에서 REST API 호출 시 자동으로 브로드캐스트하므로 여기서는 생략 가능
+        }
       }
     } catch (err) {
       console.error('메모 저장 실패', err);
