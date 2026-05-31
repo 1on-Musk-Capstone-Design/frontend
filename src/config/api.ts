@@ -6,6 +6,7 @@
  */
 
 const trimTrailingSlashes = (url: string): string => url.replace(/\/+$/, '')
+const PRODUCTION_OAUTH_ORIGIN = 'https://on-it.kro.kr'
 
 export const getApiBaseUrl = (): string => {
   const fromEnv = import.meta.env.VITE_API_BASE_URL
@@ -128,8 +129,8 @@ export const getOAuthRedirectUri = (
     return `http://localhost:3000${callbackPath}`;
   }
   
-  // 프로덕션 환경: 현재 origin 사용
-  return `${window.location.origin}${callbackPath}`;
+  // 프로덕션 OAuth는 IP/http redirect_uri를 Google이 차단하므로 canonical HTTPS 도메인을 사용
+  return `${PRODUCTION_OAUTH_ORIGIN}${callbackPath}`;
 };
 
 /**
