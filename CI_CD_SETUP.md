@@ -18,7 +18,7 @@ GitHub Actions를 사용하여 `main` 브랜치에 코드를 푸시할 때마다
 
 #### SSH_HOST
 - Name: `SSH_HOST`
-- Secret: `54.91.162.220`
+- Secret: `13.125.228.15`
 
 #### SSH_USER
 - Name: `SSH_USER`
