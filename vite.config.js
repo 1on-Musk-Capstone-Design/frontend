@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backendTarget = env.VITE_DEV_PROXY_TARGET || 'http://43.201.49.18:8080'
+  const backendTarget = env.VITE_DEV_PROXY_TARGET || 'http://43.203.229.141:8080'
 
   return {
     plugins: [react()],
