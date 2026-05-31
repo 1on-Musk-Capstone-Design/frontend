@@ -7,6 +7,33 @@ import {
   isLocalDevBrowser,
 } from "../../../lib/devBootstrap.js";
 
+const normalizeGoogleOAuthUrl = (loginUrl, redirectUri) => {
+  try {
+    const url = new URL(loginUrl);
+
+    if (!url.hostname.endsWith("google.com")) {
+      return loginUrl;
+    }
+
+    const dedupeKeys = ["client_id", "response_type", "scope"];
+    dedupeKeys.forEach((key) => {
+      const values = url.searchParams.getAll(key).filter(Boolean);
+      if (values.length > 0) {
+        url.searchParams.delete(key);
+        url.searchParams.set(key, values[values.length - 1]);
+      }
+    });
+
+    url.searchParams.delete("redirect_uri");
+    url.searchParams.set("redirect_uri", redirectUri);
+
+    return url.toString();
+  } catch (error) {
+    console.warn("Google OAuth URL 정규화 실패:", error);
+    return loginUrl;
+  }
+};
+
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
@@ -74,7 +101,7 @@ export default function LoginForm() {
         );
       }
 
-      window.location.href = loginUrl;
+      window.location.href = normalizeGoogleOAuthUrl(loginUrl, redirectUri);
     } catch (err) {
       console.error("구글 로그인 URL 오류:", err);
       

@@ -1,7 +1,7 @@
 /**
  * API 설정
  * - VITE_API_BASE_URL: 우선 (예: `http://localhost:8080/api` 또는 프록시 사용 시 `/api`)
- * - 로컬: 기본 `http://localhost:8080/api` (Capstone context-path `/api`)
+ * - 로컬: 기본 `/api` (Vite dev proxy)
  * - 프로덕션: 동일 오리진 `/api` (리버스 프록시로 백엔드 연결)
  */
 
@@ -47,7 +47,7 @@ export const getSocketServerUrl = (): string => {
   const hostname = window.location.hostname;
   
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8080/api';
+    return '/api';
   }
   
   // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
@@ -143,4 +143,3 @@ export const getApiUrl = (endpoint: string): string => {
   // endpoint가 /로 시작하면 API_BASE_URL과 결합
   return `${API_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 };
-
