@@ -90,14 +90,17 @@ export default function CallbackPage() {
 
       try {
         setStatus("로그인 처리 중...");
+        const callbackParams = new URLSearchParams({
+          code,
+          redirect_uri: getOAuthRedirectUri(),
+        });
         
         const res = await axios.post(
           `${API_BASE_URL}/v1/auth-google`,
-          null,
+          callbackParams,
           {
-            params: {
-              code,
-              redirect_uri: getOAuthRedirectUri(),
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
             },
             timeout: 10000,
             signal: abortControllerRef.current?.signal,
