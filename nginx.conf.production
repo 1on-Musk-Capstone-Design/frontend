@@ -1,5 +1,5 @@
 # Nginx 설정 - API와 프론트엔드 같은 서버에 배포
-# API: http://54.91.162.220:8080/api
+# API: http://43.203.229.141:8080/api
 # 프론트엔드: 정적 파일 서빙
 
 server {
@@ -51,4 +51,3 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 }
-

@@ -1,32 +1,32 @@
 /**
  * API 설정
- * 모든 API 기본 URL을 여기서 관리합니다.
- * 환경에 따라 HTTP/HTTPS 자동 선택
- * 
- * - 로컬 개발: http://localhost:3000 → http://localhost:8080/api
- * - 프로덕션: https://on-it.kro.kr → /api (Nginx 프록시)
+ * - VITE_API_BASE_URL: 우선 (예: `http://localhost:8080/api` 또는 프록시 사용 시 `/api`)
+ * - 로컬: 기본 `/api` (Vite dev proxy)
+ * - 프로덕션: 동일 오리진 `/api` (리버스 프록시로 백엔드 연결)
  */
 
-const LOCAL_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-const PUBLIC_API_BASE_URL = import.meta.env.VITE_PUBLIC_API_BASE_URL || '';
-const PUBLIC_SOCKET_BASE_URL = import.meta.env.VITE_PUBLIC_SOCKET_BASE_URL || '';
-
-const isLocalHostname = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '127.0.0.1';
+const trimTrailingSlashes = (url: string): string => url.replace(/\/+$/, '')
+const PRODUCTION_OAUTH_ORIGIN = 'https://on-it.kro.kr'
+const PUBLIC_API_BASE_URL = import.meta.env.VITE_PUBLIC_API_BASE_URL || ''
+const PUBLIC_SOCKET_BASE_URL = import.meta.env.VITE_PUBLIC_SOCKET_BASE_URL || ''
 
 export const getApiBaseUrl = (): string => {
-  const hostname = window.location.hostname;
+  const fromEnv = import.meta.env.VITE_API_BASE_URL
+  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
+    return trimTrailingSlashes(fromEnv.trim())
+  }
 
-  if (isLocalHostname(hostname)) {
-    return LOCAL_API_BASE_URL;
+  const hostname = window.location.hostname
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return '/api'
   }
 
   if (PUBLIC_API_BASE_URL) {
-    return PUBLIC_API_BASE_URL.replace(/\/$/, '');
+    return trimTrailingSlashes(PUBLIC_API_BASE_URL)
   }
 
-  return '/api';
-};
+  return '/api'
+}
 
 export const API_BASE_URL = getApiBaseUrl();
 
@@ -40,14 +40,18 @@ export const API_BASE_URL = getApiBaseUrl();
  * SockJS는 http:// 또는 https:// 프로토콜을 받아서 자동으로 ws/wss로 변환합니다.
  */
 export const getSocketServerUrl = (): string => {
-  const hostname = window.location.hostname;
+  const fromEnv = import.meta.env.VITE_SOCKET_SERVER_URL
+  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
+    return trimTrailingSlashes(fromEnv.trim())
+  }
 
-  if (isLocalHostname(hostname)) {
-    return window.location.origin;
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return '/api'
   }
 
   if (PUBLIC_SOCKET_BASE_URL) {
-    return PUBLIC_SOCKET_BASE_URL.replace(/\/$/, '');
+    return trimTrailingSlashes(PUBLIC_SOCKET_BASE_URL)
   }
 
   return window.location.origin;
@@ -127,13 +131,14 @@ export const getOAuthRedirectUri = (
   const port = window.location.port;
   
   // 로컬 개발 환경 (localhost:3000)
+  // Google Console에 등록된 redirect URI는 항상 3000번 포트이므로
+  // Vite가 다른 포트(3001 등)로 실행되더라도 3000으로 고정
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    const origin = `${protocol}//${hostname}:${port || '3000'}`;
-    return `${origin}${callbackPath}`;
+    return `http://localhost:3000${callbackPath}`;
   }
   
-  // 프로덕션 환경: 현재 origin 사용
-  return `${window.location.origin}${callbackPath}`;
+  // 프로덕션 OAuth는 IP/http redirect_uri를 Google이 차단하므로 canonical HTTPS 도메인을 사용
+  return `${PRODUCTION_OAUTH_ORIGIN}${callbackPath}`;
 };
 
 /**

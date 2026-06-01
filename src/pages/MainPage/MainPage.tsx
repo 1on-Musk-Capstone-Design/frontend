@@ -49,6 +49,34 @@ export default function MainPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'shared'>('all')
 
   // localStorage에서 즐겨찾기 로드
+  // 메인페이지에서 스크롤 활성화 (index.css의 overflow:hidden 전역 설정 override)
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const root = document.getElementById('root')
+
+    const prevHtmlOverflow = html.style.overflow
+    const prevBodyOverflow = body.style.overflow
+    const prevHtmlHeight   = html.style.height
+    const prevBodyHeight   = body.style.height
+    const prevRootHeight   = root ? root.style.height   : ''
+    const prevRootOverflow = root ? root.style.overflow : ''
+
+    html.style.overflow = 'auto'
+    body.style.overflow = 'auto'
+    html.style.height   = 'auto'
+    body.style.height   = 'auto'
+    if (root) { root.style.height = 'auto'; root.style.overflow = 'auto' }
+
+    return () => {
+      html.style.overflow = prevHtmlOverflow
+      body.style.overflow = prevBodyOverflow
+      html.style.height   = prevHtmlHeight
+      body.style.height   = prevBodyHeight
+      if (root) { root.style.height = prevRootHeight; root.style.overflow = prevRootOverflow }
+    }
+  }, [])
+
   useEffect(() => {
     const savedFavorites = localStorage.getItem('favorites')
     if (savedFavorites) {
@@ -347,6 +375,10 @@ export default function MainPage(): JSX.Element {
       window.removeEventListener('user-profile-updated', handleProfileUpdate)
     }
   }, [fetchWorkspaces])
+
+  const handleGeneratePRD = (id: string, title: string) => {
+    window.open(`/prd?workspaceId=${id}&projectName=${encodeURIComponent(title)}`, '_blank')
+  }
 
   // 로그인 핸들러
   const handleLogin = () => {
@@ -878,6 +910,7 @@ export default function MainPage(): JSX.Element {
             onDelete={handleDeleteClick}
             onInvite={handleInviteClick}
             onLeave={handleLeaveClick}
+            onGeneratePRD={handleGeneratePRD}
             loading={loading}
             loadError={loadError}
           />

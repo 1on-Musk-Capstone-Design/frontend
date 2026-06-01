@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && (test -d capstone_v2 && cp -r capstone_v2 dist/ || true)",
+    "build:capstone": "npm run build:capstone:copy && npm run build",
+    "build:capstone:copy": "cd ../onit_v2/app && npm run build && mkdir -p ../../frontend/capstone_v2 && cp -r dist/* ../../frontend/capstone_v2/",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -18,7 +20,10 @@
     "mediasoup-client": "^3.20.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.9.3",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.1",
     "sockjs-client": "^1.6.1"
   },

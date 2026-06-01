@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { CANVAS_CONSTANTS, COMPUTED_CONSTANTS, ANIMATION_CONSTANTS, CANVAS_AREA_CONSTANTS } from '../constants';
 
 export const useCanvas = () => {
@@ -248,6 +248,15 @@ export const useCanvas = () => {
       }
     }
   }, [canvasTransform]);
+
+  // React onWheel은 기본 passive라 preventDefault가 동작하지 않음 → 네이티브 리스너로 등록
+  useLayoutEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return undefined;
+    const handler = (e) => handleWheel(e);
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [handleWheel]);
 
   // 외부 입력(예: 제스처)으로 특정 뷰포트 지점을 기준으로 줌
   const zoomAtViewportPoint = useCallback((viewportX, viewportY, scaleMultiplier = 1) => {

@@ -2,14 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TOOLBAR_CONSTANTS } from '../constants';
 
-const TopToolbar = ({ 
+const TopToolbar = ({
   projectName = '프로젝트',
   participants = [],
   inviteLink = '',
   onCopyInviteLink,
   onGenerateInviteLink,
   isNuiEnabled = false,
-  onToggleNui
+  onToggleNui,
+  onGeneratePRD
 }) => {
   const navigate = useNavigate();
   const [isShareDropdownOpen, setIsShareDropdownOpen] = useState(false);
@@ -302,6 +303,45 @@ const TopToolbar = ({
       >
         {isNuiEnabled ? 'NUI ON' : 'NUI OFF'}
       </button>
+
+      {/* 구분선 */}
+      {onGeneratePRD && <div className="toolbarDivider"></div>}
+
+      {/* PRD 생성 버튼 */}
+      {onGeneratePRD && (
+        <button
+          onClick={onGeneratePRD}
+          title="카드 아이디어로 PRD 생성"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            height: '30px',
+            padding: '0 12px',
+            background: '#01CD15',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            boxShadow: '0 2px 8px rgba(1,205,21,0.35)',
+            transition: 'background 0.15s ease',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#10b981')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#01CD15')}
+        >
+          {/* Sparkles icon (SVG inline) */}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>
+            <path d="M19 3l.5 1.5L21 5l-1.5.5L19 7l-.5-1.5L17 5l1.5-.5z"/>
+            <path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5z"/>
+          </svg>
+          PRD 생성
+        </button>
+      )}
     </div>
   );
 };

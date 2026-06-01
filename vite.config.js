@@ -14,8 +14,6 @@ export default defineConfig(({ mode }) => {
       open: true,
       host: true,
       allowedHosts: ['surgical-unbraided-stack.ngrok-free.dev', '.ngrok-free.dev', 'localhost'],
-      // WebSocket 프록시 설정 (로컬 개발 시 백엔드 WebSocket 사용)
-      // SockJS가 /ws/info, /ws/websocket 등의 경로를 사용하므로 모두 프록시
       proxy: {
         '/api': {
           target: apiProxyTarget,
@@ -35,16 +33,16 @@ export default defineConfig(({ mode }) => {
         },
         '/ws': {
           target: websocketProxyTarget,
-          ws: true, // WebSocket 업그레이드 지원
+          ws: true,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => `/api${path}`, // 백엔드 context-path(/api) 보정 (/ws/info → /api/ws/info)
-          // HTTP 요청도 프록시 (SockJS의 /ws/info는 HTTP GET 요청)
+          rewrite: (path) => `/api${path}`,
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
               console.log('WebSocket proxy error', err);
             });
             proxy.on('proxyReq', (proxyReq, req, _res) => {
+              console.log('Proxying request:', req.method, req.url, '→', proxyReq.path, 'target=', websocketProxyTarget);
               console.log('Proxying request:', req.method, req.url, '→', proxyReq.path, 'target=', websocketProxyTarget);
             });
             proxy.on('proxyRes', (proxyRes, req, _res) => {
@@ -68,4 +66,3 @@ export default defineConfig(({ mode }) => {
     }
   }
 })
-

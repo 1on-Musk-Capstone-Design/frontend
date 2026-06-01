@@ -102,7 +102,7 @@ cat capstone.pem
 #### 권한 오류
 - 서버에서 `/var/www/onit` 디렉토리 권한 확인:
   ```bash
-  ssh -i capstone.pem ec2-user@54.91.162.220
+  ssh -i capstone.pem ec2-user@43.203.229.141
   sudo chown -R ec2-user:ec2-user /var/www/onit
   ```
 
@@ -134,5 +134,6 @@ CI/CD 설정이 완료되면:
 3. GitHub Actions에서 자동 배포 확인
 4. 서버에서 배포된 파일 확인:
    ```bash
-  ssh -i capstone.pem ec2-user@43.203.229.141 "ls -la /var/www/onit/"
+   ssh -i capstone.pem ec2-user@43.203.229.141 "ls -la /var/www/onit/"
    ```
+

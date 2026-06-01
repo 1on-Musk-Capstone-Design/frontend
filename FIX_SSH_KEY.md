@@ -76,10 +76,10 @@ ssh-keygen -l -f ~/capstone.pem
 ssh-keygen -t rsa -b 2048 -f ~/capstone_new.pem -N ""
 
 # 공개 키를 서버에 추가
-ssh-copy-id -i ~/capstone_new.pem.pub ec2-user@54.91.162.220
+ssh-copy-id -i ~/capstone_new.pem.pub ec2-user@43.203.229.141
 
 # 또는 수동으로 추가
-cat ~/capstone_new.pem.pub | ssh -i ~/capstone.pem ec2-user@54.91.162.220 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+cat ~/capstone_new.pem.pub | ssh -i ~/capstone.pem ec2-user@43.203.229.141 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
 ```
 
 ## 확인 사항
@@ -93,7 +93,7 @@ cat ~/capstone_new.pem.pub | ssh -i ~/capstone.pem ec2-user@54.91.162.220 "mkdir
 chmod 400 ~/capstone.pem
 
 # 서버 접속 테스트
-ssh -i ~/capstone.pem ec2-user@54.91.162.220 "echo 'SSH 연결 성공'"
+ssh -i ~/capstone.pem ec2-user@43.203.229.141 "echo 'SSH 연결 성공'"
 ```
 
 접속이 안 되면 SSH 키가 서버에 등록되지 않았을 수 있습니다.

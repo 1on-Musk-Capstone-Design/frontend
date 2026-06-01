@@ -28,7 +28,7 @@ npm run dev
 ```javascript
 proxy: {
   '/ws': {
-    target: 'http://54.91.162.220:8080',
+    target: 'http://43.203.229.141:8080',
     ws: true,
     changeOrigin: true,
     secure: false
@@ -42,7 +42,7 @@ proxy: {
 
 ```bash
 # 백엔드 서버 응답 확인
-curl -I http://54.91.162.220:8080/ws/info
+curl -I http://43.203.229.141:8080/ws/info
 ```
 
 정상 응답 예시:
@@ -76,7 +76,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 그리고 `src/config/api.ts`에서 직접 백엔드 서버 사용:
 ```typescript
 if (hostname === 'localhost' || hostname === '127.0.0.1') {
-  return 'http://54.91.162.220:8080'; // 직접 연결
+  return 'http://43.203.229.141:8080'; // 직접 연결
 }
 ```
 
