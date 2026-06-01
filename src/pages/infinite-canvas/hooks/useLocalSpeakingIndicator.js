@@ -30,7 +30,9 @@ export function useLocalSpeakingIndicator(enabled) {
       }
       if (speakingAudioContextRef.current) {
         try {
-          await speakingAudioContextRef.current.close();
+          if (speakingAudioContextRef.current.state !== 'closed') {
+            await speakingAudioContextRef.current.close();
+          }
         } catch (error) {
           console.warn('[useLocalSpeakingIndicator] 오디오 컨텍스트 종료 실패', error);
         }
