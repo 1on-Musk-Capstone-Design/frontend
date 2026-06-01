@@ -23,7 +23,7 @@ npm run dev
   - Hot Module Replacement (HMR) 지원
   - 빠른 리로드
   - 개발 도구 사용 가능
-- **API 연결**: `http://100.55.36.73:8080/api` (서버 API 직접 사용)
+- **API 연결**: `http://43.201.225.38:8080/api` (서버 API 직접 사용)
 - **WebSocket**: `http://localhost:3000/ws` (Vite 프록시를 통해 백엔드로 전달, CORS 문제 해결)
 
 ### 서버 프로덕션 배포
@@ -33,7 +33,7 @@ npm run dev
 npm run build
 
 # 서버에 배포
-rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@100.55.36.73:/var/www/onit/
+rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@43.201.225.38:/var/www/onit/
 ```
 
 또는 **GitHub Actions 자동 배포**:
@@ -59,7 +59,7 @@ rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@100.55.36.73:/var/
    ```bash
    # 터미널 2: 빌드 및 배포
    npm run build
-   rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@100.55.36.73:/var/www/onit/
+   rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@43.201.225.38:/var/www/onit/
    ```
    - 또는 GitHub에 푸시하여 자동 배포
 
@@ -150,7 +150,7 @@ Forwarding  https://xxxxx.ngrok.io -> http://localhost:3000
 
 `.env.development` (로컬 개발용):
 ```
-VITE_API_BASE_URL=http://100.55.36.73:8080/api
+VITE_API_BASE_URL=http://43.201.225.38:8080/api
 VITE_SOCKET_URL=http://localhost:3000
 ```
 
@@ -171,7 +171,7 @@ export const getApiBaseUrl = (): string => {
   // 기본 동작
   const hostname = window.location.hostname;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://100.55.36.73:8080/api';
+    return 'http://43.201.225.38:8080/api';
   }
   return '/api';
 };
@@ -209,14 +209,14 @@ export const getApiBaseUrl = (): string => {
 npm run build
 
 # 서버에 배포
-rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@100.55.36.73:/var/www/onit/
+rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@43.201.225.38:/var/www/onit/
 ```
 
 ## 주의사항
 
 ### API URL 충돌
 
-- **로컬**: `http://100.55.36.73:8080/api` 사용
+- **로컬**: `http://43.201.225.38:8080/api` 사용
 - **서버**: `/api` 사용 (Nginx 프록시)
 
 현재 설정은 자동으로 환경을 감지하므로 문제없습니다.
