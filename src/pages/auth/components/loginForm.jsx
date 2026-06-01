@@ -4,8 +4,6 @@ import { API_BASE_URL, getOAuthRedirectUri } from "../../../config/api";
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const [isDevLoading, setIsDevLoading] = useState(false);
-  const [isDevPreviewLoading, setIsDevPreviewLoading] = useState(false);
 
   const onGoogleLogin = async () => {
     if (isLoading) return;
@@ -15,9 +13,6 @@ export default function LoginForm() {
     try {
       // 현재 환경에 맞는 리다이렉트 URI 생성
       const redirectUri = getOAuthRedirectUri();
-      const params = new URLSearchParams(window.location.search);
-      const devEmail = params.get('dev_email');
-      const devName = params.get('dev_name');
       
       // 디버깅: 콜백 URL 확인
       console.log('OAuth 리다이렉트 URI:', redirectUri);
@@ -27,9 +22,7 @@ export default function LoginForm() {
         `${API_BASE_URL}/v1/auth-google/login-uri`,
         {
           params: {
-            redirect_uri: redirectUri,
-            ...(devEmail ? { dev_email: devEmail } : {}),
-            ...(devName ? { dev_name: devName } : {})
+            redirect_uri: redirectUri
           },
           timeout: 10000
         }
@@ -70,149 +63,6 @@ export default function LoginForm() {
       
       alert(errorMessage);
       setIsLoading(false);
-    }
-  };
-
-  const onDevLogin = async () => {
-    if (isDevLoading) return;
-
-    setIsDevLoading(true);
-
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/v1/auth/dev/bootstrap`,
-        {},
-        {
-          timeout: 10000
-        }
-      );
-
-      const { accessToken, refreshToken, name, email } = response.data || {};
-
-      if (!accessToken || !refreshToken) {
-        throw new Error("개발자 로그인 토큰을 받지 못했습니다.");
-      }
-
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-
-      if (name) {
-        localStorage.setItem("userName", name);
-      }
-
-      if (email) {
-        localStorage.setItem("userEmail", email);
-      }
-
-      window.location.href = "/";
-    } catch (err) {
-      console.error("개발자 로그인 오류:", err);
-
-      let errorMessage = "개발자 로그인에 실패했습니다.";
-
-      if (err.response) {
-        const status = err.response.status;
-        const data = err.response.data;
-        errorMessage = `서버 오류 (${status})`;
-        if (data?.message) {
-          errorMessage = `${errorMessage}: ${data.message}`;
-        } else if (typeof data === "string") {
-          errorMessage = `${errorMessage}: ${data}`;
-        } else if (status === 404) {
-          errorMessage = "개발자 로그인 엔드포인트가 비활성화되어 있습니다.";
-        }
-      } else if (err.request) {
-        errorMessage = `서버에 연결할 수 없습니다.\n\n서버 주소: ${API_BASE_URL}`;
-      } else {
-        errorMessage = err.message || errorMessage;
-      }
-
-      alert(errorMessage);
-      setIsDevLoading(false);
-    }
-  };
-
-  const onDevPreviewLogin = async () => {
-    if (isDevPreviewLoading) return;
-
-    setIsDevPreviewLoading(true);
-
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const workspaceId = Number(params.get("workspaceId") || "1");
-      const browserSessionId =
-        params.get("browserSessionId") ||
-        `local-preview-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-      const response = await axios.post(
-        `${API_BASE_URL}/v1/auth/dev/preview/bootstrap`,
-        {
-          workspaceId,
-          browserSessionId
-        },
-        {
-          timeout: 10000
-        }
-      );
-
-      const {
-        accessToken,
-        refreshToken,
-        userId,
-        workspaceUserId,
-        name,
-        email
-      } = response.data || {};
-
-      if (!accessToken || !refreshToken) {
-        throw new Error("개발자2 로그인 토큰을 받지 못했습니다.");
-      }
-
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      localStorage.setItem("voicePreviewBrowserSessionId", browserSessionId);
-
-      if (userId !== undefined && userId !== null) {
-        localStorage.setItem("userId", String(userId));
-      }
-
-      if (workspaceUserId !== undefined && workspaceUserId !== null) {
-        localStorage.setItem("workspaceUserId", String(workspaceUserId));
-      }
-
-      if (name) {
-        localStorage.setItem("userName", name);
-      }
-
-      if (email) {
-        localStorage.setItem("userEmail", email);
-      }
-
-      window.location.href = `/canvas/${workspaceId}`;
-    } catch (err) {
-      console.error("개발자2 로그인 오류:", err);
-
-      let errorMessage = "개발자2 로그인에 실패했습니다.";
-
-      if (err.response) {
-        const status = err.response.status;
-        const data = err.response.data;
-        errorMessage = `서버 오류 (${status})`;
-        if (data?.message) {
-          errorMessage = `${errorMessage}: ${data.message}`;
-        } else if (typeof data === "string") {
-          errorMessage = `${errorMessage}: ${data}`;
-        } else if (status === 404) {
-          errorMessage = "프리뷰 부트스트랩 엔드포인트가 비활성화되어 있습니다.";
-        }
-      } else if (err.request) {
-        errorMessage = `서버에 연결할 수 없습니다.\n\n서버 주소: ${API_BASE_URL}`;
-      } else {
-        errorMessage = err.message || errorMessage;
-      }
-
-      alert(errorMessage);
-      setIsDevPreviewLoading(false);
     }
   };
 
@@ -270,42 +120,6 @@ const buttonStyle = {
   const googleIconStyle = {
     width: 20,
     height: 20,
-  };
-
-  const devButtonStyle = {
-    width: "100%",
-    height: 48,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    fontSize: 15,
-    fontWeight: 700,
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
-    cursor: isDevLoading ? "not-allowed" : "pointer",
-    background: "#0f172a",
-    color: "#f8fafc",
-    transition: "all 0.2s ease",
-    boxShadow: "0 4px 12px rgba(15,23,42,0.14)",
-  };
-
-  const devPreviewButtonStyle = {
-    width: "100%",
-    height: 48,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    fontSize: 15,
-    fontWeight: 700,
-    borderRadius: 8,
-    border: "1px solid #bae6fd",
-    cursor: isDevPreviewLoading ? "not-allowed" : "pointer",
-    background: "#ecfeff",
-    color: "#155e75",
-    transition: "all 0.2s ease",
-    boxShadow: "0 4px 12px rgba(8,145,178,0.12)",
   };
 
   return (
@@ -368,64 +182,6 @@ const buttonStyle = {
             </svg>
             <span>구글로 로그인하기</span>
           </>
-        )}
-      </button>
-
-      <button
-        onClick={onDevLogin}
-        disabled={isDevLoading}
-        style={devButtonStyle}
-        onMouseEnter={(e) => {
-          if (!isDevLoading) {
-            e.currentTarget.style.background = "#1e293b";
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 8px 18px rgba(15,23,42,0.22)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isDevLoading) {
-            e.currentTarget.style.background = "#0f172a";
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(15,23,42,0.14)";
-          }
-        }}
-      >
-        {isDevLoading ? (
-          <>
-            <div style={spinnerStyle} />
-            <span>개발자 로그인 중...</span>
-          </>
-        ) : (
-          <span>개발자 로그인</span>
-        )}
-      </button>
-
-      <button
-        onClick={onDevPreviewLogin}
-        disabled={isDevPreviewLoading}
-        style={devPreviewButtonStyle}
-        onMouseEnter={(e) => {
-          if (!isDevPreviewLoading) {
-            e.currentTarget.style.background = "#cffafe";
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 8px 18px rgba(8,145,178,0.2)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isDevPreviewLoading) {
-            e.currentTarget.style.background = "#ecfeff";
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(8,145,178,0.12)";
-          }
-        }}
-      >
-        {isDevPreviewLoading ? (
-          <>
-            <div style={spinnerStyle} />
-            <span>개발자2 로그인 중...</span>
-          </>
-        ) : (
-          <span>개발자2 로그인</span>
         )}
       </button>
 

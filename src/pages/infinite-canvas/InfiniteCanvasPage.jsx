@@ -5,7 +5,6 @@ import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import TopToolbar from './components/TopToolbar';
-import VoiceCallTestPanel from './components/VoiceCallTestPanel';
 import RemoteVoiceAudioRenderer from './components/RemoteVoiceAudioRenderer';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
@@ -117,7 +116,6 @@ const InfiniteCanvasPage = () => {
   const isCurrentUserSpeaking = useLocalSpeakingIndicator(
     Boolean(activeVoiceChannelId) && !voiceSession.isMuted && !isVoiceDeafened
   );
-  const showVoiceTestPanel = import.meta.env.VITE_ENABLE_VOICE_TEST_PANEL === 'true';
   const activeVoiceChannelMembers = activeVoiceSessionId
     ? (voiceChannelMembersBySession[String(activeVoiceSessionId)] || [])
     : [];
@@ -3242,15 +3240,6 @@ const InfiniteCanvasPage = () => {
       />
 
       <RemoteVoiceAudioRenderer remoteStreams={voiceSession.remoteStreams} />
-
-      {showVoiceTestPanel && workspaceId && currentUserId && (
-        <VoiceCallTestPanel
-          workspaceId={workspaceId}
-          currentWorkspaceUserId={currentWorkspaceUserId}
-          candidatePeers={voicePeerCandidates}
-          voiceSession={voiceSession}
-        />
-      )}
       
       {/* 클러스터링 패널 */}
       <ClusteringPanel 

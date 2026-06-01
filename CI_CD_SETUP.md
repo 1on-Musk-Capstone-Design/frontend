@@ -18,7 +18,7 @@ GitHub Actions를 사용하여 `main` 브랜치에 코드를 푸시할 때마다
 
 #### SSH_HOST
 - Name: `SSH_HOST`
-- Secret: `13.125.228.15`
+- Secret: `43.203.229.141`
 
 #### SSH_USER
 - Name: `SSH_USER`
@@ -109,11 +109,11 @@ cat capstone.pem
 #### rsync 실패
 - 서버에 rsync가 설치되어 있는지 확인:
   ```bash
-  ssh -i capstone.pem ec2-user@13.125.228.15 "which rsync"
+  ssh -i capstone.pem ec2-user@43.203.229.141 "which rsync"
   ```
 - 설치되어 있지 않으면:
   ```bash
-  ssh -i capstone.pem ec2-user@13.125.228.15 "sudo dnf install -y rsync"
+  ssh -i capstone.pem ec2-user@43.203.229.141 "sudo dnf install -y rsync"
   ```
 
 ### 로그 확인
@@ -134,6 +134,5 @@ CI/CD 설정이 완료되면:
 3. GitHub Actions에서 자동 배포 확인
 4. 서버에서 배포된 파일 확인:
    ```bash
-  ssh -i capstone.pem ec2-user@13.125.228.15 "ls -la /var/www/onit/"
+  ssh -i capstone.pem ec2-user@43.203.229.141 "ls -la /var/www/onit/"
    ```
-

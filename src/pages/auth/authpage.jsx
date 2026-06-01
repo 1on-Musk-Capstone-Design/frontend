@@ -35,12 +35,6 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="auth-entry-dev-hint">
-          개발 테스트용으로 로그인 카드 하단에
-          <strong> 개발자 로그인 </strong>
-          버튼이 함께 표시됩니다.
-        </div>
-
         <section className="auth-entry-login-area">
           <LoginForm />
         </section>
@@ -159,21 +153,6 @@ export default function AuthPage() {
           display: flex;
           flex-direction: column;
           border: 0;
-        }
-
-        .auth-entry-dev-hint {
-          margin-top: 4px;
-          padding: 10px 12px;
-          border-radius: 12px;
-          border: 1px solid rgba(229, 247, 230, 0.22);
-          background: rgba(255, 255, 255, 0.1);
-          color: rgba(229, 247, 230, 0.92);
-          font-size: 13px;
-          line-height: 1.55;
-        }
-
-        .auth-entry-dev-hint strong {
-          color: #ffffff;
         }
 
         @keyframes authEntryFadeIn {

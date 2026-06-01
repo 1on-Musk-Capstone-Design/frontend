@@ -68,13 +68,13 @@ export const normalizeThumbnailUrl = (url: string | null | undefined): string =>
   
   // 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환 (Nginx 프록시 사용)
   if (isProduction) {
-    // http://54.91.62.109:8080/api/uploads/... → /api/uploads/...
-    if (url.includes('http://54.91.62.109:8080/api')) {
-      return url.replace('http://54.91.62.109:8080/api', '/api');
+    // http://43.203.229.141:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('http://43.203.229.141:8080/api')) {
+      return url.replace('http://43.203.229.141:8080/api', '/api');
     }
-    // https://54.91.62.109:8080/api/uploads/... → /api/uploads/...
-    if (url.includes('https://54.91.62.109:8080/api')) {
-      return url.replace('https://54.91.62.109:8080/api', '/api');
+    // https://43.203.229.141:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('https://43.203.229.141:8080/api')) {
+      return url.replace('https://43.203.229.141:8080/api', '/api');
     }
     // http://localhost:8080/api/uploads/... → /api/uploads/...
     if (url.includes('http://localhost:8080/api')) {
