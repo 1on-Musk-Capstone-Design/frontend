@@ -28,7 +28,7 @@ npm run dev
 ```javascript
 proxy: {
   '/ws': {
-    target: 'http://43.203.229.141:8080',
+    target: 'http://43.201.225.38:8080',
     ws: true,
     changeOrigin: true,
     secure: false
@@ -42,7 +42,7 @@ proxy: {
 
 ```bash
 # 백엔드 서버 응답 확인
-curl -I http://43.203.229.141:8080/ws/info
+curl -I http://43.201.225.38:8080/ws/info
 ```
 
 정상 응답 예시:
@@ -76,7 +76,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 그리고 `src/config/api.ts`에서 직접 백엔드 서버 사용:
 ```typescript
 if (hostname === 'localhost' || hostname === '127.0.0.1') {
-  return 'http://43.203.229.141:8080'; // 직접 연결
+  return 'http://43.201.225.38:8080'; // 직접 연결
 }
 ```
 
@@ -104,4 +104,3 @@ if (hostname === 'localhost' || hostname === '127.0.0.1') {
 - Vite 프록시는 개발 서버 재시작 후에만 적용됩니다
 - WebSocket 연결은 HTTP 요청으로 시작되므로 프록시가 HTTP와 WebSocket 모두 지원해야 합니다
 - SockJS는 여러 전송 방식을 시도하므로 모든 경로가 프록시되어야 합니다
-

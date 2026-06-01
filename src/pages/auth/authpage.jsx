@@ -3,181 +3,194 @@ import LoginForm from "./components/loginForm";
 
 export default function AuthPage() {
   return (
-    <div 
-      style={{ 
-        display:"flex", 
-        flexDirection:"column", 
-        alignItems:"center", 
-        justifyContent:"center", 
-        minHeight:"100vh", 
-        background: '#f5f5f5',
-        backgroundImage: `
-          linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px)
-        `,
-        backgroundSize: '30px 30px',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      {/* 배경 장식 메모들 */}
-      <div style={{
-        position: 'absolute',
-        top: '12%',
-        left: '8%',
-        width: '250px',
-        height: '180px',
-        background: 'linear-gradient(135deg, #fff9c4 0%, #fff59d 100%)',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08)',
-        transform: 'rotate(-8deg)',
-        padding: '20px',
-        fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
-        fontSize: '15px',
-        color: '#333',
-        opacity: 0.6,
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
-        cursor: 'default'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "rotate(-4deg) scale(1.05)";
-        e.currentTarget.style.opacity = "0.85";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "rotate(-8deg) scale(1)";
-        e.currentTarget.style.opacity = "0.6";
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '18px' }}>🤖 AI Clustering</div>
-        <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-          AI가 자동으로<br/>
-          아이디어를 분류해요
+    <div className="auth-entry-page">
+      <div className="auth-entry-noise" />
+      <div className="auth-entry-shell">
+        <p className="auth-entry-badge">Infinite Canvas Collaboration</p>
+        <h1 className="auth-entry-logo">
+          ON<span>it</span>
+        </h1>
+        <p className="auth-entry-description">
+          무한 캔버스에서 아이디어를 정리하고,
+          <br />
+          팀원과 함께 실시간으로 협업하세요.
+        </p>
+
+        <div className="auth-entry-metrics">
+          <div className="auth-entry-metric-card">
+            <span>Canvas</span>
+            <strong>Infinite</strong>
+          </div>
+          <div className="auth-entry-metric-card">
+            <span>AI</span>
+            <strong>Clustering</strong>
+          </div>
+          <div className="auth-entry-metric-card">
+            <span>Collab</span>
+            <strong>Realtime</strong>
+          </div>
+          <div className="auth-entry-metric-card">
+            <span>Voice</span>
+            <strong>Brainstorm</strong>
+          </div>
         </div>
+
+        <section className="auth-entry-login-area">
+          <LoginForm />
+        </section>
       </div>
 
-      <div style={{
-        position: 'absolute',
-        top: '55%',
-        right: '10%',
-        width: '250px',
-        height: '180px',
-        background: 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08)',
-        transform: 'rotate(-5deg)',
-        padding: '20px',
-        fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
-        fontSize: '15px',
-        color: '#333',
-        opacity: 0.6,
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
-        cursor: 'default'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "rotate(-2deg) scale(1.05)";
-        e.currentTarget.style.opacity = "0.85";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "rotate(-5deg) scale(1)";
-        e.currentTarget.style.opacity = "0.6";
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '18px' }}>✨ Collaborate</div>
-        <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-          팀원들과 실시간으로<br/>
-          함께 작업해요
-        </div>
-      </div>
+      <style>{`
+        .auth-entry-page {
+          min-height: 100vh;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          overflow: auto;
+          background:
+            radial-gradient(circle at 12% 18%, rgba(1, 205, 21, 0.2) 0%, transparent 44%),
+            radial-gradient(circle at 86% 80%, rgba(25, 146, 0, 0.14) 0%, transparent 40%),
+            linear-gradient(140deg, #edf7ef 0%, #f8fbff 46%, #ffffff 100%);
+          font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+        }
 
-      <div style={{
-        position: 'absolute',
-        bottom: '12%',
-        left: '15%',
-        width: '250px',
-        height: '180px',
-        background: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08)',
-        transform: 'rotate(12deg)',
-        padding: '20px',
-        fontFamily: '"-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
-        fontSize: '15px',
-        color: '#333',
-        opacity: 0.6,
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
-        cursor: 'default'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "rotate(8deg) scale(1.05)";
-        e.currentTarget.style.opacity = "0.85";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "rotate(12deg) scale(1)";
-        e.currentTarget.style.opacity = "0.6";
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '18px' }}>📝 Infinite-Canvas</div>
-        <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-          끝없이 펼쳐지는 <br/>
-          무한한 작업 공간
-        </div>
-      </div>
+        .auth-entry-noise {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.14;
+          background-image: radial-gradient(rgba(17, 24, 39, 0.12) 0.45px, transparent 0.45px);
+          background-size: 5px 5px;
+        }
 
-      {/* 메인 로고 */}
-      <h1 style={{ 
-        fontSize:48, 
-        fontWeight:900, 
-        color:'#111827', 
-        marginBottom:8,
-        textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
-        zIndex: 10
-      }}>
-        ONit
-      </h1>
+        .auth-entry-shell {
+          width: min(760px, 100%);
+          max-height: calc(100vh - 48px);
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          border-radius: 26px;
+          border: 1px solid rgba(15, 23, 42, 0.09);
+          background:
+            radial-gradient(circle at 90% 14%, rgba(255, 255, 255, 0.2) 0%, transparent 32%),
+            linear-gradient(150deg, #0f2f15 0%, #14551f 52%, #16632a 100%);
+          box-shadow: 0 30px 80px rgba(15, 23, 42, 0.15);
+          animation: authEntryFadeIn 420ms ease-out;
+          position: relative;
+          z-index: 1;
+          padding: 30px;
+          overflow-y: auto;
+        }
 
-      <p style={{ 
-        color:"#6b7280", 
-        marginBottom:32,
-        fontSize: 16,
-        zIndex: 10
-      }}>
-        무한캔버스에 아이디어를 자유롭게 펼쳐보세요
-      </p>
+        .auth-entry-badge {
+          margin: 0;
+          width: fit-content;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: #c5f2cb;
+          font-size: 13px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          line-height: 1.1;
+        }
 
-      {/* 포스트잇 스타일 로그인 박스 */}
-      <div 
-        style={{ 
-          width: 420,
-          maxWidth: "90%",
-          background: "linear-gradient(135deg, #fffde7 0%, #fff9c4 100%)",
-          borderRadius: 6,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)",
-          padding: 40,
-          border: "1px solid rgba(251, 192, 45, 0.2)",
-          transform: "rotate(-1deg)",
-          position: 'relative',
-          zIndex: 10,
-          transition: 'transform 0.3s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "rotate(0deg) scale(1.02)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "rotate(-1deg) scale(1)";
-        }}
-      >
-        {/* 포스트잇 상단 테이프 효과 */}
-        <div style={{
-          position: 'absolute',
-          top: -8,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 80,
-          height: 20,
-          background: 'rgba(255,255,255,0.4)',
-          borderRadius: '2px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }} />
-        
-        <LoginForm />
-      </div>
+        .auth-entry-logo {
+          margin: 0;
+          font-size: clamp(36px, 3vw, 46px);
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          color: #ffffff;
+          line-height: 1;
+        }
+
+        .auth-entry-logo span {
+          color: #9dffae;
+        }
+
+        .auth-entry-description {
+          margin: 0;
+          max-width: 36ch;
+          color: rgba(229, 247, 230, 0.92);
+          line-height: 1.6;
+        }
+
+        .auth-entry-metrics {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .auth-entry-metric-card {
+          padding: 14px;
+          border-radius: 12px;
+          border: 1px solid rgba(229, 247, 230, 0.2);
+          background: rgba(255, 255, 255, 0.12);
+          display: grid;
+          gap: 4px;
+          min-height: 74px;
+        }
+
+        .auth-entry-metric-card span {
+          font-size: 13px;
+          color: rgba(229, 247, 230, 0.75);
+        }
+
+        .auth-entry-metric-card strong {
+          font-size: 20px;
+          letter-spacing: -0.02em;
+          color: #ffffff;
+        }
+
+        .auth-entry-login-area {
+          background: transparent;
+          padding: 0;
+          margin-top: 12px;
+          border-radius: 0;
+          display: flex;
+          flex-direction: column;
+          border: 0;
+        }
+
+        @keyframes authEntryFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.99);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @media (max-width: 920px) {
+          .auth-entry-shell {
+            width: min(680px, 100%);
+            padding: 24px;
+            max-height: calc(100vh - 40px);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .auth-entry-page {
+            padding: 16px;
+          }
+
+          .auth-entry-shell {
+            border-radius: 20px;
+            padding: 20px;
+            max-height: calc(100vh - 32px);
+          }
+
+          .auth-entry-metrics {
+            grid-template-columns: 1fr;
+            max-width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }

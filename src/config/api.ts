@@ -7,6 +7,8 @@
 
 const trimTrailingSlashes = (url: string): string => url.replace(/\/+$/, '')
 const PRODUCTION_OAUTH_ORIGIN = 'https://on-it.kro.kr'
+const PUBLIC_API_BASE_URL = import.meta.env.VITE_PUBLIC_API_BASE_URL || ''
+const PUBLIC_SOCKET_BASE_URL = import.meta.env.VITE_PUBLIC_SOCKET_BASE_URL || ''
 
 export const getApiBaseUrl = (): string => {
   const fromEnv = import.meta.env.VITE_API_BASE_URL
@@ -14,18 +16,17 @@ export const getApiBaseUrl = (): string => {
     return trimTrailingSlashes(fromEnv.trim())
   }
 
-  // 현재 호스트 확인
-  const hostname = window.location.hostname;
-  
-  // 로컬 개발 (Vite dev 서버): Vite 프록시를 통해 원격 서버로 연결
+  const hostname = window.location.hostname
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return '/api';
+    return '/api'
   }
-  
-  // 프로덕션 환경 (on-it.kro.kr): 같은 서버에 배포되면 상대 경로 사용 (Nginx 프록시 사용)
-  // Nginx가 /api 경로를 백엔드로 프록시하므로 상대 경로 사용
-  return '/api';
-};
+
+  if (PUBLIC_API_BASE_URL) {
+    return trimTrailingSlashes(PUBLIC_API_BASE_URL)
+  }
+
+  return '/api'
+}
 
 export const API_BASE_URL = getApiBaseUrl();
 
@@ -44,25 +45,24 @@ export const getSocketServerUrl = (): string => {
     return trimTrailingSlashes(fromEnv.trim())
   }
 
-  // 현재 호스트 확인
   const hostname = window.location.hostname;
-  
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return '/api';
+    return '/api'
   }
-  
-  // 프로덕션 환경 (on-it.kro.kr): Nginx 프록시 사용
-  // Nginx가 /ws 경로를 백엔드 WebSocket으로 프록시하므로 상대 경로 사용
-  // SockJS는 현재 프로토콜(http/https)에 맞춰 자동으로 ws/wss로 변환
-  // window.location.origin을 사용하여 현재 프로토콜과 호스트 포함
-  return `${window.location.origin}/api`;
+
+  if (PUBLIC_SOCKET_BASE_URL) {
+    return trimTrailingSlashes(PUBLIC_SOCKET_BASE_URL)
+  }
+
+  return window.location.origin;
 };
 
 export const SOCKET_SERVER_URL = getSocketServerUrl();
 
+
 /**
  * 썸네일 URL 정규화
- * - 로컬 개발 환경: localhost:8080을 원격 서버로 치환
+ * - 로컬 개발 환경: 원본 URL 유지
  * - 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환하여 Mixed Content 오류 방지
  */
 export const normalizeThumbnailUrl = (url: string | null | undefined): string => {
@@ -72,6 +72,14 @@ export const normalizeThumbnailUrl = (url: string | null | undefined): string =>
   
   // 프로덕션 환경: HTTP/HTTPS URL을 상대 경로로 변환 (Nginx 프록시 사용)
   if (isProduction) {
+    // http://43.201.225.38:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('http://43.201.225.38:8080/api')) {
+      return url.replace('http://43.201.225.38:8080/api', '/api');
+    }
+    // https://43.201.225.38:8080/api/uploads/... → /api/uploads/...
+    if (url.includes('https://43.201.225.38:8080/api')) {
+      return url.replace('https://43.201.225.38:8080/api', '/api');
+    }
     // http://localhost:8080/api/uploads/... → /api/uploads/...
     if (url.includes('http://localhost:8080/api')) {
       return url.replace('http://localhost:8080/api', '/api');

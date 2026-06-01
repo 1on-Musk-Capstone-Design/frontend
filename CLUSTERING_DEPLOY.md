@@ -21,14 +21,14 @@ git clone https://github.com/1on-Musk-Capstone-Design/ai-clusturing.git
 cd ai-clusturing
 
 # 서버에 업로드
-scp -i ~/capstone.pem -r * ec2-user@43.203.229.141:/home/ec2-user/clustering-api/
+scp -i ~/capstone.pem -r * ec2-user@43.201.225.38:/home/ec2-user/clustering-api/
 ```
 
 #### 2. 서버에서 설정
 
 ```bash
 # 서버 접속
-ssh -i capstone.pem ec2-user@43.203.229.141
+ssh -i capstone.pem ec2-user@43.201.225.38
 
 # 디렉토리 이동
 cd /home/ec2-user/clustering-api
@@ -57,7 +57,7 @@ AWS 보안 그룹에서 포트 8002를 열어야 합니다:
 
 ```bash
 # 서버 접속
-ssh -i capstone.pem ec2-user@43.203.229.141
+ssh -i capstone.pem ec2-user@43.201.225.38
 
 # 서비스 파일 생성
 sudo nano /etc/systemd/system/clustering-api.service
@@ -101,7 +101,7 @@ sudo systemctl status clustering-api
 
 ```bash
 # 서버 접속
-ssh -i capstone.pem ec2-user@43.203.229.141
+ssh -i capstone.pem ec2-user@43.201.225.38
 
 # Nginx 설정 파일 수정
 sudo nano /etc/nginx/conf.d/onit.conf
@@ -140,7 +140,7 @@ export const API_CONSTANTS = {
   CLUSTERING_API_URL: 'http://localhost:8002',
   
   // 프로덕션 (직접 연결)
-  // CLUSTERING_API_URL: 'http://43.203.229.141:8002',
+  // CLUSTERING_API_URL: 'http://43.201.225.38:8002',
   
   // 프로덕션 (Nginx 프록시 사용)
   // CLUSTERING_API_URL: '/clustering',
@@ -183,7 +183,7 @@ tail -f /home/ec2-user/clustering-api/clustering.log
 
 ```bash
 # 헬스 체크
-curl http://43.203.229.141:8002/health
+curl http://43.201.225.38:8002/health
 
 # 또는 Nginx 프록시 사용 시
 curl https://on-it.kro.kr/clustering/health
@@ -209,4 +209,3 @@ curl https://on-it.kro.kr/clustering/health
 ### 포트 충돌
 - 다른 포트 사용: `--port 8003`
 - Nginx 설정도 함께 수정
-

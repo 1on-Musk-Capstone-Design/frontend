@@ -1,7 +1,16 @@
+/// <reference types="vite/client" />
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
   readonly VITE_SOCKET_SERVER_URL?: string
   readonly VITE_DEV_PROXY_TARGET?: string
+  readonly VITE_API_PROXY_TARGET?: string
+  readonly VITE_WS_PROXY_TARGET?: string
+  readonly VITE_PUBLIC_API_BASE_URL?: string
+  readonly VITE_PUBLIC_SOCKET_BASE_URL?: string
+  readonly VITE_WEBRTC_TURN_URLS?: string
+  readonly VITE_WEBRTC_TURN_USERNAME?: string
+  readonly VITE_WEBRTC_TURN_CREDENTIAL?: string
+  readonly VITE_WEBRTC_ICE_TRANSPORT_POLICY?: string
 }
 
 interface ImportMeta {

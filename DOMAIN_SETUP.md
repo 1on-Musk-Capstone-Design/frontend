@@ -25,14 +25,14 @@
 ```
 Type: A
 Name: @ (또는 www)
-Value: 43.203.229.141
+Value: 43.201.225.38
 TTL: 3600 (또는 기본값)
 ```
 
 **예시:**
 - 도메인: `example.com`
-- A 레코드: `@` → `43.203.229.141`
-- 서브도메인: `www` → `43.203.229.141` (선택사항)
+- A 레코드: `@` → `43.201.225.38`
+- 서브도메인: `www` → `43.201.225.38` (선택사항)
 
 ### 1.3 DNS 전파 확인
 
@@ -51,7 +51,7 @@ dig example.com
 
 ```bash
 # 서버에 SSH 접속
-ssh -i capstone.pem ec2-user@43.203.229.141
+ssh -i capstone.pem ec2-user@43.201.225.38
 
 # Certbot 설치
 sudo dnf install -y certbot python3-certbot-nginx
@@ -273,4 +273,3 @@ curl -I https://example.com
 - [Let's Encrypt 공식 문서](https://letsencrypt.org/)
 - [Certbot 문서](https://certbot.eff.org/)
 - [Google OAuth 설정 가이드](https://developers.google.com/identity/protocols/oauth2)
-

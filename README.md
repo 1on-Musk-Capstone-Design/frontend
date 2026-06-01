@@ -25,6 +25,26 @@ npm run dev
 npm run build
 ```
 
+## 음성 통화 TURN 설정
+
+다른 네트워크 환경에서 음성 연결이 불안정하면 TURN 서버를 붙이는 것을 권장합니다.
+
+`frontend/.env` 또는 실행 환경에 아래 값을 설정하세요.
+
+```bash
+VITE_WEBRTC_TURN_URLS=turn:YOUR_TURN_HOST:3478,turns:YOUR_TURN_HOST:5349
+VITE_WEBRTC_TURN_USERNAME=YOUR_TURN_USERNAME
+VITE_WEBRTC_TURN_CREDENTIAL=YOUR_TURN_PASSWORD
+VITE_WEBRTC_ICE_TRANSPORT_POLICY=relay
+```
+
+- `VITE_WEBRTC_TURN_URLS`: 쉼표로 구분한 TURN URL 목록
+- `VITE_WEBRTC_TURN_USERNAME`: TURN 인증 사용자명
+- `VITE_WEBRTC_TURN_CREDENTIAL`: TURN 인증 비밀번호
+- `VITE_WEBRTC_ICE_TRANSPORT_POLICY`: `relay`를 권장, 필요 시 `all`
+
+TURN 값을 넣지 않으면 기존처럼 STUN 기반으로 동작합니다.
+
 ## 사용법
 
 1. **텍스트 필드 생성**: 캔버스 아무 곳이나 클릭

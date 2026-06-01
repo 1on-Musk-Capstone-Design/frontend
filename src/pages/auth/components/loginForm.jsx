@@ -1,62 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { API_BASE_URL, getOAuthRedirectUri } from "../../../config/api";
-import {
-  fetchAndApplyDevBootstrap,
-  isGoogleOAuthUrlPlaceholder,
-  isLocalDevBrowser,
-} from "../../../lib/devBootstrap.js";
-
-const normalizeGoogleOAuthUrl = (loginUrl, redirectUri) => {
-  try {
-    const url = new URL(loginUrl);
-
-    if (!url.hostname.endsWith("google.com")) {
-      return loginUrl;
-    }
-
-    const dedupeKeys = ["client_id", "response_type", "scope"];
-    dedupeKeys.forEach((key) => {
-      const values = url.searchParams.getAll(key).filter(Boolean);
-      if (values.length > 0) {
-        url.searchParams.delete(key);
-        url.searchParams.set(key, values[values.length - 1]);
-      }
-    });
-
-    url.searchParams.delete("redirect_uri");
-    url.searchParams.set("redirect_uri", redirectUri);
-
-    return url.toString();
-  } catch (error) {
-    console.warn("Google OAuth URL 정규화 실패:", error);
-    return loginUrl;
-  }
-};
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const [isLocalLoading, setIsLocalLoading] = useState(false);
-
-  const onLocalDevLogin = async () => {
-    if (isLocalLoading || isLoading) return;
-    setIsLocalLoading(true);
-    try {
-      const ok = await fetchAndApplyDevBootstrap();
-      if (ok) {
-        window.location.href = "/";
-        return;
-      }
-      alert(
-        "로컬 개발 로그인에 실패했습니다.\n\n" +
-          "• Capstone 서버가 http://localhost:8080 에서 실행 중인지\n" +
-          "• application.yml 의 app.dev-bootstrap-auth.enabled 가 true 인지\n" +
-          "확인해 주세요."
-      );
-    } finally {
-      setIsLocalLoading(false);
-    }
-  };
 
   const onGoogleLogin = async () => {
     if (isLoading) return;
@@ -85,23 +32,12 @@ export default function LoginForm() {
 
       if (!loginUrl) throw new Error("로그인 URL을 받아오지 못했습니다.");
 
-      // Google 클라이언트 ID 미설정: 로컬 개발이면 부트스트랩 JWT로 대체
-      if (isGoogleOAuthUrlPlaceholder(loginUrl)) {
-        if (isLocalDevBrowser()) {
-          const ok = await fetchAndApplyDevBootstrap();
-          if (ok) {
-            window.location.href = "/";
-            return;
-          }
-        }
-        throw new Error(
-          "Google OAuth 클라이언트 ID가 설정되지 않았습니다.\n\n" +
-            "• 실제 구글 로그인: 백엔드에 GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET 환경 변수를 설정하세요.\n" +
-            "• 로컬만 사용: Vite dev + localhost 에서는 아래 「로컬 개발 계정으로 로그인」 버튼을 사용하세요."
-        );
+      // 백엔드가 placeholder 클라이언트 ID를 사용하는지 확인
+      if (loginUrl.includes('your-google-client-id') || loginUrl.includes('YOUR_CLIENT_ID')) {
+        throw new Error("백엔드 설정 오류: Google OAuth 클라이언트 ID가 설정되지 않았습니다.\n\n백엔드에서 GOOGLE_CLIENT_ID 환경 변수를 확인해주세요.");
       }
 
-      window.location.href = normalizeGoogleOAuthUrl(loginUrl, redirectUri);
+      window.location.href = loginUrl;
     } catch (err) {
       console.error("구글 로그인 URL 오류:", err);
       
@@ -119,9 +55,7 @@ export default function LoginForm() {
         }
       } else if (err.request) {
         // 요청은 보냈지만 응답을 받지 못함 (네트워크 오류, CORS 등)
-        errorMessage =
-          "서버에 연결할 수 없습니다.\n\n가능한 원인:\n- 백엔드가 실행 중이 아닙니다\n- 네트워크·CORS 문제\n\n" +
-          `현재 API: ${API_BASE_URL}`;
+        errorMessage = `서버에 연결할 수 없습니다.\n\n가능한 원인:\n- 서버가 실행 중이 아닙니다\n- 네트워크 연결 문제\n- CORS 설정 문제\n\n서버 주소: ${API_BASE_URL}`;
       } else {
         // 요청 설정 중 오류
         errorMessage = err.message || errorMessage;
@@ -195,35 +129,14 @@ const buttonStyle = {
         <p style={subtitleStyle}>구글 계정으로 계속하세요</p>
       </div>
 
-      {isLocalDevBrowser() && (
-        <div style={{ textAlign: "center" }}>
-          <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 10px", lineHeight: 1.5 }}>
-            Google OAuth 미설정 시 로컬 전용 로그인을 사용할 수 있습니다.
-          </p>
-          <button
-            type="button"
-            onClick={onLocalDevLogin}
-            disabled={isLoading || isLocalLoading}
-            style={{
-              ...buttonStyle,
-              border: "2px solid #059669",
-              color: "#047857",
-              marginBottom: 8,
-            }}
-          >
-            {isLocalLoading ? "처리 중..." : "로컬 개발 계정으로 로그인"}
-          </button>
-        </div>
-      )}
-
       <button
         onClick={onGoogleLogin}
-        disabled={isLoading || isLocalLoading}
+        disabled={isLoading}
         style={buttonStyle}
          onMouseEnter={(e) => {
           if (!isLoading) {
-            e.currentTarget.style.background = "#34495e"; 
-            e.currentTarget.style.color = "#ffffff";
+            e.currentTarget.style.background = "#e9ecef"; 
+            e.currentTarget.style.color = "#2c3e50";
             e.currentTarget.style.transform = "translateY(-2px)";
             e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)"; 
           }

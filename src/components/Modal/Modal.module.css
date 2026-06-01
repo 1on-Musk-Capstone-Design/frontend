@@ -45,6 +45,16 @@
   animation: modalFadeUp .38s cubic-bezier(.16,.84,.44,1) forwards;
 }
 
+.bareVariant {
+  width: auto;
+  max-width: calc(100% - 24px);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  position: relative;
+}
+
 .closeBtnCard {
   position: absolute;
   top: 14px;

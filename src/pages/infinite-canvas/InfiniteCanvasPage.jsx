@@ -5,6 +5,7 @@ import ClusteringPanel from './components/ClusteringPanel';
 import DraggableText from './components/DraggableText';
 import FloatingToolbar from './components/FloatingToolbar';
 import TopToolbar from './components/TopToolbar';
+import RemoteVoiceAudioRenderer from './components/RemoteVoiceAudioRenderer';
 import CanvasArea from './components/CanvasArea';
 import CenterIndicator from './components/CenterIndicator';
 import Minimap from './components/Minimap';
@@ -17,6 +18,8 @@ import { useTextFields } from './hooks/useTextFields';
 import { useSession } from './hooks/useSession';
 import { useChatWebSocket } from './hooks/useChatWebSocket';
 import { useCanvasWebSocket } from './hooks/useCanvasWebSocket';
+import { useWorkspaceVoiceSession } from './hooks/useWorkspaceVoiceSession';
+import { useLocalSpeakingIndicator } from './hooks/useLocalSpeakingIndicator';
 import { CANVAS_AREA_CONSTANTS, CLUSTERING_LAYOUT_CONSTANTS } from './constants';
 import { API_BASE_URL } from '../../config/api';
 import { packClusterTextsSimple } from './utils/simplePacking';
@@ -61,12 +64,21 @@ const InfiniteCanvasPage = () => {
   const [newlyCreatedTextId, setNewlyCreatedTextId] = useState(null); // 새로 생성된 메모 ID (자동 포커스용)
   const [pendingServerIds, setPendingServerIds] = useState(new Set()); // 서버 저장 중인 서버 ID들 (중복 방지용)
   const [currentUserId, setCurrentUserId] = useState(null); // 현재 사용자 ID
+  const [currentWorkspaceUserId, setCurrentWorkspaceUserId] = useState(null); // 현재 워크스페이스 사용자 ID
   const [workspaceUsers, setWorkspaceUsers] = useState(new Map()); // userId -> userName 매핑
   const [inviteLink, setInviteLink] = useState(''); // 초대 링크
   const [inviteLinkExpiresAt, setInviteLinkExpiresAt] = useState(''); // 초대 링크 만료일
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); // 초대 모달 상태
   const [workspaceName, setWorkspaceName] = useState('프로젝트'); // 워크스페이스 이름
   const [workspaceParticipants, setWorkspaceParticipants] = useState([]); // 워크스페이스 참가자 목록
+  const [voiceWorkspaceParticipants, setVoiceWorkspaceParticipants] = useState([]); // 음성용 워크스페이스 사용자 목록
+  const [voiceSessionChannels, setVoiceSessionChannels] = useState([]);
+  const [voiceChannelMembersBySession, setVoiceChannelMembersBySession] = useState({});
+  const [activeVoiceChannelId, setActiveVoiceChannelId] = useState(null);
+  const [activeVoiceSessionId, setActiveVoiceSessionId] = useState(null);
+  const [voiceConnectRequestKey, setVoiceConnectRequestKey] = useState(null);
+  const [voiceDisconnectRequestKey, setVoiceDisconnectRequestKey] = useState(null);
+  const [isVoiceDeafened, setIsVoiceDeafened] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false }); // Toast 알림 상태
   const [authExpiredModalOpen, setAuthExpiredModalOpen] = useState(false); // 인증 만료 모달 상태
   const [remoteCursors, setRemoteCursors] = useState(new Map()); // 다른 사용자의 커서 위치 (userId -> {x, y, userName, canvasX, canvasY})
@@ -74,6 +86,11 @@ const InfiniteCanvasPage = () => {
   const targetCursorsRef = useRef(new Map()); // 목표 커서 위치 (캔버스 좌표로 저장)
   const animationFrameRef = useRef(null); // 애니메이션 프레임 참조
   const isMouseInViewportRef = useRef(false); // 뷰포트 내 마우스 여부
+  const voiceSocketActionsRef = useRef({
+    sendVoiceJoin: () => false,
+    sendVoiceLeave: () => false
+  });
+  const loadVoiceChannelsRef = useRef(() => {});
   const nuiGestureRef = useRef({
     pinchActive: false,
     draggedTextId: null,
@@ -91,6 +108,142 @@ const InfiniteCanvasPage = () => {
   const canvas = useCanvas();
   const textFields = useTextFields();
   const session = useSession();
+  const voicePeerCandidates = voiceWorkspaceParticipants.filter(
+    (participant) => String(participant.id) !== String(currentWorkspaceUserId)
+  );
+  const voiceSession = useWorkspaceVoiceSession({
+    workspaceId,
+    workspaceUserId: currentWorkspaceUserId,
+    preferredSessionId: activeVoiceSessionId,
+    connectRequestKey: voiceConnectRequestKey,
+    disconnectRequestKey: voiceDisconnectRequestKey
+  });
+  const isCurrentUserSpeaking = useLocalSpeakingIndicator(
+    Boolean(activeVoiceChannelId) && !voiceSession.isMuted && !isVoiceDeafened
+  );
+  const activeVoiceChannelMembers = activeVoiceSessionId
+    ? (voiceChannelMembersBySession[String(activeVoiceSessionId)] || [])
+    : [];
+  const chatPanelVoiceState = {
+    isVoiceActive: Boolean(activeVoiceChannelId),
+    connectionStatus: voiceSession.isInCall
+      ? 'connected'
+      : (voiceSession.isSessionReady ? 'preparing' : 'idle'),
+    muted: voiceSession.isMuted,
+    deafened: isVoiceDeafened,
+    speakingUserIds: voiceSession.speakingUserIds || [],
+    isCurrentUserSpeaking
+  };
+
+  const handleToggleVoiceDeafen = useCallback(() => {
+    setIsVoiceDeafened((prev) => !prev);
+  }, []);
+
+  const handleJoinVoiceChannel = useCallback((channelId) => {
+    if (!channelId) return;
+    const targetChannel = voiceSessionChannels.find((channel) => channel.id === channelId);
+    if (!targetChannel?.sessionId) return;
+    setActiveVoiceChannelId(channelId);
+    setActiveVoiceSessionId(targetChannel.sessionId);
+    setVoiceConnectRequestKey(`join:${channelId}:${Date.now()}`);
+    voiceSocketActionsRef.current.sendVoiceJoin({
+      sessionId: targetChannel.sessionId,
+      channelId
+    });
+    loadVoiceChannelsRef.current();
+  }, [voiceSessionChannels]);
+
+  const handleLeaveVoiceChannel = useCallback(() => {
+    const currentSessionId = activeVoiceSessionId;
+    const currentChannelId = activeVoiceChannelId;
+    setActiveVoiceChannelId(null);
+    setActiveVoiceSessionId(null);
+    setVoiceDisconnectRequestKey(`leave:${Date.now()}`);
+    voiceSocketActionsRef.current.sendVoiceLeave({
+      sessionId: currentSessionId,
+      channelId: currentChannelId
+    });
+    loadVoiceChannelsRef.current();
+  }, [activeVoiceSessionId, activeVoiceChannelId]);
+
+  const loadVoiceChannels = useCallback(async () => {
+    if (!workspaceId) return;
+
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+      const sessionsRes = await axios.get(`${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`, { headers });
+      const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
+      const openSessions = sessions
+        .filter((sessionItem) => !sessionItem.endedAt)
+        .sort((a, b) => {
+          const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+          const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+          return ta - tb;
+        });
+
+      const channels = openSessions.map((sessionItem, index) => ({
+        id: `voice-${sessionItem.id}`,
+        sessionId: sessionItem.id,
+        name: `음성채널 ${index + 1}`
+      }));
+      setVoiceSessionChannels(channels);
+
+      const memberEntries = await Promise.all(
+        openSessions.map(async (sessionItem) => {
+          try {
+            const membersRes = await axios.get(
+              `${API_BASE_URL}/v1/workspaces/${workspaceId}/voice/${sessionItem.id}/users`,
+              { headers }
+            );
+            return [String(sessionItem.id), Array.isArray(membersRes.data) ? membersRes.data : []];
+          } catch (err) {
+            console.warn('[InfiniteCanvasPage] failed to load voice channel members', err);
+            return [String(sessionItem.id), []];
+          }
+        })
+      );
+      setVoiceChannelMembersBySession(Object.fromEntries(memberEntries));
+    } catch (err) {
+      console.error('[InfiniteCanvasPage] loadVoiceChannels failed:', err);
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    loadVoiceChannelsRef.current = loadVoiceChannels;
+  }, [loadVoiceChannels]);
+
+  const handleAddVoiceChannel = useCallback(async () => {
+    if (!workspaceId) return;
+
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+      const createRes = await axios.post(`${API_BASE_URL}/v1/workspaces/${workspaceId}/voice`, {}, { headers });
+      const sessionId = createRes.data?.id;
+      await loadVoiceChannels();
+      if (sessionId) {
+        const channelId = `voice-${sessionId}`;
+        setActiveVoiceChannelId(channelId);
+        setActiveVoiceSessionId(sessionId);
+      }
+    } catch (err) {
+      console.error('[InfiniteCanvasPage] handleAddVoiceChannel failed:', err);
+    }
+  }, [workspaceId, loadVoiceChannels]);
+
+  useEffect(() => {
+    if (!workspaceId) return undefined;
+
+    loadVoiceChannels();
+    const intervalId = window.setInterval(() => {
+      loadVoiceChannels();
+    }, 4000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [workspaceId, loadVoiceChannels]);
 
   // 윈도우 크기 추적
   useEffect(() => {
@@ -248,12 +401,50 @@ const InfiniteCanvasPage = () => {
 
       try {
         const accessToken = localStorage.getItem('accessToken');
+
         if (!accessToken) {
           setAuthExpiredModalOpen(true);
           return;
         }
 
-        // 현재 사용자 정보 불러오기 (메인페이지와 동일하게)
+        // 개발 모드 토큰인지 확인
+        const isDevToken = accessToken.startsWith('dev_token_');
+
+        // 현재 사용자 ID 추출 (개발 모드 지원)
+        let resolvedCurrentUserId;
+        
+        // localStorage에서 미리 저장된 userId 확인 (개발 모드)
+        const savedUserId = localStorage.getItem('userId');
+        if (savedUserId) {
+          resolvedCurrentUserId = String(savedUserId);
+        } else {
+          // 실제 JWT 토큰에서 추출
+          try {
+            const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+            resolvedCurrentUserId = String(tokenPayload.user_id || tokenPayload.sub);
+          } catch (err) {
+            console.warn('JWT 파싱 실패 (개발 토큰일 수 있음):', err);
+            // 개발 토큰이거나 유효하지 않은 토큰인 경우 임시 ID 사용
+            resolvedCurrentUserId = 'dev_user_' + Date.now();
+            localStorage.setItem('userId', resolvedCurrentUserId);
+          }
+        }
+        
+        setCurrentUserId(resolvedCurrentUserId);
+
+        // 개발 토큰이면 API 호출 스킵하고 기본값으로 설정
+        if (isDevToken) {
+          console.log('🔓 개발 토큰 감지: 워크스페이스 정보 로딩 스킵');
+          localStorage.setItem('userName', '개발자');
+          setWorkspaceName(`워크스페이스-${workspaceId}`);
+          setWorkspaceUsers(new Map([[resolvedCurrentUserId, '개발자']]));
+          setWorkspaceParticipants([{ id: resolvedCurrentUserId, name: '개발자' }]);
+          setCurrentWorkspaceUserId(resolvedCurrentUserId);
+          setVoiceWorkspaceParticipants([{ id: resolvedCurrentUserId, name: '개발자' }]);
+          return;
+        }
+
+        // 현재 사용자 정보 불러오기 (실제 토큰일 때만)
         try {
           const userRes = await axios.get(
             `${API_BASE_URL}/v1/users/me`,
@@ -271,6 +462,14 @@ const InfiniteCanvasPage = () => {
           if (userRes.data.email) {
             localStorage.setItem('userEmail', userRes.data.email);
           }
+          if (userRes.data.profileImage) {
+            const url = userRes.data.profileImage;
+            let normalized = url;
+            if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+              normalized = url.startsWith('/') ? `${API_BASE_URL}${url}` : `${API_BASE_URL}/${url}`;
+            }
+            localStorage.setItem('userPhotoURL', normalized);
+          }
         } catch (err) {
           console.error('사용자 정보 불러오기 실패', err);
           // 인증 오류 감지
@@ -283,11 +482,6 @@ const InfiniteCanvasPage = () => {
             return;
           }
         }
-
-        // 현재 사용자 ID 추출
-        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-        const userId = String(tokenPayload.user_id || tokenPayload.sub);
-        setCurrentUserId(userId);
 
         // 워크스페이스 정보 불러오기
         try {
@@ -329,19 +523,45 @@ const InfiniteCanvasPage = () => {
           
           // userId -> userName 매핑 생성 및 참가자 목록 생성
           const participantsList = [];
+          const voiceParticipantsList = [];
+          let resolvedWorkspaceUserId = null;
           usersRes.data.forEach((user) => {
-            const userId = String(user.id);
+            const memberUserId = String(user.id);
+            const workspaceUserId = String(user.workspaceUserId ?? user.id);
             const userName = user.name || user.email || '알 수 없음';
-            userMap.set(userId, userName);
+            const rawProfileImage = user.profileImage;
+            let profileImage = '';
+            if (rawProfileImage) {
+              profileImage = rawProfileImage;
+              if (!rawProfileImage.startsWith('http://') && !rawProfileImage.startsWith('https://')) {
+                profileImage = rawProfileImage.startsWith('/')
+                  ? `${API_BASE_URL}${rawProfileImage}`
+                  : `${API_BASE_URL}/${rawProfileImage}`;
+              }
+            }
+            userMap.set(memberUserId, userName);
             
             // 참가자 목록에 추가 (isCurrentUser는 나중에 TopToolbar에서 설정)
             participantsList.push({
-              id: userId,
-              name: userName
+              id: memberUserId,
+              name: userName,
+              profileImage
             });
+
+            voiceParticipantsList.push({
+              id: workspaceUserId,
+              name: userName,
+              profileImage
+            });
+
+            if (memberUserId === String(resolvedCurrentUserId)) {
+              resolvedWorkspaceUserId = workspaceUserId;
+            }
           });
           setWorkspaceUsers(userMap);
           setWorkspaceParticipants(participantsList);
+          setVoiceWorkspaceParticipants(voiceParticipantsList);
+          setCurrentWorkspaceUserId(resolvedWorkspaceUserId ?? null);
         } catch (err) {
           console.error('워크스페이스 사용자 목록 불러오기 실패', err);
           // 인증 오류 감지
@@ -565,8 +785,18 @@ const InfiniteCanvasPage = () => {
     workspaceId,
     currentUserId,
     workspaceUsers,
-    handleChatMessageReceived
+    handleChatMessageReceived,
+    () => {
+      loadVoiceChannels();
+    }
   );
+
+  useEffect(() => {
+    voiceSocketActionsRef.current = {
+      sendVoiceJoin: chatWebSocket.sendVoiceJoin || (() => false),
+      sendVoiceLeave: chatWebSocket.sendVoiceLeave || (() => false)
+    };
+  }, [chatWebSocket.sendVoiceJoin, chatWebSocket.sendVoiceLeave]);
 
   // 캔버스 웹소켓 연결 (실시간 협업용)
   const canvasWebSocket = useCanvasWebSocket(workspaceId, currentUserId, {
@@ -3044,9 +3274,30 @@ const InfiniteCanvasPage = () => {
         messages={chatMessages}
         onLocationClick={handleLocationClick}
         onVisibilityChange={setIsChatPanelOpen}
-        participants={session.participants}
+        participants={workspaceParticipants}
+        currentUserId={currentUserId}
+        currentWorkspaceUserId={currentWorkspaceUserId}
+        currentUserName={
+          (currentUserId ? workspaceUsers.get(String(currentUserId)) : null) ||
+          localStorage.getItem('userName') ||
+          '사용자'
+        }
+        currentUserImage={localStorage.getItem('userPhotoURL') || ''}
+        workspaceId={workspaceId}
+        projectName={workspaceName}
         onSendMessage={sendChatMessage}
+        externalVoiceChannels={voiceSessionChannels}
+        externalVoiceParticipants={activeVoiceChannelMembers}
+        externalActiveVoiceChannelId={activeVoiceChannelId}
+        externalVoiceState={chatPanelVoiceState}
+        onAddVoiceChannel={handleAddVoiceChannel}
+        onJoinVoiceChannel={handleJoinVoiceChannel}
+        onLeaveVoiceChannel={handleLeaveVoiceChannel}
+        onToggleVoiceMute={voiceSession.toggleMute}
+        onToggleVoiceDeafen={handleToggleVoiceDeafen}
       />
+
+      <RemoteVoiceAudioRenderer remoteStreams={voiceSession.remoteStreams} />
       
       {/* 클러스터링 패널 */}
       <ClusteringPanel 
