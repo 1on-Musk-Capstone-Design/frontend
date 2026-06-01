@@ -18,7 +18,7 @@ GitHub Actions를 사용하여 `main` 브랜치에 푸시할 때마다 자동으
 2. New repository secret 클릭
 3. 다음 3개의 Secret을 추가:
 
-   - **SSH_HOST**: `43.203.229.141`
+   - **SSH_HOST**: `100.55.36.73`
    - **SSH_USER**: `ec2-user`
    - **SSH_PRIVATE_KEY**: SSH 키 파일(`capstone.pem`)의 전체 내용
      ```bash
@@ -43,25 +43,25 @@ GitHub Actions 탭 → "Build and Deploy" 워크플로우 → "Run workflow" 버
 
 ## 같은 서버에 API와 프론트엔드 배포 (수동 배포)
 
-API 서버(43.203.229.141:8080)와 같은 서버에 프론트엔드를 배포하는 방법입니다.
+API 서버(100.55.36.73:8080)와 같은 서버에 프론트엔드를 배포하는 방법입니다.
 
 ### 1. 서버 접속
 
 ```bash
 # SSH로 서버 접속 (실제 서버 정보)
-ssh -i "capstone.pem" ec2-user@43.203.229.141
+ssh -i "capstone.pem" ec2-user@100.55.36.73
 
 # 또는 절대 경로 사용
-ssh -i ~/capstone.pem ec2-user@43.203.229.141
+ssh -i ~/capstone.pem ec2-user@100.55.36.73
 
 # SSH 키 권한 설정 (처음 사용 시)
 chmod 400 capstone.pem
-ssh -i capstone.pem ec2-user@43.203.229.141
+ssh -i capstone.pem ec2-user@100.55.36.73
 ```
 
 **서버 접속 정보:**
 - 사용자명: `ec2-user`
-- 서버 IP: `43.203.229.141`
+- 서버 IP: `100.55.36.73`
 - SSH 키: `capstone.pem`
 - 포트: 22 (기본값)
 
@@ -88,17 +88,17 @@ sudo chown -R www-data:www-data /var/www/onit
 npm run build
 
 # 서버에 업로드 (로컬 터미널에서 실행)
-scp -i capstone.pem -r dist/* ec2-user@43.203.229.141:/var/www/onit/
+scp -i capstone.pem -r dist/* ec2-user@100.55.36.73:/var/www/onit/
 
 # 또는 절대 경로 사용
-scp -i ~/capstone.pem -r dist/* ec2-user@43.203.229.141:/var/www/onit/
+scp -i ~/capstone.pem -r dist/* ec2-user@100.55.36.73:/var/www/onit/
 ```
 
 #### 방법 B: 서버에서 직접 빌드
 
 ```bash
 # 서버에 접속
-ssh -i capstone.pem ec2-user@43.203.229.141
+ssh -i capstone.pem ec2-user@100.55.36.73
 
 # 프로젝트 클론 (또는 기존 프로젝트 디렉토리로 이동)
 git clone https://github.com/your-repo/frontend.git
@@ -125,10 +125,10 @@ sudo chown -R www-data:www-data /var/www/onit
 npm run build
 
 # 서버에 동기화 (변경된 파일만 업로드)
-rsync -avz --delete -e "ssh -i capstone.pem" dist/ ec2-user@43.203.229.141:/var/www/onit/
+rsync -avz --delete -e "ssh -i capstone.pem" dist/ ec2-user@100.55.36.73:/var/www/onit/
 
 # 또는 절대 경로 사용
-rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@43.203.229.141:/var/www/onit/
+rsync -avz --delete -e "ssh -i ~/capstone.pem" dist/ ec2-user@100.55.36.73:/var/www/onit/
 ```
 
 ### 4. Nginx 설정
@@ -147,7 +147,7 @@ sudo vi /etc/nginx/sites-available/onit
 ```nginx
 server {
     listen 80;
-    server_name 43.203.229.141;  # 또는 실제 도메인
+    server_name 100.55.36.73;  # 또는 실제 도메인
     root /var/www/onit;
     index index.html;
 
@@ -223,8 +223,8 @@ sudo systemctl status nginx
 curl http://localhost
 
 # 또는 브라우저에서 접속
-# 프론트엔드: http://43.203.229.141
-# API: http://43.203.229.141/api (Nginx가 자동으로 프록시)
+# 프론트엔드: http://100.55.36.73
+# API: http://100.55.36.73/api (Nginx가 자동으로 프록시)
 ```
 
 ### 7. 문제 해결
@@ -473,4 +473,3 @@ echo "배포 완료!"
 2. **정적 파일 경로**: 빌드된 파일의 경로가 올바른지 확인
 3. **환경 변수**: 프로덕션 환경에 맞는 API URL 설정 확인
 4. **WebSocket**: HTTPS 사용 시 WSS 프로토콜 사용 확인
-

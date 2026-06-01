@@ -76,10 +76,10 @@ ssh-keygen -l -f ~/capstone.pem
 ssh-keygen -t rsa -b 2048 -f ~/capstone_new.pem -N ""
 
 # 공개 키를 서버에 추가
-ssh-copy-id -i ~/capstone_new.pem.pub ec2-user@43.203.229.141
+ssh-copy-id -i ~/capstone_new.pem.pub ec2-user@100.55.36.73
 
 # 또는 수동으로 추가
-cat ~/capstone_new.pem.pub | ssh -i ~/capstone.pem ec2-user@43.203.229.141 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+cat ~/capstone_new.pem.pub | ssh -i ~/capstone.pem ec2-user@100.55.36.73 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
 ```
 
 ## 확인 사항
@@ -93,7 +93,7 @@ cat ~/capstone_new.pem.pub | ssh -i ~/capstone.pem ec2-user@43.203.229.141 "mkdi
 chmod 400 ~/capstone.pem
 
 # 서버 접속 테스트
-ssh -i ~/capstone.pem ec2-user@43.203.229.141 "echo 'SSH 연결 성공'"
+ssh -i ~/capstone.pem ec2-user@100.55.36.73 "echo 'SSH 연결 성공'"
 ```
 
 접속이 안 되면 SSH 키가 서버에 등록되지 않았을 수 있습니다.
@@ -122,4 +122,3 @@ SSH 키를 재설정한 후:
 1. **SSH_KEY_TROUBLESHOOTING.md** 파일 참고
 2. GitHub Actions 로그에서 상세 오류 확인
 3. SSH 키를 base64로 인코딩하여 저장 시도
-
